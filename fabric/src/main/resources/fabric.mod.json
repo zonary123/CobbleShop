@@ -7,14 +7,11 @@
   "authors": [
     "${author}"
   ],
-  "mixins": [
-    "cobbleparty.mixins.json"
-  ],
   "contact": {
   },
   "entrypoints": {
     "main": [
-      "com.kingpixel.fabric.cobbleparty.CobblePartyFabric"
+      "com.kingpixel.fabric.cobbleshop.CobbleShopFabric"
     ]
   },
   "license": "${license}",

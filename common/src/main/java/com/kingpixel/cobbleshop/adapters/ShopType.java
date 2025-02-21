@@ -1,6 +1,5 @@
 package com.kingpixel.cobbleshop.adapters;
 
-import com.google.gson.TypeAdapter;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.models.Product;
 import com.kingpixel.cobbleshop.models.Shop;
@@ -17,8 +16,9 @@ import java.util.List;
 @Getter
 @Setter
 @ToString
-public abstract class ShopType extends TypeAdapter<ShopType> {
+public abstract class ShopType {
   private TypeShop typeShop;
+
 
   public List<Product> getProducts(Shop shop) {
     return shop.getProducts();

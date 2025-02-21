@@ -1,5 +1,6 @@
 package com.kingpixel.cobbleshop.api;
 
+import com.kingpixel.cobbleshop.CobbleShop;
 import com.kingpixel.cobbleshop.command.CommandTree;
 import com.kingpixel.cobbleshop.config.Config;
 import com.kingpixel.cobbleshop.models.Shop;
@@ -20,6 +21,10 @@ public class ShopApi {
   public static Map<String, List<Shop>> shops = new HashMap<>();
 
   public static void register(ShopOptionsApi options, CommandDispatcher<ServerCommandSource> dispatcher) {
+    new Config().readConfig(options);
+    options.setCommands(configs.get(options.getModId()).getCommands());
+    Config.readShops(options);
+    CobbleShop.lang.init(configs.get(CobbleShop.MOD_ID));
     CommandTree.register(options, dispatcher);
   }
 

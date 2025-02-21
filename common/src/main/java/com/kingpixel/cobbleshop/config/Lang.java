@@ -1,11 +1,16 @@
 package com.kingpixel.cobbleshop.config;
 
+import com.kingpixel.cobbleshop.CobbleShop;
 import com.kingpixel.cobbleshop.gui.MenuBuyAndSell;
 import com.kingpixel.cobbleshop.models.InfoShopType;
+import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.ItemModel;
+import com.kingpixel.cobbleutils.util.Utils;
 import lombok.Data;
 
+import java.io.File;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:27
@@ -76,36 +81,74 @@ public class Lang {
     remove64 = new ItemModel(0, "item:64:minecraft:red_stained_glass_pane", "&cRemove 64", List.of(""), 0);
   }
 
-  public void init() {
+  public void init(Config config) {
+    File folder = Utils.getAbsolutePath(CobbleShop.PATH_LANG);
+    if (!folder.exists()) {
+      folder.mkdirs();
+    }
+    CompletableFuture<Boolean> futureRead = Utils.readFileAsync(CobbleShop.PATH_LANG, config.getLang() + ".json",
+      call -> {
+        CobbleShop.lang = CobbleShop.gson.fromJson(call, Lang.class);
+        CobbleShop.lang.check();
+        CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(CobbleShop.PATH_LANG, config.getLang() + ".json",
+          CobbleShop.gson.toJson(this));
+        if (!futureWrite.join()) {
+          CobbleUtils.LOGGER.error("Error writing file: " + CobbleShop.PATH_LANG + config.getLang() + ".json");
+        }
+      });
+
+    if (!futureRead.join()) {
+      CobbleShop.lang = this;
+      CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(CobbleShop.PATH_LANG, config.getLang() + ".json",
+        CobbleShop.gson.toJson(this));
+      if (!futureWrite.join()) {
+        CobbleUtils.LOGGER.error("Error writing file: " + CobbleShop.PATH_LANG + config.getLang() + ".json");
+      }
+    }
+  }
+
+  private void check() {
   }
 
   public ItemModel getGlobalDisplay(ItemModel item) {
-    if (item.getItem().isEmpty()) return globalDisplay;
+    if (item == null) return globalDisplay;
+    String itemS = item.getItem();
+    if (itemS == null || itemS.isEmpty()) return globalDisplay;
     return item;
   }
 
   public ItemModel getGlobalItemInfoShop(ItemModel item) {
-    if (item.getItem().isEmpty()) return globalItemInfoShop;
+    if (item == null) return globalItemInfoShop;
+    String itemS = item.getItem();
+    if (itemS == null || itemS.isEmpty()) return globalItemInfoShop;
     return item;
   }
 
   public ItemModel getGlobalItemBalance(ItemModel item) {
-    if (item.getItem().isEmpty()) return globalItemBalance;
+    if (item == null) return globalItemBalance;
+    String itemS = item.getItem();
+    if (itemS == null || itemS.isEmpty()) return globalItemBalance;
     return item;
   }
 
   public ItemModel getGlobalItemPrevious(ItemModel item) {
-    if (item.getItem().isEmpty()) return globalItemPrevious;
+    if (item == null) return globalItemPrevious;
+    String itemS = item.getItem();
+    if (itemS == null || itemS.isEmpty()) return globalItemPrevious;
     return item;
   }
 
   public ItemModel getGlobalItemClose(ItemModel item) {
-    if (item.getItem().isEmpty()) return globalItemClose;
+    if (item == null) return globalItemClose;
+    String itemS = item.getItem();
+    if (itemS == null || itemS.isEmpty()) return globalItemClose;
     return item;
   }
 
   public ItemModel getGlobalItemNext(ItemModel item) {
-    if (item.getItem().isEmpty()) return globalItemNext;
+    if (item == null) return globalItemNext;
+    String itemS = item.getItem();
+    if (itemS == null || itemS.isEmpty()) return globalItemNext;
     return item;
   }
 

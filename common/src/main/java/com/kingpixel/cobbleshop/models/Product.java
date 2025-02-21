@@ -4,7 +4,6 @@ import ca.landonjw.gooeylibs2.api.button.GooeyButton;
 import com.kingpixel.cobbleshop.CobbleShop;
 import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.api.EconomyApi;
-import lombok.Builder;
 import lombok.Data;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -18,7 +17,6 @@ import java.util.UUID;
  * @author Carlos Varas Alonso - 21/02/2025 5:19
  */
 @Data
-@Builder
 public class Product {
   // Compra 1 por 1
   private Boolean oneByOne;
@@ -100,7 +98,7 @@ public class Product {
       return s;
     });
     lore.removeIf(s -> s.contains("%info%"));
-    return new ItemModel().getButton(0,
+    return new ItemModel(display).getButton(0,
       title,
       lore,
       action -> {
