@@ -1,0 +1,54 @@
+architectury {
+    common("fabric", "neoforge")
+}
+
+loom {
+    accessWidenerPath = file("src/main/resources/cobbleshop.accesswidener")
+}
+
+dependencies {
+    // We depend on fabric loader here to use the fabric @Environment annotations and get the mixin dependencies
+    // Do NOT use other classes from fabric loader
+    modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+
+    modImplementation "dev.architectury:architectury:${project.architectury_version}"
+
+
+    modImplementation("com.cobblemon:mod:${property("cobblemon_version")}")
+    // alL fabric dependencies:
+    modImplementation("ca.landonjw.gooeylibs:fabric-api-repack:${property("gooeylibs_version")}")
+
+    modImplementation(files("libs/CobbleUtils-common-1.1.3-b.jar"))
+
+    // Database
+    api("org.mongodb:mongodb-driver-sync:${property("mongodb_version")}")
+    api("org.xerial:sqlite-jdbc:${property("sqlite_version")}")
+
+    // Kyori Adventure
+    api("net.kyori:adventure-text-serializer-gson:${property("kyori_version")}")
+    api("net.kyori:adventure-text-minimessage:${property("kyori_version")}")
+
+    // Lombok
+    compileOnly("org.projectlombok:lombok:${property("lombok_version")}")
+    annotationProcessor("org.projectlombok:lombok:${property("lombok_version")}")
+
+    //Discord
+    api("club.minnced:discord-webhooks:${property("discord_webhooks_version")}")
+    implementation("net.objecthunter:exp4j:0.4.8")
+
+
+    // PlaceholderAPI
+    modImplementation("eu.pb4:placeholder-api:${property("placeholder_api_version_fabricandforge")}")
+
+    // lombok that makes the life easier
+    // https://projectlombok.org/setup/gradle
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+}
+
+test {
+    useJUnitPlatform()
+    // Since JDK 21
+    // ref: https://stackoverflow.com/questions/77951485/getting-a-java-agent-has-been-loaded-warning-in-intellij-after-upgrading-jdk-17
+    jvmArgs("-XX:+EnableDynamicAgentLoading")
+}
