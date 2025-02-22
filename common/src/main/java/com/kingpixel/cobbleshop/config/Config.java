@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 public class Config {
   private String Path;
   // Essential fields
+  private boolean debug;
   private String lang;
   private int rows;
   private String title;
@@ -43,6 +44,7 @@ public class Config {
   private List<PanelsConfig> panels;
 
   public Config() {
+    this.debug = false;
     this.lang = "en";
     this.rows = 6;
     this.title = "Shop";
@@ -157,15 +159,7 @@ public class Config {
 
     List<Shop> shops = ShopApi.getShops(options);
 
-    for (Shop shop : shops) {
-      ItemModel display = CobbleShop.lang.getGlobalDisplay(shop.getDisplay());
-      GooeyButton button = display.getButton(
-        1,
-        display.getDisplayname().replace("%shop%", shop.getId()),
-        action -> shop.open(player, options, this)
-      );
-      template.set(shop.getDisplay().getSlot(), button);
-    }
+    applyShops(shops, player, options, this, template);
 
     ItemModel close = CobbleShop.lang.getGlobalItemClose(itemClose);
     GooeyButton closeButton = close.getButton(1, action -> UIManager.closeUI(player));
@@ -178,5 +172,21 @@ public class Config {
       .build();
 
     UIManager.openUIForcefully(player, page);
+  }
+
+  public static void applyShops(List<Shop> shops, ServerPlayerEntity player, ShopOptionsApi options, Config config,
+                                ChestTemplate template) {
+    for (Shop shop : shops) {
+      ItemModel display = CobbleShop.lang.getGlobalDisplay(shop.getDisplay());
+      List<String> lore = new ArrayList<>(display.getLore());
+      lore.replaceAll(s -> shop.getType().replace(s, shop, options));
+      GooeyButton button = display.getButton(
+        1,
+        display.getDisplayname().replace("%shop%", shop.getId()),
+        lore,
+        action -> shop.open(player, options, config, 0, null)
+      );
+      template.set(shop.getDisplay().getSlot(), button);
+    }
   }
 }

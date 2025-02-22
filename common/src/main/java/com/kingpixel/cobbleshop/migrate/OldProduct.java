@@ -1,5 +1,6 @@
 package com.kingpixel.cobbleshop.migrate;
 
+import com.kingpixel.cobbleshop.models.Product;
 import lombok.*;
 import net.minecraft.item.ItemStack;
 
@@ -84,5 +85,20 @@ public class OldProduct {
     this.buy = BigDecimal.valueOf(500000);
     this.sell = BigDecimal.ZERO;
   }
-  
+
+  public Product from() {
+    Product product = new Product();
+    product.setProduct(this.product);
+    product.setBuy(this.buy);
+    product.setSell(this.sell);
+    product.setDiscount(this.discount);
+    product.setDisplay(this.display);
+    product.setDisplayname(this.displayname);
+    product.setLore(this.lore);
+    product.setCustomModelData(this.CustomModelData);
+    product.setSlot(0);
+    product.setCanBuyPermission(this.permission);
+    product.setNotBuyPermission(this.permission);
+    return product;
+  }
 }

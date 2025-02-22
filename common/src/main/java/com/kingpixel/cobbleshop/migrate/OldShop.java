@@ -1,17 +1,23 @@
 package com.kingpixel.cobbleshop.migrate;
 
 import ca.landonjw.gooeylibs2.api.template.TemplateType;
+import com.kingpixel.cobbleshop.CobbleShop;
 import com.kingpixel.cobbleshop.adapters.ShopType;
 import com.kingpixel.cobbleshop.adapters.ShopTypePermanent;
+import com.kingpixel.cobbleshop.models.Product;
+import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.ItemChance;
 import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.Rectangle;
+import com.kingpixel.cobbleutils.util.Utils;
 import lombok.*;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Carlos Varas Alonso - 02/08/2024 9:25
@@ -127,4 +133,69 @@ public class OldShop {
   }
 
 
+  public static void migration() {
+    File folder = Utils.getAbsolutePath(CobbleShop.PATH_MIGRATION);
+    if (!folder.exists()) {
+      folder.mkdirs();
+    }
+
+    File[] files = folder.listFiles();
+    if (files != null) {
+      for (File file : files) {
+        if (file.getName().endsWith(".json")) {
+          boolean read = Utils.readFileSync(file,
+            call -> {
+              OldShop shop = CobbleShop.gson.fromJson(call, OldShop.class);
+              CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(
+                CobbleShop.PATH_SHOP,
+                file.getName(),
+                CobbleShop.gson.toJson(from(shop))
+              );
+              if (!futureWrite.join()) {
+                CobbleUtils.LOGGER.error("Error writing file: " + CobbleShop.PATH_MIGRATION + file.getName());
+              }
+            });
+
+          if (!read) {
+            CobbleUtils.LOGGER.error("Error reading file: " + CobbleShop.PATH_MIGRATION + file.getName());
+          } else {
+            file.delete();
+          }
+        }
+      }
+    }
+  }
+
+  public static Shop from(OldShop oldShop) {
+    Shop shop = new Shop();
+    shop.setAutoPlace(true);
+    shop.setId(oldShop.getId());
+    shop.setTitle(oldShop.getTitle());
+    shop.setCurrency(oldShop.getCurrency());
+    shop.setCloseCommand(oldShop.getCloseCommand());
+    shop.setSoundOpen(oldShop.getSoundopen());
+    shop.setSoundClose(oldShop.getSoundclose());
+    shop.setRows(oldShop.getRows());
+    shop.setType(oldShop.getShopType() == null
+      ? new ShopTypePermanent()
+      : oldShop.getShopType());
+    shop.setSubShops(new ArrayList<>());
+    shop.setRectangle(oldShop.getRectangle());
+    shop.setDisplay(oldShop.getDisplay());
+    shop.setItemInfoShop(oldShop.getItemInfoShop());
+    shop.setGlobalDiscount(oldShop.getGlobalDiscount());
+    shop.setProducts(getProducts(oldShop.products));
+    shop.setItemPrevious(oldShop.getPrevious());
+    shop.setItemClose(oldShop.getClose());
+    shop.setItemNext(oldShop.getNext());
+    return shop;
+  }
+
+  private static List<Product> getProducts(List<OldProduct> products) {
+    List<Product> newProducts = new ArrayList<>();
+    for (OldProduct oldProduct : products) {
+      newProducts.add(oldProduct.from());
+    }
+    return newProducts;
+  }
 }

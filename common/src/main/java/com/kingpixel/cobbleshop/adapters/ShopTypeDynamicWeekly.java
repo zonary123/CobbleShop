@@ -1,8 +1,9 @@
 package com.kingpixel.cobbleshop.adapters;
 
 import com.google.gson.*;
-import com.kingpixel.cobbleshop.api.ShopApi;
+import com.kingpixel.cobbleshop.CobbleShop;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
+import com.kingpixel.cobbleshop.models.Product;
 import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleshop.models.TypeShop;
 import com.kingpixel.cobbleutils.util.PlayerUtils;
@@ -15,7 +16,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Author: Carlos Varas Alonso - 21/02/2025 5:23
@@ -41,12 +41,20 @@ public class ShopTypeDynamicWeekly extends ShopType implements JsonSerializer<Sh
     this.days = days;
   }
 
+  @Override public List<Product> getProducts(Shop shop, ShopOptionsApi options) {
+    return ShopTypeDynamic.getDynamicProducts(shop, options);
+  }
+
+  @Override public boolean isOpen() {
+    return ShopTypeWeekly.canEnterDay(days);
+  }
+
   @Override public String replace(String text, Shop shop, ShopOptionsApi shopOptionsApi) {
     String[] days = getDays().stream().map(DayOfWeek::toString).toArray(String[]::new);
     return text
-      .replace("%cooldown%",
-        PlayerUtils.getCooldown(new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(ShopApi.getCooldown(shop)))))
+      .replace("%cooldown%", PlayerUtils.getCooldown(new Date(CobbleShop.dataShop.getActualCooldown(shop, shopOptionsApi))))
       .replace("%number%", String.valueOf(this.getProductsRotation()))
+      .replace("%amountProducts%", String.valueOf(this.getProductsRotation()))
       .replace("%days%", String.join(", ", days));
   }
 
@@ -68,9 +76,20 @@ public class ShopTypeDynamicWeekly extends ShopType implements JsonSerializer<Sh
   @Override
   public ShopTypeDynamicWeekly deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
     JsonObject jsonObject = json.getAsJsonObject();
-    int cooldown = jsonObject.get("cooldown").getAsInt();
-    int productsRotation = jsonObject.get("productsRotation").getAsInt();
+    JsonElement jsonCooldown = jsonObject.get("cooldown");
+    if (jsonCooldown == null) {
+      jsonCooldown = jsonObject.get("minutes");
+    }
+    int cooldown = jsonCooldown.getAsInt();
+    JsonElement jsonProductsRotation = jsonObject.get("productsRotation");
+    if (jsonProductsRotation == null) {
+      jsonProductsRotation = jsonObject.get("amountProducts");
+    }
+    int productsRotation = jsonProductsRotation.getAsInt();
     JsonArray daysArray = jsonObject.getAsJsonArray("days");
+    if (daysArray == null) {
+      daysArray = jsonObject.getAsJsonArray("dayOfWeek");
+    }
     List<DayOfWeek> days = new ArrayList<>();
     for (JsonElement dayElement : daysArray) {
       days.add(DayOfWeek.valueOf(dayElement.getAsString()));

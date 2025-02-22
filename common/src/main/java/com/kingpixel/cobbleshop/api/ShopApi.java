@@ -3,7 +3,9 @@ package com.kingpixel.cobbleshop.api;
 import com.kingpixel.cobbleshop.CobbleShop;
 import com.kingpixel.cobbleshop.command.CommandTree;
 import com.kingpixel.cobbleshop.config.Config;
+import com.kingpixel.cobbleshop.migrate.OldShop;
 import com.kingpixel.cobbleshop.models.Shop;
+import com.kingpixel.cobbleshop.models.SubShop;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.server.command.ServerCommandSource;
 
@@ -21,19 +23,21 @@ public class ShopApi {
   public static Map<String, List<Shop>> shops = new HashMap<>();
 
   public static void register(ShopOptionsApi options, CommandDispatcher<ServerCommandSource> dispatcher) {
+    OldShop.migration();
     new Config().readConfig(options);
     options.setCommands(configs.get(options.getModId()).getCommands());
     Config.readShops(options);
     CobbleShop.lang.init(configs.get(CobbleShop.MOD_ID));
     CommandTree.register(options, dispatcher);
   }
-
-  public static int getCooldown(Shop shop) {
-    return 0;
-  }
+  
 
   public static List<Shop> getShops(ShopOptionsApi options) {
     return shops.get(options.getModId());
+  }
+
+  public static List<Shop> getShops(List<SubShop> subShops) {
+    return shops.get(CobbleShop.MOD_ID).stream().filter(shop -> subShops.stream().anyMatch(subShop -> subShop.getIdShop().equals(shop.getId()))).toList();
   }
 
   public static Shop getShop(ShopOptionsApi options, String id) {

@@ -33,6 +33,10 @@ public class ShopTypeWeekly extends ShopType implements JsonSerializer<ShopTypeW
   }
 
   @Override public boolean isOpen() {
+    return canEnterDay(days);
+  }
+
+  public static boolean canEnterDay(List<DayOfWeek> days) {
     return days.contains(DayOfWeek.from(LocalDate.now()));
   }
 
@@ -59,6 +63,9 @@ public class ShopTypeWeekly extends ShopType implements JsonSerializer<ShopTypeW
   public ShopTypeWeekly deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
     JsonObject jsonObject = json.getAsJsonObject();
     JsonArray daysArray = jsonObject.getAsJsonArray("days");
+    if (daysArray == null) {
+      daysArray = jsonObject.getAsJsonArray("dayOfWeek");
+    }
     List<DayOfWeek> days = new ArrayList<>();
     for (JsonElement dayElement : daysArray) {
       days.add(DayOfWeek.valueOf(dayElement.getAsString()));

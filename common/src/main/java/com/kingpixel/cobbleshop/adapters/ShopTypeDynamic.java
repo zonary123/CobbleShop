@@ -1,7 +1,9 @@
 package com.kingpixel.cobbleshop.adapters;
 
 import com.google.gson.*;
+import com.kingpixel.cobbleshop.CobbleShop;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
+import com.kingpixel.cobbleshop.models.Product;
 import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleshop.models.TypeShop;
 import com.kingpixel.cobbleutils.util.PlayerUtils;
@@ -10,7 +12,7 @@ import lombok.EqualsAndHashCode;
 
 import java.lang.reflect.Type;
 import java.util.Date;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 /**
  * Author: Carlos Varas Alonso - 21/02/2025 5:23
@@ -33,10 +35,21 @@ public class ShopTypeDynamic extends ShopType implements JsonSerializer<ShopType
     this.productsRotation = productsRotation;
   }
 
+  @Override public List<Product> getProducts(Shop shop, ShopOptionsApi options) {
+    return getDynamicProducts(shop, options);
+  }
+
+  public static List<Product> getDynamicProducts(Shop shop, ShopOptionsApi options) {
+    return CobbleShop.dataShop.updateDynamicProducts(shop, options);
+  }
+
   @Override public String replace(String text, Shop shop, ShopOptionsApi shopOptionsApi) {
     return text
-      .replace("%cooldown%", PlayerUtils.getCooldown(new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(this.getCooldown()))))
-      .replace("%number%", String.valueOf(this.getProductsRotation()));
+      .replace("%cooldown%", PlayerUtils.getCooldown(
+        new Date(CobbleShop.dataShop.getActualCooldown(shop, shopOptionsApi))
+      ))
+      .replace("%number%", String.valueOf(this.getProductsRotation()))
+      .replace("%amountProducts%", String.valueOf(this.getProductsRotation()));
   }
 
   // JSON
@@ -52,8 +65,16 @@ public class ShopTypeDynamic extends ShopType implements JsonSerializer<ShopType
   @Override
   public ShopTypeDynamic deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
     JsonObject jsonObject = json.getAsJsonObject();
-    int cooldown = jsonObject.get("cooldown").getAsInt();
-    int productsRotation = jsonObject.get("productsRotation").getAsInt();
+    JsonElement jsonCooldown = jsonObject.get("cooldown");
+    if (jsonCooldown == null) {
+      jsonCooldown = jsonObject.get("minutes");
+    }
+    int cooldown = jsonCooldown.getAsInt();
+    JsonElement jsonProductsRotation = jsonObject.get("productsRotation");
+    if (jsonProductsRotation == null) {
+      jsonProductsRotation = jsonObject.get("amountProducts");
+    }
+    int productsRotation = jsonProductsRotation.getAsInt();
     ShopTypeDynamic shopTypeDynamic = new ShopTypeDynamic(cooldown, productsRotation);
     shopTypeDynamic.setTypeShop(TypeShop.valueOf(jsonObject.get("typeShop").getAsString()));
     return shopTypeDynamic;

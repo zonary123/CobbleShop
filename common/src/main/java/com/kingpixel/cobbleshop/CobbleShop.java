@@ -5,6 +5,7 @@ import com.kingpixel.cobbleshop.adapters.*;
 import com.kingpixel.cobbleshop.api.ShopApi;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.config.Lang;
+import com.kingpixel.cobbleshop.models.DataShop;
 import com.kingpixel.cobbleutils.util.Utils;
 import dev.architectury.event.events.common.CommandRegistrationEvent;
 import dev.architectury.event.events.common.LifecycleEvent;
@@ -20,11 +21,14 @@ public class CobbleShop {
   public static final String PATH = "/config/cobbleshop/";
   public static final String PATH_SHOP = PATH + "shop/";
   public static final String PATH_LANG = PATH + "lang/";
+  public static final String PATH_MIGRATION = PATH + "migration/";
   public static final String PATH_DATA = PATH + "data/";
+  public static final String PATH_DATA_USERS = PATH_DATA + "users/";
   public static MinecraftServer server;
   public static ShopOptionsApi options;
   public static Lang lang = new Lang();
   public static Gson gson;
+  public static DataShop dataShop = new DataShop();
 
   public static void init() {
     gson = Utils.newGson().newBuilder()
@@ -38,11 +42,13 @@ public class CobbleShop {
       .modId(MOD_ID)
       .path(PATH)
       .build();
+    dataShop.init();
     events();
   }
 
-  public static void load() {
+  public static void load(ShopOptionsApi options) {
     ShopApi.register(options, server.getCommandManager().getDispatcher());
+    dataShop.init();
   }
 
   public static void events() {

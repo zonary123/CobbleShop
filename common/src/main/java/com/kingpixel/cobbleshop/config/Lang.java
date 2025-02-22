@@ -18,6 +18,9 @@ import java.util.concurrent.CompletableFuture;
 @Data
 public class Lang {
   private String prefix;
+  private String messageShopNotOpen;
+  private String messageNotHavePermission;
+  private String messageNotEnoughMoney;
   private InfoShopType infoShopType;
   private List<String> infoProduct;
   // Buttons Shop
@@ -27,15 +30,14 @@ public class Lang {
   // Button add
   private ItemModel add1;
   private ItemModel add8;
-  private ItemModel add10;
   private ItemModel add16;
   private ItemModel add64;
   // Button remove
   private ItemModel remove1;
   private ItemModel remove8;
-  private ItemModel remove10;
   private ItemModel remove16;
   private ItemModel remove64;
+
 
   // Button Pages
   private ItemModel globalItemPrevious;
@@ -46,18 +48,20 @@ public class Lang {
 
   public Lang() {
     prefix = "§7[§6CobbleShop§7] ";
+    messageShopNotOpen = "%prefix% §cThe shop is not open";
+    messageNotHavePermission = "%prefix% §cYou do not have permission to use this command";
+    messageNotEnoughMoney = "%prefix% §cYou do not have enough money";
     infoShopType = new InfoShopType();
     infoProduct = List.of(
-      "",
-      "&7Amount: %amount%x%amountproduct%=%total%",
+      "%info%",
+      " ",
+      "&7Amount: %amount%",
+      " ",
       "&7Buy: &a%buy% %discount% %removebuy%",
       "&7Sell: &c%sell% %removesell%",
-      "",
+      " ",
       "&7Left click to buy %removebuy%",
-      "&7Right click to sell %removesell%",
-      "",
-      "&7Balance: &e%balance%",
-      ""
+      "&7Right click to sell %removesell%"
     );
     globalDisplay = new ItemModel(0, "cobblemon:poke_ball", "&aShop %shop%", List.of(""), 0);
     globalItemInfoShop = new ItemModel(0, "minecraft:book", "&aInfo", List.of(
@@ -69,16 +73,15 @@ public class Lang {
     globalItemPrevious = new ItemModel(0, "minecraft:arrow", "&aPrevious", List.of(""), 0);
     globalItemClose = new ItemModel(0, "minecraft:barrier", "&cClose", List.of(""), 0);
     globalItemNext = new ItemModel(0, "minecraft:arrow", "&aNext", List.of(""), 0);
-    add1 = new ItemModel(0, "item:1:minecraft:lime_stained_glass_pane", "&aAdd 1", List.of(""), 0);
-    add8 = new ItemModel(0, "item:8:minecraft:lime_stained_glass_pane", "&aAdd 8", List.of(""), 0);
-    add10 = new ItemModel(0, "item:10:minecraft:lime_stained_glass_pane", "&aAdd 10", List.of(""), 0);
-    add16 = new ItemModel(0, "item:16:minecraft:lime_stained_glass_pane", "&aAdd 16", List.of(""), 0);
-    add64 = new ItemModel(0, "item:64:minecraft:lime_stained_glass_pane", "&aAdd 64", List.of(""), 0);
-    remove1 = new ItemModel(0, "item:1:minecraft:red_stained_glass_pane", "&cRemove 1", List.of(""), 0);
-    remove8 = new ItemModel(0, "item:8:minecraft:red_stained_glass_pane", "&cRemove 8", List.of(""), 0);
-    remove10 = new ItemModel(0, "item:10:minecraft:red_stained_glass_pane", "&cRemove 10", List.of(""), 0);
-    remove16 = new ItemModel(0, "item:16:minecraft:red_stained_glass_pane", "&cRemove 16", List.of(""), 0);
-    remove64 = new ItemModel(0, "item:64:minecraft:red_stained_glass_pane", "&cRemove 64", List.of(""), 0);
+    add1 = new ItemModel(21, "item:1:minecraft:lime_stained_glass_pane", "&aAdd 1", List.of(""), 0);
+    add8 = new ItemModel(20, "item:8:minecraft:lime_stained_glass_pane", "&aAdd 8", List.of(""), 0);
+    add16 = new ItemModel(20, "item:16:minecraft:lime_stained_glass_pane", "&aAdd 16", List.of(""), 0);
+    add64 = new ItemModel(19, "item:64:minecraft:lime_stained_glass_pane", "&aAdd 64", List.of(""), 0);
+    remove1 = new ItemModel(23, "item:1:minecraft:red_stained_glass_pane", "&cRemove 1", List.of(""), 0);
+    remove8 = new ItemModel(24, "item:8:minecraft:red_stained_glass_pane", "&cRemove 8", List.of(""), 0);
+    remove16 = new ItemModel(24, "item:16:minecraft:red_stained_glass_pane", "&cRemove 16", List.of(""), 0);
+    remove64 = new ItemModel(25, "item:64:minecraft:red_stained_glass_pane", "&cRemove 64", List.of(""), 0);
+    menuBuyAndSell = new MenuBuyAndSell();
   }
 
   public void init(Config config) {
@@ -91,7 +94,7 @@ public class Lang {
         CobbleShop.lang = CobbleShop.gson.fromJson(call, Lang.class);
         CobbleShop.lang.check();
         CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(CobbleShop.PATH_LANG, config.getLang() + ".json",
-          CobbleShop.gson.toJson(this));
+          CobbleShop.gson.toJson(CobbleShop.lang));
         if (!futureWrite.join()) {
           CobbleUtils.LOGGER.error("Error writing file: " + CobbleShop.PATH_LANG + config.getLang() + ".json");
         }
@@ -100,7 +103,7 @@ public class Lang {
     if (!futureRead.join()) {
       CobbleShop.lang = this;
       CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(CobbleShop.PATH_LANG, config.getLang() + ".json",
-        CobbleShop.gson.toJson(this));
+        CobbleShop.gson.toJson(CobbleShop.lang));
       if (!futureWrite.join()) {
         CobbleUtils.LOGGER.error("Error writing file: " + CobbleShop.PATH_LANG + config.getLang() + ".json");
       }

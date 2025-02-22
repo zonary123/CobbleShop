@@ -50,8 +50,9 @@ public class InfoShopType {
     ), 0);
   }
 
-  public GooeyButton getShopType(Shop shop, ShopOptionsApi options) {
+  public GooeyButton getShopType(Shop shop, ShopOptionsApi options, ItemModel supportItemModel) {
     ItemModel itemModel;
+    String title;
     List<String> lore;
     itemModel = switch (shop.getType().getTypeShop()) {
       case TypeShop.PERMANENT -> shopPermanent;
@@ -59,10 +60,26 @@ public class InfoShopType {
       case TypeShop.WEEKLY -> shopWeekly;
       case TypeShop.DYNAMIC_WEEKLY -> shopDynamicWeekly;
     };
-    lore = new ArrayList<>(itemModel.getLore());
+
+    if (supportItemModel.getDisplayname().isEmpty()) {
+      title = itemModel.getDisplayname();
+    } else {
+      title = supportItemModel.getDisplayname();
+    }
+
+    if (supportItemModel.getLore().isEmpty()) {
+      lore = new ArrayList<>(itemModel.getLore());
+    } else {
+      lore = new ArrayList<>(supportItemModel.getLore());
+    }
+
+    if (!supportItemModel.getItem().isEmpty()) {
+      itemModel = supportItemModel;
+    }
+
     lore.replaceAll(s -> shop.getType().replace(s, shop, options));
-    return itemModel.getButton(0,
-      null,
+    return itemModel.getButton(1,
+      title,
       lore,
       action -> {
 
