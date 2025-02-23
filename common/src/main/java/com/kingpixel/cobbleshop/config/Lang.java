@@ -21,6 +21,9 @@ public class Lang {
   private String messageShopNotOpen;
   private String messageNotHavePermission;
   private String messageNotEnoughMoney;
+  private String messageNotSell;
+  private String messageSell;
+  private String formatSell;
   private InfoShopType infoShopType;
   private List<String> infoProduct;
   // Buttons Shop
@@ -51,10 +54,14 @@ public class Lang {
     messageShopNotOpen = "%prefix% §cThe shop is not open";
     messageNotHavePermission = "%prefix% §cYou do not have permission to use this command";
     messageNotEnoughMoney = "%prefix% §cYou do not have enough money";
+    messageNotSell = "%prefix% §cYou don't have anything to sell";
+    messageSell = "%prefix% §aYou have sold:\n %sell%";
+    formatSell = " &7- %price%";
     infoShopType = new InfoShopType();
     infoProduct = List.of(
       "%info%",
       " ",
+      "&7Pack: %pack%",
       "&7Amount: %amount%",
       " ",
       "&7Buy: &a%buy% %discount% %removebuy%",

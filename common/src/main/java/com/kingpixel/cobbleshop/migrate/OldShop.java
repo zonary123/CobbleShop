@@ -151,6 +151,15 @@ public class OldShop {
                 file.getName(),
                 CobbleShop.gson.toJson(from(shop))
               );
+              // Copia el archivo a la carpeta de backup
+              CompletableFuture<Boolean> futureBackup = Utils.writeFileAsync(
+                CobbleShop.PATH_BACKUP_MIGRATION,
+                file.getName(),
+                call
+              );
+              if (!futureBackup.join()) {
+                CobbleUtils.LOGGER.error("Error writing file: " + CobbleShop.PATH_BACKUP_MIGRATION + file.getName());
+              }
               if (!futureWrite.join()) {
                 CobbleUtils.LOGGER.error("Error writing file: " + CobbleShop.PATH_MIGRATION + file.getName());
               }

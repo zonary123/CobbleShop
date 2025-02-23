@@ -97,16 +97,30 @@ public class Product {
     String title = this.displayname != null ? this.displayname : itemChance.getTitle();
     List<String> lore = new ArrayList<>(CobbleShop.lang.getInfoProduct());
 
-    if (actionShop != null) {
-      lore.removeIf(s -> {
-        if (s.isEmpty()) return false;
-        if (actionShop == ActionShop.BUY) {
-          return s.contains("%removesell%") || s.contains("%sell%");
-        } else {
-          return s.contains("%removebuy%") || s.contains("%buy%");
+
+    lore.removeIf(s -> {
+      if (s == null || s.isEmpty()) return false;
+      boolean notSellable = sell == null || sell.compareTo(BigDecimal.ZERO) <= 0;
+      boolean notBuyable = buy == null || buy.compareTo(BigDecimal.ZERO) <= 0;
+
+      if (notSellable && (s.contains("%sell%") || s.contains("%removesell%"))) {
+        return true;
+      }
+      if (notBuyable && (s.contains("%buy%") || s.contains("%removebuy%"))) {
+        return true;
+      }
+
+      if (actionShop != null) {
+        if (actionShop == ActionShop.BUY && (s.contains("%sell%") || s.contains("%removesell%"))) {
+          return true;
         }
-      });
-    }
+        if (actionShop == ActionShop.SELL && (s.contains("%buy%") || s.contains("%removebuy%"))) {
+          return true;
+        }
+      }
+      return false;
+    });
+
 
     lore.replaceAll(s -> replace(s, shop, amount));
     if (this.lore != null) {
@@ -147,14 +161,14 @@ public class Product {
     }
   }
 
-  private BigDecimal getBuyPrice(int amount, Shop shop) {
+  public BigDecimal getBuyPrice(int amount, Shop shop) {
     BigDecimal totalBuy = buy.multiply(BigDecimal.valueOf(amount));
 
     totalBuy = totalBuy.subtract(totalBuy.multiply(BigDecimal.valueOf(getDiscount(shop) / 100)));
     return totalBuy;
   }
 
-  private BigDecimal getSellPrice(int amount) {
+  public BigDecimal getSellPrice(int amount) {
     return sell.multiply(BigDecimal.valueOf(amount));
   }
 
@@ -171,6 +185,9 @@ public class Product {
     }
     if (s.contains("%amount%")) {
       s = s.replace("%amount%", String.valueOf(amount));
+    }
+    if (s.contains("%pack%")) {
+      s = s.replace("%pack%", String.valueOf(getItemStack().getCount()));
     }
     if (s.contains("%discount%")) {
       int discount = getDiscount(shop);
@@ -202,23 +219,20 @@ public class Product {
       ItemChance.giveReward(player, itemChance, amount);
       result = true;
     }
-    if (result) {
+    if (!result) {
       PlayerUtils.sendMessage(
         player,
         CobbleShop.lang.getMessageNotEnoughMoney()
           .replace("%product%", itemChance.getTitle())
           .replace("%amount%", String.valueOf(amount))
+          .replace("%pack%", itemChance.getItemStack().getCount() + "")
           .replace("%price%", EconomyApi.formatMoney(totalBuy, shop.getCurrency())),
         CobbleShop.lang.getPrefix(),
         TypeMessage.CHAT
       );
-      shop.open(player, options, config, 0, shop);
     }
+    shop.open(player, options, config, 0, shop);
     return result;
-  }
-
-  public boolean sell(ServerPlayerEntity player, Shop shop, int amount) {
-    return false;
   }
 
   public boolean hasErrors() {
@@ -237,5 +251,16 @@ public class Product {
     if (product.startsWith("command:") || product.startsWith("pokemon:") || (oneByOne != null && oneByOne)) return 1;
 
     return new ItemChance(product, 0).getItemStack().getMaxCount();
+  }
+
+  public boolean canSell() {
+    return !product.startsWith("command:") && !product.startsWith("pokemon:") && sell.compareTo(BigDecimal.ZERO) > 0 && !product.contains("|");
+  }
+
+  public ItemStack getItemStack() {
+    return new ItemChance(product, 0).getItemStack();
+  }
+
+  public void sell(ServerPlayerEntity player, Shop shop, int amount, Product product) {
   }
 }

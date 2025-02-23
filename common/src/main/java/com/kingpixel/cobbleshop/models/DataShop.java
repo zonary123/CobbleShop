@@ -33,6 +33,7 @@ public class DataShop {
 
     CompletableFuture<Boolean> futureRead = Utils.readFileAsync(CobbleShop.PATH_DATA, "dataShop.json", call -> {
       CobbleShop.dataShop = CobbleShop.gson.fromJson(call, DataShop.class);
+      check();
       write();
     });
 
@@ -46,17 +47,42 @@ public class DataShop {
     Utils.writeFileAsync(CobbleShop.PATH_DATA, "dataShop.json", CobbleShop.gson.toJson(CobbleShop.dataShop));
   }
 
+  public void check() {
+    boolean changed = false;
+    // Todo: Check if the shop exists
+
+
+    // Todo: Check if the product exists
+    if (changed) {
+      write();
+    }
+  }
+
   public List<Product> updateDynamicProducts(Shop shop, ShopOptionsApi options) {
     products.computeIfAbsent(options.getModId(), k -> new HashMap<>()).computeIfAbsent(shop.getId(), k -> new DynamicProduct());
     DynamicProduct dynamicProduct = products.get(options.getModId()).get(shop.getId());
-    if (dynamicProduct.getTimeToUpdate() < System.currentTimeMillis()) {
+    if (dynamicProduct.getTimeToUpdate() < System.currentTimeMillis() || dynamicProduct.getProducts().isEmpty()
+      || dynamicProduct.getProducts().size() != getRotationProducts(shop)) {
       dynamicProduct.setTimeToUpdate(System.currentTimeMillis() + getCooldown(shop.getType()));
       List<Product> products = getNewProducts(shop, options);
       dynamicProduct.setProducts(products);
       write();
+      CobbleShop.initSellProduct();
       return products;
     }
     return dynamicProduct.getProducts();
+  }
+
+  private int getRotationProducts(Shop shop) {
+    ShopType shopType = shop.getType();
+    if (shopType instanceof ShopTypeDynamic) {
+      ShopTypeDynamic shopTypeDynamic = (ShopTypeDynamic) shopType;
+      return shopTypeDynamic.getProductsRotation();
+    } else if (shopType instanceof ShopTypeDynamicWeekly) {
+      ShopTypeDynamicWeekly shopTypeDynamicWeekly = (ShopTypeDynamicWeekly) shopType;
+      return shopTypeDynamicWeekly.getProductsRotation();
+    }
+    return 3;
   }
 
   public long getCooldown(ShopType shopType) {
@@ -72,15 +98,7 @@ public class DataShop {
   }
 
   public List<Product> getNewProducts(Shop shop, ShopOptionsApi options) {
-    int productsRotation = 3;
-    ShopType shopType = shop.getType();
-    if (shopType instanceof ShopTypeDynamic) {
-      ShopTypeDynamic shopTypeDynamic = (ShopTypeDynamic) shopType;
-      productsRotation = shopTypeDynamic.getProductsRotation();
-    } else if (shopType instanceof ShopTypeDynamicWeekly) {
-      ShopTypeDynamicWeekly shopTypeDynamicWeekly = (ShopTypeDynamicWeekly) shopType;
-      productsRotation = shopTypeDynamicWeekly.getProductsRotation();
-    }
+    int productsRotation = getRotationProducts(shop);
     List<Product> products = new ArrayList<>(shop.getProducts());
     // Shuffle the list to get random products
     Collections.shuffle(products);

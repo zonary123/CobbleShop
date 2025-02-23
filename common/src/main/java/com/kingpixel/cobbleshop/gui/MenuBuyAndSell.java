@@ -131,7 +131,7 @@ public class MenuBuyAndSell {
         if (actionShop.equals(ActionShop.BUY)) {
           shop.getType().buyProduct(player, product, shop, amount, options, config);
         } else {
-          product.sell(player, shop, amount);
+          product.sell(player, shop, amount, product);
         }
       }));
     }
@@ -139,7 +139,8 @@ public class MenuBuyAndSell {
     GooeyPage page = GooeyPage
       .builder()
       .template(template)
-      .title(AdventureTranslator.toNative(actionShop.equals(ActionShop.BUY) ? titleBuy : titleSell))
+      .title(AdventureTranslator.toNative((actionShop.equals(ActionShop.BUY) ? titleBuy : titleSell).replace("%amount%", amount +
+        "")))
       .build();
 
     UIManager.openUIForcefully(player, page);
