@@ -20,6 +20,10 @@ public class ShopTypePermanent extends ShopType implements JsonSerializer<ShopTy
     setTypeShop(TypeShop.PERMANENT);
   }
 
+  @Override public void check() {
+    setTypeShop(TypeShop.PERMANENT);
+  }
+
   @Override public String replace(String text, Shop shop, ShopOptionsApi shopOptionsApi) {
     return "";
   }

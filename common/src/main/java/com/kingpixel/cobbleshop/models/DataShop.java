@@ -38,6 +38,7 @@ public class DataShop {
     });
 
     if (!futureRead.join()) {
+      CobbleShop.dataShop = this;
       write();
     }
 

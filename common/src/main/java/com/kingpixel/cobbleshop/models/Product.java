@@ -7,6 +7,7 @@ import com.kingpixel.cobbleshop.config.Config;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.ItemChance;
 import com.kingpixel.cobbleutils.api.EconomyApi;
+import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.kingpixel.cobbleutils.util.AdventureTranslator;
 import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
@@ -20,6 +21,7 @@ import net.minecraft.util.Unit;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -37,7 +39,7 @@ public class Product {
   private String canBuyPermission;
   private String notBuyPermission;
   // Optional fields for discounts
-  private Integer discount;
+  private Float discount;
   // Optional fields for visual representation
   private String display;
   private String displayname;
@@ -64,10 +66,10 @@ public class Product {
       cooldown = 60;
       canBuyPermission = "cobbleshop.dirt";
       notBuyPermission = "cobbleshop.dirt";
-      discount = 10;
-      display = "minecraft:dirt";
-      displayname = "Custom Dirt";
-      lore = List.of("This is a custom dirt", "You can use it to build");
+      discount = 10.0f;
+      display = "minecraft:stone";
+      displayname = "Custom Stone";
+      lore = List.of("This is a custom stone", "You can use it to build");
       CustomModelData = 0;
       slot = 0;
     }
@@ -76,7 +78,6 @@ public class Product {
   public void check() {
     // Limit Product
     if (product == null) product = "minecraft:stone";
-
 
     if (cooldown != null || max != null) {
       if (uuid == null) {
@@ -91,7 +92,9 @@ public class Product {
     }
   }
 
-  public GooeyButton getIcon(Shop shop, ActionShop actionShop, int amount, ShopOptionsApi options, Config config) {
+  public GooeyButton getIcon(ServerPlayerEntity player, Shop shop, ActionShop actionShop, int amount,
+                             ShopOptionsApi options,
+                             Config config) {
     String finalDisplay = this.display != null ? this.display : product;
     ItemChance itemChance = new ItemChance(finalDisplay, 0);
     String title = this.displayname != null ? this.displayname : itemChance.getTitle();
@@ -122,7 +125,7 @@ public class Product {
     });
 
 
-    lore.replaceAll(s -> replace(s, shop, amount));
+    lore.replaceAll(s -> replace(player, s, shop, amount, config));
     if (this.lore != null) {
       int infoIndex = lore.indexOf("%info%");
       if (infoIndex != -1) {
@@ -148,23 +151,60 @@ public class Product {
           case LEFT_CLICK, SHIFT_LEFT_CLICK -> shopAction = ActionShop.BUY;
           case RIGHT_CLICK, SHIFT_RIGHT_CLICK -> shopAction = ActionShop.SELL;
         }
-        CobbleShop.lang.getMenuBuyAndSell().open(action.getPlayer(), shop, this, amount, shopAction, options, config);
+
+
+        // Need Permissions
+        if (notBuyPermission != null && PermissionApi.hasPermission(action.getPlayer(), notBuyPermission, 4)) {
+          PlayerUtils.sendMessage(
+            action.getPlayer(),
+            CobbleShop.lang.getMessageNotPermission(),
+            CobbleShop.lang.getPrefix(),
+            TypeMessage.CHAT
+          );
+          return;
+        }
+        if (canBuyPermission == null || PermissionApi.hasPermission(action.getPlayer(), canBuyPermission, 4)) {
+          CobbleShop.lang.getMenuBuyAndSell().open(action.getPlayer(), shop, this, amount, shopAction, options,
+            config);
+        } else {
+          PlayerUtils.sendMessage(
+            action.getPlayer(),
+            CobbleShop.lang.getMessageNotPermission(),
+            CobbleShop.lang.getPrefix(),
+            TypeMessage.CHAT
+          );
+        }
       })
       .build();
   }
 
-  private int getDiscount(Shop shop) {
-    if (shop.getGlobalDiscount() <= 0) {
-      return discount != null ? discount : 0;
-    } else {
-      return shop.getGlobalDiscount();
+  private float getEspecialDiscount(Map<String, Float> discounts, ServerPlayerEntity player, float result) {
+    if (discounts != null && !discounts.isEmpty()) {
+      for (Map.Entry<String, Float> entry : discounts.entrySet()) {
+        if (PermissionApi.hasPermission(player, entry.getKey(), 4)) {
+          if (result < entry.getValue()) result = entry.getValue();
+        }
+      }
     }
+    return result;
   }
 
-  public BigDecimal getBuyPrice(int amount, Shop shop) {
-    BigDecimal totalBuy = buy.multiply(BigDecimal.valueOf(amount));
+  private float getDiscount(ServerPlayerEntity player, Shop shop, Config config) {
+    float result = 0.0f;
+    result = getEspecialDiscount(shop.getDiscounts(), player, result);
+    result = getEspecialDiscount(config.getDiscounts(), player, result);
+    if (shop.getGlobalDiscount() <= 0f) {
+      float a = discount != null ? discount : 0f;
+      if (a > result) result = a;
+    } else {
+      if (shop.getGlobalDiscount() > result) result = shop.getGlobalDiscount();
+    }
+    return result;
+  }
 
-    totalBuy = totalBuy.subtract(totalBuy.multiply(BigDecimal.valueOf(getDiscount(shop) / 100)));
+  public BigDecimal getBuyPrice(ServerPlayerEntity player, int amount, Shop shop, Config config) {
+    BigDecimal totalBuy = buy.multiply(BigDecimal.valueOf(amount));
+    totalBuy = totalBuy.subtract(totalBuy.multiply(BigDecimal.valueOf(getDiscount(player, shop, config) / 100.0)));
     return totalBuy;
   }
 
@@ -172,13 +212,13 @@ public class Product {
     return sell.multiply(BigDecimal.valueOf(amount));
   }
 
-  private String replace(String s, Shop shop, int amount) {
+  private String replace(ServerPlayerEntity player, String s, Shop shop, int amount, Config config) {
     if (s == null || s.isEmpty()) return "";
     String currency = shop.getCurrency();
 
 
     if (s.contains("%buy%")) {
-      s = s.replace("%buy%", EconomyApi.formatMoney(getBuyPrice(amount, shop), currency));
+      s = s.replace("%buy%", EconomyApi.formatMoney(getBuyPrice(player, amount, shop, config), currency));
     }
     if (s.contains("%sell%")) {
       s = s.replace("%sell%", EconomyApi.formatMoney(getSellPrice(amount), currency));
@@ -190,8 +230,8 @@ public class Product {
       s = s.replace("%pack%", String.valueOf(getItemStack().getCount()));
     }
     if (s.contains("%discount%")) {
-      int discount = getDiscount(shop);
-      s = s.replace("%discount%", discount >= 0 ? discount + "%" : "");
+      float discount = getDiscount(player, shop, config);
+      s = s.replace("%discount%", discount >= 0f ? discount + "%" : "");
     }
     if (s.contains("%removebuy%")) {
       s = s.replace("%removebuy%", "");
@@ -214,7 +254,7 @@ public class Product {
   public boolean buy(ServerPlayerEntity player, Shop shop, int amount, ShopOptionsApi options, Config config) {
     boolean result = false;
     ItemChance itemChance = new ItemChance(product, 0);
-    BigDecimal totalBuy = getBuyPrice(amount, shop);
+    BigDecimal totalBuy = getBuyPrice(player, amount, shop, config);
     if (EconomyApi.hasEnoughMoney(player, totalBuy, shop.getCurrency(), false)) {
       ItemChance.giveReward(player, itemChance, amount);
       result = true;
@@ -262,5 +302,44 @@ public class Product {
   }
 
   public void sell(ServerPlayerEntity player, Shop shop, int amount, Product product) {
+  }
+
+  public static SellProduct sellProduct(Shop shop, ItemStack itemStack, Product product) {
+    ItemStack itemProduct = product.getItemStack();
+    boolean equals = areEquals(itemStack, itemProduct);
+    if (equals) {
+      int itemStackCount = itemStack.getCount();
+      int itemProductCount = itemProduct.getCount();
+
+      // Calculate the total sell price based on the quantity
+      BigDecimal totalSellPrice = product.getSellPrice(itemStackCount);
+
+      // Adjust the price based on the product's quantity
+      BigDecimal adjustedPrice = totalSellPrice.divide(BigDecimal.valueOf(itemProductCount), BigDecimal.ROUND_HALF_UP);
+      itemStack.decrement(itemStackCount);
+      return new SellProduct(shop.getCurrency(), adjustedPrice);
+    }
+    return null;
+  }
+
+  public static boolean areEquals(ItemStack itemStack, ItemStack itemProduct) {
+    boolean ItemEqual = ItemStack.areItemsEqual(itemStack, itemProduct);
+    var a = itemStack.get(DataComponentTypes.CUSTOM_MODEL_DATA);
+    int aNumber = a == null ? 0 : a.value();
+    var b = itemProduct.get(DataComponentTypes.CUSTOM_MODEL_DATA);
+    int bNumber = b == null ? 0 : b.value();
+    boolean CustomModelDataEqual = aNumber == bNumber;
+    return ItemEqual && CustomModelDataEqual;
+  }
+
+  @Data
+  public static class SellProduct {
+    private String currency;
+    private BigDecimal price;
+
+    public SellProduct(String currency, BigDecimal price) {
+      this.currency = currency;
+      this.price = price;
+    }
   }
 }

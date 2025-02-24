@@ -51,7 +51,6 @@ public class CobbleShop {
       .modId(MOD_ID)
       .path(PATH)
       .build();
-    dataShop.init();
     events();
   }
 
@@ -75,6 +74,7 @@ public class CobbleShop {
 
     CommandRegistrationEvent.EVENT.register((dispatcher, commandRegistryAccess, registrationEnvironment) -> {
       ShopApi.register(options, dispatcher);
+      dataShop.init();
     });
   }
 

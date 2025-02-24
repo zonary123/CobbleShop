@@ -26,6 +26,10 @@ public abstract class ShopType {
     return shop.getProducts();
   }
 
+  public void check() {
+    if (typeShop == null) typeShop = TypeShop.PERMANENT;
+  }
+
   public boolean isOpen() {
     return true;
   }

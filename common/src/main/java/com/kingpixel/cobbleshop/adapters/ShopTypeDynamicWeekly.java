@@ -25,7 +25,7 @@ public class ShopTypeDynamicWeekly extends ShopType implements JsonSerializer<Sh
   public static ShopTypeDynamicWeekly INSTANCE = new ShopTypeDynamicWeekly();
   private int cooldown;
   private int productsRotation;
-  private final List<DayOfWeek> days;
+  private List<DayOfWeek> days;
 
   public ShopTypeDynamicWeekly() {
     setTypeShop(TypeShop.DYNAMIC_WEEKLY);
@@ -39,6 +39,13 @@ public class ShopTypeDynamicWeekly extends ShopType implements JsonSerializer<Sh
     this.cooldown = cooldown;
     this.productsRotation = productsRotation;
     this.days = days;
+  }
+
+  @Override public void check() {
+    setTypeShop(TypeShop.DYNAMIC_WEEKLY);
+    cooldown = Math.max(1, cooldown);
+    productsRotation = Math.max(1, productsRotation);
+    if (days == null) days = Arrays.stream(DayOfWeek.values()).toList();
   }
 
   @Override public List<Product> getProducts(Shop shop, ShopOptionsApi options) {

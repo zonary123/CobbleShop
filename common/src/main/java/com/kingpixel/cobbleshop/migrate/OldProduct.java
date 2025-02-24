@@ -91,14 +91,13 @@ public class OldProduct {
     product.setProduct(this.product);
     product.setBuy(this.buy);
     product.setSell(this.sell);
-    product.setDiscount(this.discount);
+    product.setDiscount((float) (this.discount == null ? 0 : this.discount));
     product.setDisplay(this.display);
     product.setDisplayname(this.displayname);
     product.setLore(this.lore);
     product.setCustomModelData(this.CustomModelData);
     product.setSlot(0);
     product.setCanBuyPermission(this.permission);
-    product.setNotBuyPermission(this.permission);
     return product;
   }
 }

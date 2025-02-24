@@ -18,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 @Data
 public class Lang {
   private String prefix;
+  private String messageNotPermission;
   private String messageShopNotOpen;
   private String messageNotHavePermission;
   private String messageNotEnoughMoney;
@@ -50,44 +51,44 @@ public class Lang {
 
 
   public Lang() {
-    prefix = "§7[§6CobbleShop§7] ";
-    messageShopNotOpen = "%prefix% §cThe shop is not open";
-    messageNotHavePermission = "%prefix% §cYou do not have permission to use this command";
-    messageNotEnoughMoney = "%prefix% §cYou do not have enough money";
-    messageNotSell = "%prefix% §cYou don't have anything to sell";
-    messageSell = "%prefix% §aYou have sold:\n %sell%";
-    formatSell = " &7- %price%";
+    prefix = "<#4ddb93>[<#ebb35a>CobbleShop🏪<#4ddb93>] ";
+    messageShopNotOpen = "%prefix% <#eb4747>The shop is not open";
+    messageNotHavePermission = "%prefix% <#eb4747>You do not have permission to use this command";
+    messageNotEnoughMoney = "%prefix% <#eb4747>You do not have enough money";
+    messageNotSell = "%prefix% <#eb4747>You don't have anything to sell";
+    messageSell = "%prefix% <#4ddb93>You have sold:\n %sell%";
+    formatSell = " <#bfbfbf>- <#f1d46B>%price%";
     infoShopType = new InfoShopType();
     infoProduct = List.of(
       "%info%",
       " ",
-      "&7Pack: %pack%",
-      "&7Amount: %amount%",
+      "<#bfbfbf>Pack: <#4da6ff>%pack%",
+      "<#bfbfbf>Amount: <#f4d03f>%amount%",
       " ",
-      "&7Buy: &a%buy% %discount% %removebuy%",
-      "&7Sell: &c%sell% %removesell%",
+      "<#bfbfbf>Buy: <#4ddb93>%buy% <#ffac33>%discount% %removebuy%",
+      "<#bfbfbf>Sell: <#eb4747>%sell% %removesell%",
       " ",
-      "&7Left click to buy %removebuy%",
-      "&7Right click to sell %removesell%"
+      "<#bfbfbf>Left click to buy %removebuy%",
+      "<#bfbfbf>Right click to sell %removesell%"
     );
-    globalDisplay = new ItemModel(0, "cobblemon:poke_ball", "&aShop %shop%", List.of(""), 0);
-    globalItemInfoShop = new ItemModel(0, "minecraft:book", "&aInfo", List.of(
+    globalDisplay = new ItemModel(0, "cobblemon:poke_ball", "<#4ddb93>Shop %shop%", List.of(""), 0);
+    globalItemInfoShop = new ItemModel(0, "minecraft:book", "<#4ddb93>Info", List.of(
       "%info%"
     ), 0);
-    globalItemBalance = new ItemModel(0, "minecraft:emerald", "&aBalance", List.of(
-      "&7You have %amount%"
+    globalItemBalance = new ItemModel(0, "minecraft:emerald", "<#f1a66b>Balance", List.of(
+      "<#4ddb93>You have <#f1d46B>%amount%"
     ), 0);
-    globalItemPrevious = new ItemModel(0, "minecraft:arrow", "&aPrevious", List.of(""), 0);
-    globalItemClose = new ItemModel(0, "minecraft:barrier", "&cClose", List.of(""), 0);
-    globalItemNext = new ItemModel(0, "minecraft:arrow", "&aNext", List.of(""), 0);
-    add1 = new ItemModel(21, "item:1:minecraft:lime_stained_glass_pane", "&aAdd 1", List.of(""), 0);
-    add8 = new ItemModel(20, "item:8:minecraft:lime_stained_glass_pane", "&aAdd 8", List.of(""), 0);
-    add16 = new ItemModel(20, "item:16:minecraft:lime_stained_glass_pane", "&aAdd 16", List.of(""), 0);
-    add64 = new ItemModel(19, "item:64:minecraft:lime_stained_glass_pane", "&aAdd 64", List.of(""), 0);
-    remove1 = new ItemModel(23, "item:1:minecraft:red_stained_glass_pane", "&cRemove 1", List.of(""), 0);
-    remove8 = new ItemModel(24, "item:8:minecraft:red_stained_glass_pane", "&cRemove 8", List.of(""), 0);
-    remove16 = new ItemModel(24, "item:16:minecraft:red_stained_glass_pane", "&cRemove 16", List.of(""), 0);
-    remove64 = new ItemModel(25, "item:64:minecraft:red_stained_glass_pane", "&cRemove 64", List.of(""), 0);
+    globalItemPrevious = new ItemModel(0, "minecraft:arrow", "<#4ddb93>Previous", List.of(""), 0);
+    globalItemClose = new ItemModel(0, "minecraft:barrier", "<#eb4747>Close", List.of(""), 0);
+    globalItemNext = new ItemModel(0, "minecraft:arrow", "<#4ddb93>Next", List.of(""), 0);
+    add1 = new ItemModel(21, "item:1:minecraft:lime_stained_glass_pane", "<#4ddb93>Add 1", List.of(""), 0);
+    add8 = new ItemModel(20, "item:8:minecraft:lime_stained_glass_pane", "<#4ddb93>Add 8", List.of(""), 0);
+    add16 = new ItemModel(20, "item:16:minecraft:lime_stained_glass_pane", "<#4ddb93>Add 16", List.of(""), 0);
+    add64 = new ItemModel(19, "item:64:minecraft:lime_stained_glass_pane", "<#4ddb93>Add 64", List.of(""), 0);
+    remove1 = new ItemModel(23, "item:1:minecraft:red_stained_glass_pane", "<#eb4747>Remove 1", List.of(""), 0);
+    remove8 = new ItemModel(24, "item:8:minecraft:red_stained_glass_pane", "<#eb4747>Remove 8", List.of(""), 0);
+    remove16 = new ItemModel(24, "item:16:minecraft:red_stained_glass_pane", "<#eb4747>Remove 16", List.of(""), 0);
+    remove64 = new ItemModel(25, "item:64:minecraft:red_stained_glass_pane", "<#eb4747>Remove 64", List.of(""), 0);
     menuBuyAndSell = new MenuBuyAndSell();
   }
 

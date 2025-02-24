@@ -1,5 +1,8 @@
 package com.kingpixel.cobbleshop.models;
 
+import com.kingpixel.cobbleshop.config.Config;
+import net.minecraft.server.network.ServerPlayerEntity;
+
 import java.math.BigDecimal;
 
 /**
@@ -20,10 +23,10 @@ public class DataProduct {
     return this;
   }
 
-  public void purchase(Product product, Shop shop, int amount) {
+  public void purchase(ServerPlayerEntity player, Product product, Shop shop, int amount, Config config) {
     if (this.product.equals(product.getProduct())) {
       this.amountBuy = this.amountBuy.add(BigDecimal.valueOf(amount));
-      this.buy = this.buy.add(product.getBuy().add(product.getBuyPrice(amount, shop)));
+      this.buy = this.buy.add(product.getBuy().add(product.getBuyPrice(player, amount, shop, config)));
     }
   }
 

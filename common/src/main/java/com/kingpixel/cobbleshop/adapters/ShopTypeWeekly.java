@@ -20,7 +20,7 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true) @Data
 public class ShopTypeWeekly extends ShopType implements JsonSerializer<ShopTypeWeekly>, JsonDeserializer<ShopTypeWeekly> {
   public static ShopTypeWeekly INSTANCE = new ShopTypeWeekly();
-  private final List<DayOfWeek> days;
+  private List<DayOfWeek> days;
 
   public ShopTypeWeekly() {
     setTypeShop(TypeShop.WEEKLY);
@@ -30,6 +30,11 @@ public class ShopTypeWeekly extends ShopType implements JsonSerializer<ShopTypeW
   public ShopTypeWeekly(List<DayOfWeek> days) {
     setTypeShop(TypeShop.WEEKLY);
     this.days = days;
+  }
+
+  @Override public void check() {
+    setTypeShop(TypeShop.WEEKLY);
+    if (days == null) days = Arrays.stream(DayOfWeek.values()).toList();
   }
 
   @Override public boolean isOpen() {

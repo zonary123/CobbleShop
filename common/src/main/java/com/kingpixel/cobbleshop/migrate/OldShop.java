@@ -9,6 +9,7 @@ import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.ItemChance;
 import com.kingpixel.cobbleutils.Model.ItemModel;
+import com.kingpixel.cobbleutils.Model.PanelsConfig;
 import com.kingpixel.cobbleutils.Model.Rectangle;
 import com.kingpixel.cobbleutils.util.Utils;
 import lombok.*;
@@ -193,10 +194,12 @@ public class OldShop {
     shop.setDisplay(oldShop.getDisplay());
     shop.setItemInfoShop(oldShop.getItemInfoShop());
     shop.setGlobalDiscount(oldShop.getGlobalDiscount());
+    shop.getItemBalance().setSlot((int) oldShop.getSlotbalance());
     shop.setProducts(getProducts(oldShop.products));
     shop.setItemPrevious(oldShop.getPrevious());
     shop.setItemClose(oldShop.getClose());
     shop.setItemNext(oldShop.getNext());
+    shop.setPanels(List.of(new PanelsConfig(oldShop.fill, oldShop.getRows())));
     return shop;
   }
 

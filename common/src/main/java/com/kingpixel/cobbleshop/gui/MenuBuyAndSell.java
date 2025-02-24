@@ -32,8 +32,8 @@ public class MenuBuyAndSell {
 
   public MenuBuyAndSell() {
     this.rows = 6;
-    this.titleBuy = "&aBuy";
-    this.titleSell = "&cSell";
+    this.titleBuy = "&aBuy %amount%";
+    this.titleSell = "&cSell %amount%";
     this.productSlot = 22;
     this.itemConfirm = new ItemModel(39, "minecraft:lime_stained_glass_pane", "&aConfirm", List.of(), 0);
     this.itemClose = new ItemModel(49, "minecraft:barrier", "&cClose", List.of(), 0);
@@ -55,7 +55,7 @@ public class MenuBuyAndSell {
 
     // Product Icon
     if (UIUtils.isInside(productSlot, rows)) {
-      template.set(productSlot, product.getIcon(shop, actionShop, amount, options, config));
+      template.set(productSlot, product.getIcon(player, shop, actionShop, amount, options, config));
     }
 
     // Remove and Add Buttons

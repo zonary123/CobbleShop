@@ -16,6 +16,8 @@ import com.kingpixel.cobbleshop.models.TypeShop;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.PanelsConfig;
+import com.kingpixel.cobbleutils.util.AdventureTranslator;
+import com.kingpixel.cobbleutils.util.UIUtils;
 import com.kingpixel.cobbleutils.util.Utils;
 import lombok.Data;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -23,7 +25,9 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -39,6 +43,7 @@ public class Config {
   private String title;
   private String soundOpen;
   private String soundClose;
+  private Map<String, Float> discounts;
   private ItemModel itemClose;
   private List<String> commands;
   private List<PanelsConfig> panels;
@@ -50,6 +55,8 @@ public class Config {
     this.title = "Shop";
     this.soundOpen = "block.chest.open";
     this.soundClose = "block.chest.close";
+    this.discounts = new HashMap<>();
+    this.discounts.put("group.vip", 2.0f);
     this.itemClose = new ItemModel(49, "minecraft:barrier", "&cClose", List.of(), 0);
     this.commands = new ArrayList<>();
     commands.add("shop");
@@ -161,14 +168,17 @@ public class Config {
 
     applyShops(shops, player, options, this, template);
 
-    ItemModel close = CobbleShop.lang.getGlobalItemClose(itemClose);
-    GooeyButton closeButton = close.getButton(1, action -> UIManager.closeUI(player));
-    template.set(itemClose.getSlot(), closeButton);
+    if (UIUtils.isInside(this.itemClose.getSlot(), rows)) {
+      ItemModel close = CobbleShop.lang.getGlobalItemClose(itemClose);
+      GooeyButton closeButton = close.getButton(1, action -> UIManager.closeUI(player));
+      template.set(itemClose.getSlot(), closeButton);
+    }
+
 
     GooeyPage page = GooeyPage
       .builder()
       .template(template)
-      .title(title)
+      .title(AdventureTranslator.toNative(title))
       .build();
 
     UIManager.openUIForcefully(player, page);
@@ -177,16 +187,18 @@ public class Config {
   public static void applyShops(List<Shop> shops, ServerPlayerEntity player, ShopOptionsApi options, Config config,
                                 ChestTemplate template) {
     for (Shop shop : shops) {
-      ItemModel display = CobbleShop.lang.getGlobalDisplay(shop.getDisplay());
-      List<String> lore = new ArrayList<>(display.getLore());
-      lore.replaceAll(s -> shop.getType().replace(s, shop, options));
-      GooeyButton button = display.getButton(
-        1,
-        display.getDisplayname().replace("%shop%", shop.getId()),
-        lore,
-        action -> shop.open(player, options, config, 0, null)
-      );
-      template.set(shop.getDisplay().getSlot(), button);
+      if (UIUtils.isInside(shop.getDisplay().getSlot(), config.getRows())) {
+        ItemModel display = CobbleShop.lang.getGlobalDisplay(shop.getDisplay());
+        List<String> lore = new ArrayList<>(display.getLore());
+        lore.replaceAll(s -> shop.getType().replace(s, shop, options));
+        GooeyButton button = display.getButton(
+          1,
+          display.getDisplayname().replace("%shop%", shop.getId()),
+          lore,
+          action -> shop.open(player, options, config, 0, null)
+        );
+        template.set(shop.getDisplay().getSlot(), button);
+      }
     }
   }
 }

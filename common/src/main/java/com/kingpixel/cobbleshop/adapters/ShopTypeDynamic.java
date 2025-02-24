@@ -35,6 +35,12 @@ public class ShopTypeDynamic extends ShopType implements JsonSerializer<ShopType
     this.productsRotation = productsRotation;
   }
 
+  @Override public void check() {
+    setTypeShop(TypeShop.DYNAMIC);
+    cooldown = Math.max(1, cooldown);
+    productsRotation = Math.max(1, productsRotation);
+  }
+
   @Override public List<Product> getProducts(Shop shop, ShopOptionsApi options) {
     return getDynamicProducts(shop, options);
   }
