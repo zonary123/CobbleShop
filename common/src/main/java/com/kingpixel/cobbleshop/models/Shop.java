@@ -16,10 +16,7 @@ import com.kingpixel.cobbleshop.api.ShopApi;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.config.Config;
 import com.kingpixel.cobbleutils.CobbleUtils;
-import com.kingpixel.cobbleutils.Model.ItemChance;
-import com.kingpixel.cobbleutils.Model.ItemModel;
-import com.kingpixel.cobbleutils.Model.PanelsConfig;
-import com.kingpixel.cobbleutils.Model.Rectangle;
+import com.kingpixel.cobbleutils.Model.*;
 import com.kingpixel.cobbleutils.api.EconomyApi;
 import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.kingpixel.cobbleutils.util.AdventureTranslator;
@@ -144,7 +141,7 @@ public class Shop {
       subShops = new ArrayList<>();
       subShops.add(new SubShop(2, "PERMANENT"));
     }
-    products.forEach(Product::check);
+    products.forEach(product -> product.check(this));
     type.check();
   }
 
@@ -207,6 +204,12 @@ public class Shop {
             } else {
               CobbleUtils.LOGGER.error(options.getModId(),
                 "Slot has a product or button -> " + slot + " Product -> " + product.getProduct());
+              PlayerUtils.sendMessage(
+                player,
+                "Slot has a product or button -> " + slot + " Product -> " + product.getProduct(),
+                CobbleShop.lang.getPrefix(),
+                TypeMessage.CHAT
+              );
             }
           }
         }
@@ -214,14 +217,15 @@ public class Shop {
         // Categories
         List<Shop> categorys = ShopApi.getShops(subShops);
         for (Shop category : categorys) {
-          ItemModel display = CobbleShop.lang.getGlobalDisplay(category.getDisplay());
-          Button button = display.getButton(
-            1,
-            display.getDisplayname().replace("%shop%", category.getId()),
-            action -> category.open(player, options, config, 0, shop)
-          );
-          if (UIUtils.isInside(category.getDisplay().getSlot(), rows))
+          if (UIUtils.isInside(category.getDisplay().getSlot(), rows)) {
+            ItemModel display = CobbleShop.lang.getGlobalDisplay(category.getDisplay());
+            Button button = display.getButton(
+              1,
+              display.getDisplayname().replace("%shop%", category.getId()),
+              action -> category.open(player, options, config, 0, shop)
+            );
             template.set(category.getDisplay().getSlot(), button);
+          }
         }
       }
 
@@ -294,19 +298,27 @@ public class Shop {
 
       GooeyPage page;
 
+      title = title.replace("%shop%", id);
+
       if (hasEnoughtButtons || autoPlace) {
         rectangle.apply(template);
 
         LinkedPage.Builder linkedPage = LinkedPage.builder()
           .template(template)
-          .title(AdventureTranslator.toNative(title.replace("%shop%", id)));
+          .onOpen(action -> {
+            new Sound(soundOpen).playSoundPlayer(player);
+          })
+          .title(AdventureTranslator.toNative(title));
 
         page = PaginationHelper.createPagesFromPlaceholders(template, buttons, linkedPage);
       } else {
         page = GooeyPage.builder()
           .template(template)
+          .onOpen(action -> {
+            new Sound(soundOpen).playSoundPlayer(player);
+          })
           .build();
-        page.setTitle(AdventureTranslator.toNative(title.replace("%shop%", id)));
+        page.setTitle(AdventureTranslator.toNative(title));
       }
 
 

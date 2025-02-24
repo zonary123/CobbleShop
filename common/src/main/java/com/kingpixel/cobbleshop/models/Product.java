@@ -6,6 +6,7 @@ import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.config.Config;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.ItemChance;
+import com.kingpixel.cobbleutils.Model.Sound;
 import com.kingpixel.cobbleutils.api.EconomyApi;
 import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.kingpixel.cobbleutils.util.AdventureTranslator;
@@ -75,10 +76,12 @@ public class Product {
     }
   }
 
-  public void check() {
+  public void check(Shop shop) {
     // Limit Product
     if (product == null) product = "minecraft:stone";
-
+    if (!shop.isAutoPlace()) {
+      if (slot == null) slot = 0;
+    }
     if (cooldown != null || max != null) {
       if (uuid == null) {
         uuid = UUID.randomUUID();
@@ -153,22 +156,30 @@ public class Product {
         }
 
 
-        // Need Permissions
-        if (notBuyPermission != null && PermissionApi.hasPermission(action.getPlayer(), notBuyPermission, 4)) {
+        if (this.notBuyPermission != null && PermissionApi.hasPermission(player, this.notBuyPermission, 4)) {
           PlayerUtils.sendMessage(
-            action.getPlayer(),
+            player,
             CobbleShop.lang.getMessageNotPermission(),
             CobbleShop.lang.getPrefix(),
             TypeMessage.CHAT
           );
           return;
+        } else {
+          PlayerUtils.sendMessage(
+            player,
+            CobbleShop.lang.getMessageNotPermission(),
+            CobbleShop.lang.getPrefix(),
+            TypeMessage.CHAT
+          );
         }
-        if (canBuyPermission == null || PermissionApi.hasPermission(action.getPlayer(), canBuyPermission, 4)) {
-          CobbleShop.lang.getMenuBuyAndSell().open(action.getPlayer(), shop, this, amount, shopAction, options,
+        // Need Permissions
+        if (canBuyPermission == null || PermissionApi.hasPermission(player, canBuyPermission, 4)) {
+          new Sound(shop.getSoundOpen()).playSoundPlayer(player);
+          CobbleShop.lang.getMenuBuyAndSell().open(player, shop, this, amount, shopAction, options,
             config);
         } else {
           PlayerUtils.sendMessage(
-            action.getPlayer(),
+            player,
             CobbleShop.lang.getMessageNotPermission(),
             CobbleShop.lang.getPrefix(),
             TypeMessage.CHAT
