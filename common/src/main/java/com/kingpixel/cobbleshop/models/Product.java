@@ -2,8 +2,10 @@ package com.kingpixel.cobbleshop.models;
 
 import ca.landonjw.gooeylibs2.api.button.GooeyButton;
 import com.kingpixel.cobbleshop.CobbleShop;
+import com.kingpixel.cobbleshop.api.ShopApi;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.config.Config;
+import com.kingpixel.cobbleshop.database.DataBaseFactory;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.ItemChance;
 import com.kingpixel.cobbleutils.Model.Sound;
@@ -20,10 +22,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Unit;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:19
@@ -95,9 +94,9 @@ public class Product {
     }
   }
 
-  public GooeyButton getIcon(ServerPlayerEntity player, Shop shop, ActionShop actionShop, int amount,
+  public GooeyButton getIcon(ServerPlayerEntity player, Stack<Shop> shop, ActionShop actionShop, int amount,
                              ShopOptionsApi options,
-                             Config config) {
+                             Config config, boolean withClose) {
     String finalDisplay = this.display != null ? this.display : product;
     ItemChance itemChance = new ItemChance(finalDisplay, 0);
     String title = this.displayname != null ? this.displayname : itemChance.getTitle();
@@ -120,15 +119,13 @@ public class Product {
         if (actionShop == ActionShop.BUY && (s.contains("%sell%") || s.contains("%removesell%"))) {
           return true;
         }
-        if (actionShop == ActionShop.SELL && (s.contains("%buy%") || s.contains("%removebuy%"))) {
-          return true;
-        }
+        return actionShop == ActionShop.SELL && (s.contains("%buy%") || s.contains("%removebuy%"));
       }
       return false;
     });
 
 
-    lore.replaceAll(s -> replace(player, s, shop, amount, config));
+    lore.replaceAll(s -> replace(player, s, shop.peek(), amount, config));
     if (this.lore != null) {
       int infoIndex = lore.indexOf("%info%");
       if (infoIndex != -1) {
@@ -149,44 +146,50 @@ public class Product {
 
     return builder
       .onClick(action -> {
-        ActionShop shopAction = null;
-        switch (action.getClickType()) {
-          case LEFT_CLICK, SHIFT_LEFT_CLICK -> shopAction = ActionShop.BUY;
-          case RIGHT_CLICK, SHIFT_RIGHT_CLICK -> shopAction = ActionShop.SELL;
-        }
+        try {
+          ActionShop shopAction = null;
+          switch (action.getClickType()) {
+            case LEFT_CLICK, SHIFT_LEFT_CLICK -> shopAction = ActionShop.BUY;
+            case RIGHT_CLICK, SHIFT_RIGHT_CLICK -> shopAction = ActionShop.SELL;
+          }
 
 
-        if (this.notBuyPermission != null && PermissionApi.hasPermission(player, this.notBuyPermission, 4)) {
-          PlayerUtils.sendMessage(
-            player,
-            CobbleShop.lang.getMessageNotPermission(),
-            CobbleShop.lang.getPrefix(),
-            TypeMessage.CHAT
-          );
-          return;
-        } else {
-          PlayerUtils.sendMessage(
-            player,
-            CobbleShop.lang.getMessageNotPermission(),
-            CobbleShop.lang.getPrefix(),
-            TypeMessage.CHAT
-          );
-        }
-        // Need Permissions
-        if (canBuyPermission == null || PermissionApi.hasPermission(player, canBuyPermission, 4)) {
-          new Sound(shop.getSoundOpen()).playSoundPlayer(player);
-          CobbleShop.lang.getMenuBuyAndSell().open(player, shop, this, amount, shopAction, options,
-            config);
-        } else {
-          PlayerUtils.sendMessage(
-            player,
-            CobbleShop.lang.getMessageNotPermission(),
-            CobbleShop.lang.getPrefix(),
-            TypeMessage.CHAT
-          );
+          // Need Permissions
+          Shop peek = shop.peek();
+          if (havePermission(player, peek)) {
+            new Sound(peek.getSoundOpen()).playSoundPlayer(player);
+            if (DataBaseFactory.INSTANCE.canBuy(player, this)) {
+              CobbleShop.lang.getMenuBuyAndSell().open(player, shop, this, amount, shopAction, options,
+                config, withClose);
+            } else {
+              PlayerUtils.sendMessage(
+                player,
+                CobbleShop.lang.getMessageYouCantBuyNow()
+                  .replace("%limit%", String.valueOf(max))
+                  .replace("%time%", PlayerUtils.getCooldown(new Date(DataBaseFactory.INSTANCE.getProductCooldown(player, this)))),
+                CobbleShop.lang.getPrefix(),
+                TypeMessage.CHAT
+              );
+            }
+
+          } else {
+            PlayerUtils.sendMessage(
+              player,
+              CobbleShop.lang.getMessageNotHavePermission(),
+              CobbleShop.lang.getPrefix(),
+              TypeMessage.CHAT
+            );
+          }
+        } catch (Exception e) {
+          e.printStackTrace();
         }
       })
       .build();
+  }
+
+  public boolean havePermission(ServerPlayerEntity player, Shop shop) {
+    if (this.notBuyPermission != null && PermissionApi.hasPermission(player, this.notBuyPermission, 4)) return false;
+    return canBuyPermission == null || PermissionApi.hasPermission(player, canBuyPermission, 4);
   }
 
   private float getEspecialDiscount(Map<String, Float> discounts, ServerPlayerEntity player, float result) {
@@ -262,7 +265,8 @@ public class Product {
     return buy != null && buy.compareTo(BigDecimal.ZERO) > 0;
   }
 
-  public boolean buy(ServerPlayerEntity player, Shop shop, int amount, ShopOptionsApi options, Config config) {
+  public boolean buy(ServerPlayerEntity player, Shop shop, int amount, ShopOptionsApi options, Config config,
+                     Stack<Shop> stack, boolean withClose) {
     boolean result = false;
     ItemChance itemChance = new ItemChance(product, 0);
     BigDecimal totalBuy = getBuyPrice(player, amount, shop, config);
@@ -281,8 +285,14 @@ public class Product {
         CobbleShop.lang.getPrefix(),
         TypeMessage.CHAT
       );
+    } else {
+      if (getUuid() != null)
+        DataBaseFactory.INSTANCE.addProductLimit(player, shop, this, amount);
+      if (ShopApi.getMainConfig().isSaveTransactions())
+        DataBaseFactory.INSTANCE.addTransaction(player, shop, this, ActionShop.BUY, amount, totalBuy);
+
     }
-    shop.open(player, options, config, 0, shop);
+    Config.manageOpenShop(player, options, config, null, stack, null, withClose);
     return result;
   }
 
@@ -313,6 +323,10 @@ public class Product {
   }
 
   public void sell(ServerPlayerEntity player, Shop shop, int amount, Product product) {
+
+    if (ShopApi.getMainConfig().isSaveTransactions()) {
+      DataBaseFactory.INSTANCE.addTransaction(player, shop, product, ActionShop.SELL, amount, product.getSellPrice(amount));
+    }
   }
 
   public static SellProduct sellProduct(Shop shop, ItemStack itemStack, Product product) {

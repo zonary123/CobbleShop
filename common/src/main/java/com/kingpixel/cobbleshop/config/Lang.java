@@ -18,12 +18,13 @@ import java.util.concurrent.CompletableFuture;
 @Data
 public class Lang {
   private String prefix;
-  private String messageNotPermission;
-  private String messageShopNotOpen;
+  private String messageNotBuyPermission;
   private String messageNotHavePermission;
+  private String messageShopNotOpen;
   private String messageNotEnoughMoney;
   private String messageNotSell;
   private String messageSell;
+  private String messageYouCantBuyNow;
   private String formatSell;
   private InfoShopType infoShopType;
   private List<String> infoProduct;
@@ -53,10 +54,12 @@ public class Lang {
   public Lang() {
     prefix = "<#4ddb93>[<#ebb35a>CobbleShop🏪<#4ddb93>] ";
     messageShopNotOpen = "%prefix% <#eb4747>The shop is not open";
+    messageNotBuyPermission = "%prefix% <#eb4747>You do not have permission to buy in this shop";
     messageNotHavePermission = "%prefix% <#eb4747>You do not have permission to use this command";
     messageNotEnoughMoney = "%prefix% <#eb4747>You do not have enough money";
     messageNotSell = "%prefix% <#eb4747>You don't have anything to sell";
     messageSell = "%prefix% <#4ddb93>You have sold:\n %sell%";
+    messageYouCantBuyNow = "%prefix% <#eb4747>You can't buy now the product you get the limit -> %limit%. You have to wait %time% seconds";
     formatSell = " <#bfbfbf>- <#f1d46B>%price%";
     infoShopType = new InfoShopType();
     infoProduct = List.of(

@@ -26,10 +26,7 @@ import com.kingpixel.cobbleutils.util.UIUtils;
 import lombok.Data;
 import net.minecraft.server.network.ServerPlayerEntity;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:19
@@ -61,7 +58,7 @@ public class Shop {
   private List<PanelsConfig> panels;
 
   public Shop() {
-    this.autoPlace = false;
+    this.autoPlace = true;
     this.id = "shop";
     this.title = "%shop%";
     this.currency = "impactor:dollars";
@@ -92,6 +89,7 @@ public class Shop {
   }
 
   public Shop(String id, ShopType type) {
+    this.autoPlace = true;
     this.id = id;
     this.title = "%shop%";
     this.currency = "impactor:dollars";
@@ -149,7 +147,7 @@ public class Shop {
     return options.getModId() + ".shop.shops." + id;
   }
 
-  public void open(ServerPlayerEntity player, ShopOptionsApi options, Config config, int position, Shop shop) {
+  public void open(ServerPlayerEntity player, ShopOptionsApi options, Config config, int position, Stack<Shop> shop, boolean withClose) {
     try {
       if (!type.isOpen()) {
         PlayerUtils.sendMessage(
@@ -176,7 +174,7 @@ public class Shop {
         .builder(rows)
         .build();
 
-      PanelsConfig.applyConfig(template, this.getPanels());
+      PanelsConfig.applyConfig(template, this.getPanels(), rows);
 
       int totalSlots = rectangle.getLength() * rectangle.getWidth();
       List<Product> products = type.getProducts(this, options);
@@ -188,7 +186,7 @@ public class Shop {
         // Products
         if (hasEnoughtButtons || autoPlace) {
           for (Product product : products) {
-            if (!product.hasErrors()) buttons.add(product.getIcon(player, this, null, 1, options, config));
+            if (!product.hasErrors()) buttons.add(product.getIcon(player, shop, null, 1, options, config, withClose));
           }
         } else {
           for (Product product : products) {
@@ -199,8 +197,8 @@ public class Shop {
             }
             TemplateSlotDelegate templateSlotDelegate = template.getSlot(slot);
             if (templateSlotDelegate != null) {
-              if (UIUtils.isInside(slot, rows)) template.set(slot, product.getIcon(player, this, null, 1, options,
-                config));
+              if (UIUtils.isInside(slot, rows)) template.set(slot, product.getIcon(player, shop, null, 1, options,
+                config, withClose));
             } else {
               CobbleUtils.LOGGER.error(options.getModId(),
                 "Slot has a product or button -> " + slot + " Product -> " + product.getProduct());
@@ -222,7 +220,9 @@ public class Shop {
             Button button = display.getButton(
               1,
               display.getDisplayname().replace("%shop%", category.getId()),
-              action -> category.open(player, options, config, 0, shop)
+              action -> {
+                Config.manageOpenShop(player, options, config, category, shop, this, withClose);
+              }
             );
             template.set(category.getDisplay().getSlot(), button);
           }
@@ -257,21 +257,17 @@ public class Shop {
       }
 
 
-      if (UIUtils.isInside(this.itemClose.getSlot(), rows)) {
+      if (UIUtils.isInside(this.itemClose.getSlot(), rows) && withClose) {
         ItemModel itemClose = CobbleShop.lang.getGlobalItemClose(this.itemClose);
         Button closeButton = itemClose.getButton(1, action -> {
           if (!this.getCloseCommand().isEmpty()) {
             PlayerUtils.executeCommand(
-              shop.getCloseCommand(),
+              this.getCloseCommand(),
               player
             );
             return;
           }
-          if (shop == null) {
-            ShopApi.getConfig(options).open(player, options);
-          } else {
-            shop.open(player, options, config, 0, this);
-          }
+          Config.manageOpenShop(player, options, config, null, shop, this, withClose);
         });
         template.set(this.itemClose.getSlot(), closeButton);
       }
@@ -333,5 +329,6 @@ public class Shop {
       );
     }
   }
+
 
 }

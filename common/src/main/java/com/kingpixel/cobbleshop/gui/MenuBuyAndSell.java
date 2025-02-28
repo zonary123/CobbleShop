@@ -6,6 +6,7 @@ import ca.landonjw.gooeylibs2.api.template.types.ChestTemplate;
 import com.kingpixel.cobbleshop.CobbleShop;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.config.Config;
+import com.kingpixel.cobbleshop.database.DataBaseFactory;
 import com.kingpixel.cobbleshop.models.ActionShop;
 import com.kingpixel.cobbleshop.models.Product;
 import com.kingpixel.cobbleshop.models.Shop;
@@ -16,6 +17,7 @@ import com.kingpixel.cobbleutils.util.UIUtils;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.util.List;
+import java.util.Stack;
 
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:54
@@ -43,7 +45,8 @@ public class MenuBuyAndSell {
     );
   }
 
-  public void open(ServerPlayerEntity player, Shop shop, Product product, int amount, ActionShop actionShop, ShopOptionsApi options, Config config) {
+  public void open(ServerPlayerEntity player, Stack<Shop> stack, Product product, int amount, ActionShop actionShop,
+                   ShopOptionsApi options, Config config, boolean withClose) {
     if (!product.isBuyable() && actionShop.equals(ActionShop.BUY)) return;
     if (!product.isSellable() && actionShop.equals(ActionShop.SELL)) return;
 
@@ -55,7 +58,7 @@ public class MenuBuyAndSell {
 
     // Product Icon
     if (UIUtils.isInside(productSlot, rows)) {
-      template.set(productSlot, product.getIcon(player, shop, actionShop, amount, options, config));
+      template.set(productSlot, product.getIcon(player, stack, actionShop, amount, options, config, withClose));
     }
 
     // Remove and Add Buttons
@@ -63,73 +66,53 @@ public class MenuBuyAndSell {
 
     if (totalStack != 1) {
       // Add and Remove 1
-      if (UIUtils.isInside(CobbleShop.lang.getAdd1().getSlot(), rows)) {
-        template.set(CobbleShop.lang.getAdd1().getSlot(), CobbleShop.lang.getAdd1().getButton(action -> {
-          open(player, shop, product, amount + 1, actionShop, options, config);
-        }));
-      }
-      if (UIUtils.isInside(CobbleShop.lang.getRemove1().getSlot(), rows)) {
-        template.set(CobbleShop.lang.getRemove1().getSlot(), CobbleShop.lang.getRemove1().getButton(action -> {
-          if (amount > 1) open(player, shop, product, Math.max(amount - 1, 1), actionShop, options, config);
-        }));
-      }
+      putButton(player, stack, product, amount, actionShop, options, config, withClose, template, CobbleShop.lang.getAdd1(), 1, CobbleShop.lang.getRemove1());
 
       if (totalStack == 16) {
-        if (UIUtils.isInside(CobbleShop.lang.getAdd8().getSlot(), rows)) {
-          template.set(CobbleShop.lang.getAdd8().getSlot(), CobbleShop.lang.getAdd8().getButton(action -> {
-            open(player, shop, product, amount + 8, actionShop, options, config);
-          }));
-        }
-        if (UIUtils.isInside(CobbleShop.lang.getRemove8().getSlot(), rows)) {
-          template.set(CobbleShop.lang.getRemove8().getSlot(), CobbleShop.lang.getRemove8().getButton(action -> {
-            if (amount > 8) open(player, shop, product, Math.max(amount - 8, 1), actionShop, options, config);
-          }));
-        }
+        putButton(player, stack, product, amount, actionShop, options, config, withClose, template, CobbleShop.lang.getAdd8(), 8, CobbleShop.lang.getRemove8());
       }
 
       if (totalStack == 64) {
-        if (UIUtils.isInside(CobbleShop.lang.getAdd16().getSlot(), rows)) {
-          template.set(CobbleShop.lang.getAdd16().getSlot(), CobbleShop.lang.getAdd16().getButton(action -> {
-            open(player, shop, product, amount + 16, actionShop, options, config);
-          }));
-        }
-        if (UIUtils.isInside(CobbleShop.lang.getRemove16().getSlot(), rows)) {
-          template.set(CobbleShop.lang.getRemove16().getSlot(), CobbleShop.lang.getRemove16().getButton(action -> {
-            if (amount > 16) open(player, shop, product, Math.max(amount - 16, 1), actionShop, options, config);
-          }));
-        }
+        putButton(player, stack, product, amount, actionShop, options, config, withClose, template, CobbleShop.lang.getAdd16(), 16, CobbleShop.lang.getRemove16());
       }
 
       if (UIUtils.isInside(CobbleShop.lang.getAdd64().getSlot(), rows)) {
         template.set(CobbleShop.lang.getAdd64().getSlot(), CobbleShop.lang.getAdd64().getButton(action -> {
-          open(player, shop, product, amount + 64, actionShop, options, config);
+          open(player, stack, product, amount + 64, actionShop, options, config, withClose);
         }));
       }
 
       if (UIUtils.isInside(CobbleShop.lang.getRemove64().getSlot(), rows)) {
         template.set(CobbleShop.lang.getRemove64().getSlot(), CobbleShop.lang.getRemove64().getButton(action -> {
-          open(player, shop, product, Math.max(amount - 64, 1), actionShop, options, config);
+          open(player, stack, product, Math.max(amount - 64, 1), actionShop, options, config, withClose);
         }));
       }
     }
 
     // Extra Buttons
-    if (UIUtils.isInside(itemCancel.getSlot(), rows * 9)) {
+    if (UIUtils.isInside(itemCancel.getSlot(), rows)) {
       template.set(itemCancel.getSlot(), itemCancel.getButton(action -> {
-        shop.open(player, options, config, 0, shop);
+        Config.manageOpenShop(player, options, config, null, stack, null, withClose);
       }));
     }
 
-    if (UIUtils.isInside(itemClose.getSlot(), rows * 9)) {
+    if (UIUtils.isInside(itemClose.getSlot(), rows)) {
       template.set(itemClose.getSlot(), itemClose.getButton(action -> {
-        shop.open(player, options, config, 0, shop);
+        Config.manageOpenShop(player, options, config, null, stack, null, withClose);
       }));
     }
 
-    if (UIUtils.isInside(itemConfirm.getSlot(), rows * 9)) {
+    if (UIUtils.isInside(itemConfirm.getSlot(), rows)) {
       template.set(itemConfirm.getSlot(), itemConfirm.getButton(action -> {
+        Shop shop = stack.peek();
         if (actionShop.equals(ActionShop.BUY)) {
-          shop.getType().buyProduct(player, product, shop, amount, options, config);
+          int max;
+          if (product.getUuid() != null) {
+            max = DataBaseFactory.INSTANCE.getUserInfo(player).getProductLimit(product);
+          } else {
+            max = amount;
+          }
+          shop.getType().buyProduct(player, product, shop, max, options, config, stack, withClose);
         } else {
           product.sell(player, shop, amount, product);
         }
@@ -144,5 +127,18 @@ public class MenuBuyAndSell {
       .build();
 
     UIManager.openUIForcefully(player, page);
+  }
+
+  private void putButton(ServerPlayerEntity player, Stack<Shop> stack, Product product, int amount, ActionShop actionShop, ShopOptionsApi options, Config config, boolean withClose, ChestTemplate template, ItemModel add1, int i, ItemModel remove1) {
+    if (UIUtils.isInside(add1.getSlot(), rows)) {
+      template.set(add1.getSlot(), add1.getButton(action -> {
+        open(player, stack, product, amount + i, actionShop, options, config, withClose);
+      }));
+    }
+    if (UIUtils.isInside(remove1.getSlot(), rows)) {
+      template.set(remove1.getSlot(), remove1.getButton(action -> {
+        if (amount > i) open(player, stack, product, Math.max(amount - i, 1), actionShop, options, config, withClose);
+      }));
+    }
   }
 }

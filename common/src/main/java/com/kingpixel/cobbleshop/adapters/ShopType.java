@@ -11,6 +11,7 @@ import lombok.ToString;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.util.List;
+import java.util.Stack;
 
 /**
  * @author Carlos Varas Alonso - 27/08/2024 21:49
@@ -48,8 +49,8 @@ public abstract class ShopType {
    * @param amount  The amount of product to buy
    */
   public void buyProduct(ServerPlayerEntity player, Product product, Shop shop, int amount,
-                         ShopOptionsApi options, Config config) {
-    product.buy(player, shop, amount, options, config);
+                         ShopOptionsApi options, Config config, Stack<Shop> stack, boolean withClose) {
+    product.buy(player, shop, amount, options, config, stack, withClose);
   }
 }
 

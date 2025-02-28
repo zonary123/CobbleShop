@@ -6,21 +6,18 @@ import com.kingpixel.cobbleutils.Model.DataBaseConfig;
  * @author Carlos Varas Alonso - 22/02/2025 3:52
  */
 public class DataBaseFactory {
-  public DataBaseClient client;
+  public static DataBaseClient INSTANCE;
 
   public DataBaseFactory(DataBaseConfig config) {
-    if (client != null) {
-      client.disconnect();
+    if (INSTANCE != null) {
+      INSTANCE.disconnect();
     }
     switch (config.getType()) {
-      case JSON -> client = new DataBaseJSON(config);
-      case MYSQL -> client = new DataBaseMySQL(config);
-      case SQLITE -> client = new DataBaseSQLite(config);
+      case JSON -> INSTANCE = new DataBaseJSON(config);
+      case MYSQL -> INSTANCE = new DataBaseMySQL(config);
+      case SQLITE -> INSTANCE = new DataBaseSQLite(config);
+      default -> throw new IllegalStateException("Unexpected value: " + config.getType());
     }
-    client.connect();
-  }
-
-  public void updateDynamicShop() {
-
+    INSTANCE.connect();
   }
 }

@@ -14,6 +14,7 @@ import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleshop.models.TypeShop;
 import com.kingpixel.cobbleutils.CobbleUtils;
+import com.kingpixel.cobbleutils.Model.DataBaseConfig;
 import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.PanelsConfig;
 import com.kingpixel.cobbleutils.util.AdventureTranslator;
@@ -24,10 +25,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -38,11 +36,13 @@ public class Config {
   private String Path;
   // Essential fields
   private boolean debug;
+  private boolean saveTransactions;
   private String lang;
   private int rows;
   private String title;
   private String soundOpen;
   private String soundClose;
+  private DataBaseConfig dataBase;
   private Map<String, Float> discounts;
   private ItemModel itemClose;
   private List<String> commands;
@@ -50,6 +50,7 @@ public class Config {
 
   public Config() {
     this.debug = false;
+    this.saveTransactions = true;
     this.lang = "en";
     this.rows = 6;
     this.title = "Shop";
@@ -57,6 +58,8 @@ public class Config {
     this.soundClose = "block.chest.close";
     this.discounts = new HashMap<>();
     this.discounts.put("group.vip", 2.0f);
+    this.dataBase = new DataBaseConfig();
+    dataBase.setDatabase("cobbleshop");
     this.itemClose = new ItemModel(49, "minecraft:barrier", "&cClose", List.of(), 0);
     this.commands = new ArrayList<>();
     commands.add("shop");
@@ -120,6 +123,7 @@ public class Config {
     }
     List<Shop> shops = new ArrayList<>();
     shops.add(new Shop(TypeShop.PERMANENT.name(), new ShopTypePermanent()));
+    shops.getFirst().setSubShops(new ArrayList<>());
     shops.add(new Shop(TypeShop.DYNAMIC.name(), new ShopTypeDynamic()));
     shops.add(new Shop(TypeShop.WEEKLY.name(), new ShopTypeWeekly()));
     shops.add(new Shop(TypeShop.DYNAMIC_WEEKLY.name(), new ShopTypeDynamicWeekly()));
@@ -162,11 +166,11 @@ public class Config {
       .build();
 
 
-    PanelsConfig.applyConfig(template, panels);
+    PanelsConfig.applyConfig(template, panels, rows);
 
     List<Shop> shops = ShopApi.getShops(options);
 
-    applyShops(shops, player, options, this, template);
+    applyShops(shops, player, options, this, template, true);
 
     if (UIUtils.isInside(this.itemClose.getSlot(), rows)) {
       ItemModel close = CobbleShop.lang.getGlobalItemClose(itemClose);
@@ -185,7 +189,7 @@ public class Config {
   }
 
   public static void applyShops(List<Shop> shops, ServerPlayerEntity player, ShopOptionsApi options, Config config,
-                                ChestTemplate template) {
+                                ChestTemplate template, boolean withClose) {
     for (Shop shop : shops) {
       if (UIUtils.isInside(shop.getDisplay().getSlot(), config.getRows())) {
         ItemModel display = CobbleShop.lang.getGlobalDisplay(shop.getDisplay());
@@ -195,10 +199,33 @@ public class Config {
           1,
           display.getDisplayname().replace("%shop%", shop.getId()),
           lore,
-          action -> shop.open(player, options, config, 0, null)
+          action -> Config.manageOpenShop(player, options, config, shop, new Stack<>(), shop, withClose)
         );
         template.set(shop.getDisplay().getSlot(), button);
       }
+    }
+  }
+
+  public static void manageOpenShop(ServerPlayerEntity player, ShopOptionsApi options, Config config, Shop add,
+                                    Stack<Shop> stack, Shop actual, boolean withClose) {
+    if (stack == null) stack = new Stack<>();
+    if (actual == null) {
+      stack.peek().open(player, options, config, 0, stack, withClose);
+    } else if (add != null) {
+      stack.push(add);
+      add.open(player, options, config, 0, stack, withClose);
+    } else if (stack.isEmpty()) {
+      config.open(player, options);
+    } else {
+      Shop shop = stack.pop();
+      if (actual.equals(shop)) {
+        if (stack.isEmpty()) {
+          config.open(player, options);
+          return;
+        }
+        shop = stack.pop();
+      }
+      shop.open(player, options, config, 0, stack, withClose);
     }
   }
 }

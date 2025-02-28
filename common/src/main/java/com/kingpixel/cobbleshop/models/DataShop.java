@@ -32,7 +32,7 @@ public class DataShop {
     }
 
     CompletableFuture<Boolean> futureRead = Utils.readFileAsync(CobbleShop.PATH_DATA, "dataShop.json", call -> {
-      CobbleShop.dataShop = CobbleShop.gson.fromJson(call, DataShop.class);
+      CobbleShop.dataShop = CobbleShop.gsonWithOutSpaces.fromJson(call, DataShop.class);
       check();
       write();
     });
@@ -45,7 +45,7 @@ public class DataShop {
   }
 
   public void write() {
-    Utils.writeFileAsync(CobbleShop.PATH_DATA, "dataShop.json", CobbleShop.gson.toJson(CobbleShop.dataShop));
+    Utils.writeFileAsync(CobbleShop.PATH_DATA, "dataShop.json", CobbleShop.gsonWithOutSpaces.toJson(CobbleShop.dataShop));
   }
 
   public void check() {

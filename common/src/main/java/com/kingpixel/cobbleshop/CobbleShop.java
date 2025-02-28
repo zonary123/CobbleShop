@@ -5,6 +5,7 @@ import com.kingpixel.cobbleshop.adapters.*;
 import com.kingpixel.cobbleshop.api.ShopApi;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.config.Lang;
+import com.kingpixel.cobbleshop.database.DataBaseFactory;
 import com.kingpixel.cobbleshop.models.DataShop;
 import com.kingpixel.cobbleshop.models.Product;
 import com.kingpixel.cobbleshop.models.Shop;
@@ -12,6 +13,7 @@ import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.kingpixel.cobbleutils.util.Utils;
 import dev.architectury.event.events.common.CommandRegistrationEvent;
 import dev.architectury.event.events.common.LifecycleEvent;
+import dev.architectury.event.events.common.PlayerEvent;
 import net.minecraft.server.MinecraftServer;
 
 import java.util.ArrayList;
@@ -37,6 +39,7 @@ public class CobbleShop {
   public static ShopOptionsApi options;
   public static Lang lang = new Lang();
   public static Gson gson;
+  public static Gson gsonWithOutSpaces;
   public static DataShop dataShop = new DataShop();
 
   public static void init() {
@@ -46,6 +49,14 @@ public class CobbleShop {
       .registerTypeAdapter(ShopTypeDynamic.class, ShopTypeDynamic.INSTANCE)
       .registerTypeAdapter(ShopTypeWeekly.class, ShopTypeWeekly.INSTANCE)
       .registerTypeAdapter(ShopTypeDynamicWeekly.class, ShopTypeDynamicWeekly.INSTANCE)
+      .create();
+    gsonWithOutSpaces = Utils.newWithoutSpacingGson().newBuilder()
+      .registerTypeAdapter(ShopType.class, ShopTypeAdapter.INSTANCE)
+      .registerTypeAdapter(ShopTypePermanent.class, ShopTypePermanent.INSTANCE)
+      .registerTypeAdapter(ShopTypeDynamic.class, ShopTypeDynamic.INSTANCE)
+      .registerTypeAdapter(ShopTypeWeekly.class, ShopTypeWeekly.INSTANCE)
+      .registerTypeAdapter(ShopTypeDynamicWeekly.class, ShopTypeDynamicWeekly.INSTANCE)
+      .setPrettyPrinting()
       .create();
     options = ShopOptionsApi.builder()
       .modId(MOD_ID)
@@ -57,9 +68,11 @@ public class CobbleShop {
   public static void load(ShopOptionsApi options) {
     ShopApi.register(options, server.getCommandManager().getDispatcher());
     dataShop.init();
+    new DataBaseFactory(ShopApi.getMainConfig().getDataBase());
   }
 
   public static void events() {
+
 
     LifecycleEvent.SERVER_LEVEL_LOAD.register(level -> {
       server = level.getServer();
@@ -75,7 +88,11 @@ public class CobbleShop {
     CommandRegistrationEvent.EVENT.register((dispatcher, commandRegistryAccess, registrationEnvironment) -> {
       ShopApi.register(options, dispatcher);
       dataShop.init();
+      new DataBaseFactory(ShopApi.getMainConfig().getDataBase());
     });
+
+    PlayerEvent.PLAYER_JOIN.register(player -> DataBaseFactory.INSTANCE.getUserInfo(player));
+
   }
 
   public static void initSellProduct() {

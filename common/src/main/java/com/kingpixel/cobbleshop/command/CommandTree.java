@@ -7,8 +7,11 @@ import com.kingpixel.cobbleshop.config.Config;
 import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.server.command.CommandManager;
@@ -16,6 +19,7 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.util.List;
+import java.util.Stack;
 
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:10
@@ -103,23 +107,40 @@ public class CommandTree {
                   })
                   .executes(context -> {
                     if (!context.getSource().isExecutedByPlayer()) return 0;
-                    ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
-                    String shop = StringArgumentType.getString(context, "IdShop");
-                    Config config = ShopApi.getConfig(options);
-                    ShopApi.getShop(options, shop).open(
-                      player,
-                      options,
-                      config,
-                      0,
-                      null
-                    );
+                    openShop(context, options, true);
                     return 1;
-                  })
+                  }).then(
+                    CommandManager.argument("WithClose", BoolArgumentType.bool())
+                      .executes(context -> {
+                        if (!context.getSource().isExecutedByPlayer()) return 0;
+                        boolean withClose = BoolArgumentType.getBool(context, "WithClose");
+                        openShop(context, options, withClose);
+                        return 1;
+                      })
+                  )
               )
           )
       );
 
     return base;
+  }
+
+  private static void openShop(CommandContext<ServerCommandSource> context, ShopOptionsApi options, boolean withClose) throws CommandSyntaxException {
+    ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
+    String s = StringArgumentType.getString(context, "IdShop");
+    Config config = ShopApi.getConfig(options);
+    Shop shop = ShopApi.getShop(options, s);
+    Stack<Shop> stack = new Stack<>();
+    stack.push(shop);
+
+    shop.open(
+      player,
+      options,
+      config,
+      0,
+      stack,
+      withClose
+    );
   }
 
 

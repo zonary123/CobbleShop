@@ -3,7 +3,9 @@ package com.kingpixel.cobbleshop.api;
 import com.kingpixel.cobbleshop.CobbleShop;
 import com.kingpixel.cobbleshop.command.CommandTree;
 import com.kingpixel.cobbleshop.config.Config;
+import com.kingpixel.cobbleshop.database.DataBaseFactory;
 import com.kingpixel.cobbleshop.migrate.OldShop;
+import com.kingpixel.cobbleshop.models.ActionShop;
 import com.kingpixel.cobbleshop.models.Product;
 import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleshop.models.SubShop;
@@ -63,6 +65,9 @@ public class ShopApi {
       sellProducts.forEach((shop, products) -> products.forEach(product -> {
         Product.SellProduct sellProduct = Product.sellProduct(shop, itemStack, product);
         if (sellProduct == null) return;
+        int amount = itemStack.getCount();
+        DataBaseFactory.INSTANCE.addTransaction(player, shop, product, ActionShop.SELL, amount,
+          product.getSellPrice(amount));
         dataSell.put(sellProduct.getCurrency(), dataSell.getOrDefault(sellProduct.getCurrency(), BigDecimal.ZERO).add(sellProduct.getPrice()));
       }));
     }
@@ -90,7 +95,7 @@ public class ShopApi {
     }
   }
 
-  private static Config getMainConfig() {
+  public static Config getMainConfig() {
     return getConfig(ShopOptionsApi.builder()
       .modId(CobbleShop.MOD_ID).build());
   }
