@@ -42,8 +42,6 @@ public class Lang {
   private ItemModel remove8;
   private ItemModel remove16;
   private ItemModel remove64;
-
-
   // Button Pages
   private ItemModel globalItemPrevious;
   private ItemModel globalItemClose;
@@ -55,7 +53,7 @@ public class Lang {
     prefix = "<#4ddb93>[<#ebb35a>CobbleShop🏪<#4ddb93>] ";
     messageShopNotOpen = "%prefix% <#eb4747>The shop is not open";
     messageNotBuyPermission = "%prefix% <#eb4747>You do not have permission to buy in this shop";
-    messageNotHavePermission = "%prefix% <#eb4747>You do not have permission to use this command";
+    messageNotHavePermission = "%prefix% <#eb4747>You do not have the permission for this shop -> %permission%";
     messageNotEnoughMoney = "%prefix% <#eb4747>You do not have enough money";
     messageNotSell = "%prefix% <#eb4747>You don't have anything to sell";
     messageSell = "%prefix% <#4ddb93>You have sold:\n %sell%";

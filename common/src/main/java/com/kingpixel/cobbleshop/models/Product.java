@@ -22,6 +22,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Unit;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 
 /**
@@ -147,10 +148,11 @@ public class Product {
     return builder
       .onClick(action -> {
         try {
-          ActionShop shopAction = null;
+          ActionShop shopAction;
           switch (action.getClickType()) {
             case LEFT_CLICK, SHIFT_LEFT_CLICK -> shopAction = ActionShop.BUY;
             case RIGHT_CLICK, SHIFT_RIGHT_CLICK -> shopAction = ActionShop.SELL;
+            default -> shopAction = ActionShop.BUY;
           }
 
 
@@ -175,7 +177,7 @@ public class Product {
           } else {
             PlayerUtils.sendMessage(
               player,
-              CobbleShop.lang.getMessageNotHavePermission(),
+              CobbleShop.lang.getMessageNotBuyPermission(),
               CobbleShop.lang.getPrefix(),
               TypeMessage.CHAT
             );
@@ -336,11 +338,15 @@ public class Product {
       int itemStackCount = itemStack.getCount();
       int itemProductCount = itemProduct.getCount();
 
-      // Calculate the total sell price based on the quantity
+      // Evitar división por cero
+      if (itemProductCount <= 0) return null;
+
+      // Calcular el precio total de venta basado en la cantidad
       BigDecimal totalSellPrice = product.getSellPrice(itemStackCount);
 
-      // Adjust the price based on the product's quantity
-      BigDecimal adjustedPrice = totalSellPrice.divide(BigDecimal.valueOf(itemProductCount), BigDecimal.ROUND_HALF_UP);
+      // Ajustar el precio basado en la cantidad del producto
+      BigDecimal adjustedPrice = totalSellPrice.divide(BigDecimal.valueOf(itemProductCount), RoundingMode.HALF_UP);
+
       itemStack.decrement(itemStackCount);
       return new SellProduct(shop.getCurrency(), adjustedPrice);
     }

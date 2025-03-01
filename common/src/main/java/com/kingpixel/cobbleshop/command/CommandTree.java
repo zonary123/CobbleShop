@@ -28,8 +28,6 @@ public class CommandTree {
   public static void register(ShopOptionsApi options, CommandDispatcher<ServerCommandSource> dispatcher) {
     LiteralArgumentBuilder<ServerCommandSource> base;
 
-    LiteralArgumentBuilder<ServerCommandSource> overBase = null;
-
     for (String command : options.getCommands()) {
       if (options.getModId().equals(CobbleShop.MOD_ID)) {
         base = build(CommandManager.literal(command), options);
@@ -47,15 +45,7 @@ public class CommandTree {
     dispatcher.register(
       CommandManager.literal("sell")
         .requires(source -> PermissionApi.hasPermission(source, "cobbleshop.sell", 4))
-        .executes(context -> {
-          if (!context.getSource().isExecutedByPlayer()) return 0;
-          ServerPlayerEntity player = context.getSource().getPlayer();
-          if (player == null) return 0;
-          PlayerInventory inventory = player.getInventory();
-          if (inventory == null) return 0;
-          ShopApi.sellAll(context.getSource().getPlayer(), inventory.main);
-          return 1;
-        }).then(
+        .then(
           CommandManager.literal("hand")
             .executes(context -> {
               if (!context.getSource().isExecutedByPlayer()) return 0;
@@ -64,6 +54,17 @@ public class CommandTree {
               PlayerInventory inventory = player.getInventory();
               if (inventory == null) return 0;
               ShopApi.sellAll(context.getSource().getPlayer(), List.of(inventory.getMainHandStack()));
+              return 1;
+            })
+        ).then(
+          CommandManager.literal("all")
+            .executes(context -> {
+              if (!context.getSource().isExecutedByPlayer()) return 0;
+              ServerPlayerEntity player = context.getSource().getPlayer();
+              if (player == null) return 0;
+              PlayerInventory inventory = player.getInventory();
+              if (inventory == null) return 0;
+              ShopApi.sellAll(context.getSource().getPlayer(), inventory.main);
               return 1;
             })
         )

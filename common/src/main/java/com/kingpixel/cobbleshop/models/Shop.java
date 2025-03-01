@@ -139,6 +139,7 @@ public class Shop {
       subShops = new ArrayList<>();
       subShops.add(new SubShop(2, "PERMANENT"));
     }
+    if (!currency.contains(":")) currency = "impactor:" + currency;
     products.forEach(product -> product.check(this));
     type.check();
   }
