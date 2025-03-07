@@ -97,7 +97,7 @@ public class Product {
 
   public GooeyButton getIcon(ServerPlayerEntity player, Stack<Shop> shop, ActionShop actionShop, int amount,
                              ShopOptionsApi options,
-                             Config config, boolean withClose) {
+                             Config config, boolean withClose, String playerBalance) {
     String finalDisplay = this.display != null ? this.display : product;
     ItemChance itemChance = new ItemChance(finalDisplay, 0);
     String title = this.displayname != null ? this.displayname : itemChance.getTitle();
@@ -126,15 +126,26 @@ public class Product {
     });
 
 
-    lore.replaceAll(s -> replace(player, s, shop.peek(), amount, config));
+    lore.replaceAll(s -> replace(player, s, shop.peek(), amount, config, playerBalance));
+    boolean infoReplaced = false;
+
     if (this.lore != null) {
-      int infoIndex = lore.indexOf("%info%");
-      if (infoIndex != -1) {
-        lore.remove(infoIndex);
-        lore.addAll(infoIndex, this.lore);
+      for (int i = 0; i < lore.size(); i++) {
+        String line = lore.get(i);
+        if (line.contains("%info%")) {
+          lore.remove(i);
+          lore.addAll(i, this.lore);
+          infoReplaced = true;
+          break;
+        }
       }
     }
-    lore.removeIf(s -> s.contains("%info%"));
+
+    if (!infoReplaced) {
+      lore.replaceAll(s -> s.contains("%info%") ? CobbleShop.lang.getNotExtraInfo() : s);
+    } else {
+      lore.removeIf(s -> s.contains("%info%"));
+    }
 
 
     ItemStack itemStack = itemChance.getItemStack();
@@ -228,7 +239,19 @@ public class Product {
     return sell.multiply(BigDecimal.valueOf(amount));
   }
 
-  private String replace(ServerPlayerEntity player, String s, Shop shop, int amount, Config config) {
+  public BigDecimal getSellPricePerUnit(ItemStack itemStack) {
+    if (itemStack == null) {
+      itemStack = getItemStack();
+    }
+    int amount = itemStack.getCount();
+    if (amount == 1) {
+      return sell;
+    } else {
+      return sell.divide(BigDecimal.valueOf(amount), RoundingMode.HALF_UP);
+    }
+  }
+
+  private String replace(ServerPlayerEntity player, String s, Shop shop, int amount, Config config, String playerBalance) {
     if (s == null || s.isEmpty()) return "";
     String currency = shop.getCurrency();
 
@@ -247,7 +270,7 @@ public class Product {
     }
     if (s.contains("%discount%")) {
       float discount = getDiscount(player, shop, config);
-      s = s.replace("%discount%", discount >= 0f ? discount + "%" : "");
+      s = s.replace("%discount%", discount > 0f ? discount + "%" : "");
     }
     if (s.contains("%removebuy%")) {
       s = s.replace("%removebuy%", "");
@@ -255,6 +278,9 @@ public class Product {
     if (s.contains("%removesell%")) {
       s = s.replace("%removesell%", "");
     }
+
+    s = s.replace("%balance%", playerBalance == null ? "" : playerBalance);
+
     return s;
   }
 
@@ -324,11 +350,49 @@ public class Product {
     return new ItemChance(product, 0).getItemStack();
   }
 
-  public void sell(ServerPlayerEntity player, Shop shop, int amount, Product product) {
+  public void sell(ServerPlayerEntity player, Shop shop, int amount, Product product, ShopOptionsApi options, Config config,
+                   Stack<Shop> stack, boolean withClose) {
+    ItemStack productItemStack = product.getItemStack();
+    BigDecimal sellPricePerUnit = product.getSellPricePerUnit(productItemStack);
+    BigDecimal total = BigDecimal.ZERO;
+    var playerInventory = player.getInventory();
+    int remainingAmount = amount;
+    int selled = 0;
 
-    if (ShopApi.getMainConfig().isSaveTransactions()) {
-      DataBaseFactory.INSTANCE.addTransaction(player, shop, product, ActionShop.SELL, amount, product.getSellPrice(amount));
+    for (ItemStack itemStack : playerInventory.main) {
+      if (areEquals(itemStack, productItemStack)) {
+        int stackCount = itemStack.getCount();
+        if (stackCount >= remainingAmount) {
+          itemStack.decrement(remainingAmount);
+          selled += remainingAmount;
+          total = total.add(sellPricePerUnit.multiply(BigDecimal.valueOf(remainingAmount)));
+          remainingAmount = 0;
+          break;
+        } else {
+          remainingAmount -= stackCount;
+          selled += stackCount;
+          itemStack.decrement(stackCount);
+          total = total.add(sellPricePerUnit.multiply(BigDecimal.valueOf(stackCount)));
+        }
+      }
+      if (remainingAmount <= 0) break;
     }
+
+    EconomyApi.addMoney(player, total, shop.getCurrency());
+
+    PlayerUtils.sendMessage(
+      player,
+      CobbleShop.lang.getMessageSimpleSell()
+        .replace("%product%", productItemStack.getName().getString())
+        .replace("%amount%", String.valueOf(selled))
+        .replace("%price%", EconomyApi.formatMoney(total, shop.getCurrency())),
+      CobbleShop.lang.getPrefix(),
+      TypeMessage.CHAT
+    );
+    if (ShopApi.getMainConfig().isSaveTransactions()) {
+      DataBaseFactory.INSTANCE.addTransaction(player, shop, product, ActionShop.SELL, selled, total);
+    }
+    Config.manageOpenShop(player, options, config, null, stack, null, withClose);
   }
 
   public static SellProduct sellProduct(Shop shop, ItemStack itemStack, Product product) {

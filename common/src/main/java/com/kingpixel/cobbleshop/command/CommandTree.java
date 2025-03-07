@@ -1,22 +1,26 @@
 package com.kingpixel.cobbleshop.command;
 
 import com.kingpixel.cobbleshop.CobbleShop;
+import com.kingpixel.cobbleshop.adapters.ShopType;
+import com.kingpixel.cobbleshop.adapters.ShopTypePermanent;
 import com.kingpixel.cobbleshop.api.ShopApi;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.config.Config;
+import com.kingpixel.cobbleshop.gui.edit.MenuEdit;
 import com.kingpixel.cobbleshop.models.Shop;
+import com.kingpixel.cobbleshop.models.TypeShop;
 import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
 
 import java.util.List;
 import java.util.Stack;
@@ -44,7 +48,7 @@ public class CommandTree {
     // Sell
     dispatcher.register(
       CommandManager.literal("sell")
-        .requires(source -> PermissionApi.hasPermission(source, "cobbleshop.sell", 4))
+        .requires(source -> PermissionApi.hasPermission(source, "cobbleshop.sell.base", 4))
         .then(
           CommandManager.literal("hand")
             .executes(context -> {
@@ -55,7 +59,16 @@ public class CommandTree {
               if (inventory == null) return 0;
               ShopApi.sellAll(context.getSource().getPlayer(), List.of(inventory.getMainHandStack()));
               return 1;
-            })
+            }).then(
+              CommandManager.argument("player", EntityArgumentType.player())
+                .requires(source -> PermissionApi.hasPermission(source, "cobbleshop.sell.other", 4))
+                .executes(context -> {
+                  if (!context.getSource().isExecutedByPlayer()) return 0;
+                  ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
+                  ShopApi.sellAll(player, List.of(player.getMainHandStack()));
+                  return 1;
+                })
+            )
         ).then(
           CommandManager.literal("all")
             .executes(context -> {
@@ -66,7 +79,16 @@ public class CommandTree {
               if (inventory == null) return 0;
               ShopApi.sellAll(context.getSource().getPlayer(), inventory.main);
               return 1;
-            })
+            }).then(
+              CommandManager.argument("player", EntityArgumentType.player())
+                .requires(source -> PermissionApi.hasPermission(source, "cobbleshop.sell.other", 4))
+                .executes(context -> {
+                  if (!context.getSource().isExecutedByPlayer()) return 0;
+                  ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
+                  ShopApi.sellAll(player, player.getInventory().main);
+                  return 1;
+                })
+            )
         )
     );
 
@@ -74,15 +96,18 @@ public class CommandTree {
   }
 
   private static LiteralArgumentBuilder<ServerCommandSource> build(LiteralArgumentBuilder<ServerCommandSource> base, ShopOptionsApi options) {
+    String modId = options.getModId().equals(CobbleShop.MOD_ID) ? CobbleShop.MOD_ID :
+      options.getModId() + ".shop";
     base
-      .requires(source -> PermissionApi.hasPermission(source, options.getModId() + ".shop", 4))
+      .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".base",
+        modId + ".admin"), 4))
       .executes(context -> {
         if (!context.getSource().isExecutedByPlayer()) return 0;
         ShopApi.getConfig(options).open(context.getSource().getPlayer(), options);
         return 1;
       }).then(
         CommandManager.literal("reload")
-          .requires(source -> PermissionApi.hasPermission(source, options.getModId() + ".shop.reload", 4))
+          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".reload", modId + ".admin"), 4))
           .executes(context -> {
             if (!context.getSource().isExecutedByPlayer()) return 0;
             CobbleShop.load(options);
@@ -90,13 +115,17 @@ public class CommandTree {
           })
       ).then(
         CommandManager.literal("other")
-          .requires(source -> PermissionApi.hasPermission(source, options.getModId() + ".shop.other", 4))
+          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".other",
+            modId + ".admin"), 4))
           .then(
-            CommandManager.argument("player", EntityArgumentType.player())
+            CommandManager.argument("player", EntityArgumentType.players())
               .executes(context -> {
-                if (!context.getSource().isExecutedByPlayer()) return 0;
-                ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
-                ShopApi.getConfig(options).open(player, options);
+                var players = EntityArgumentType.getPlayers(context, "player");
+                if (players.isEmpty()) return 0;
+                var config = ShopApi.getConfig(options);
+                for (ServerPlayerEntity player : players) {
+                  config.open(player, options);
+                }
                 return 1;
               }).then(
                 CommandManager.argument("IdShop", StringArgumentType.string())
@@ -107,13 +136,11 @@ public class CommandTree {
                     return builder.buildFuture();
                   })
                   .executes(context -> {
-                    if (!context.getSource().isExecutedByPlayer()) return 0;
                     openShop(context, options, true);
                     return 1;
                   }).then(
                     CommandManager.argument("WithClose", BoolArgumentType.bool())
                       .executes(context -> {
-                        if (!context.getSource().isExecutedByPlayer()) return 0;
                         boolean withClose = BoolArgumentType.getBool(context, "WithClose");
                         openShop(context, options, withClose);
                         return 1;
@@ -121,27 +148,94 @@ public class CommandTree {
                   )
               )
           )
+      ).then(
+        CommandManager.literal("edit")
+          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".edit", modId + ".admin"), 4))
+          .then(
+            CommandManager.argument("shop", StringArgumentType.string())
+              .suggests((commandContext, suggestionsBuilder) -> {
+                for (Shop shop : ShopApi.getShops(options)) {
+                  suggestionsBuilder.suggest(shop.getId());
+                }
+                return suggestionsBuilder.buildFuture();
+              })
+              .executes(context -> {
+                if (!context.getSource().isExecutedByPlayer()) return 0;
+                String idShop = StringArgumentType.getString(context, "shop");
+                var shop = ShopApi.getShop(options, idShop);
+                if (shop == null) return 0;
+                ServerPlayerEntity player = context.getSource().getPlayer();
+                if (player == null) return 0;
+                player.sendMessage(
+                  Text.literal("This command is in development, please configure it in the json file"), false
+                );
+                MenuEdit.open(context.getSource().getPlayer(), shop, options);
+                return 1;
+              })
+          )
+      ).then(
+        CommandManager.literal("create")
+          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".create", modId + ".admin"), 4))
+          .then(
+            CommandManager.argument("shop", StringArgumentType.string())
+              .then(
+                CommandManager.argument("type", StringArgumentType.string())
+                  .suggests((commandContext, suggestionsBuilder) -> {
+                    for (TypeShop value : TypeShop.values()) {
+                      suggestionsBuilder.suggest(value.name());
+                    }
+                    return suggestionsBuilder.buildFuture();
+                  })
+                  .executes(context -> {
+                    if (!context.getSource().isExecutedByPlayer()) return 0;
+                    String id = StringArgumentType.getString(context, "shop");
+                    boolean exist = ShopApi.getShops(options).stream().anyMatch(shop -> shop.getId().equals(id));
+                    if (exist) {
+                      context.getSource().sendMessage(
+                        Text.literal("The shop already exists")
+                      );
+                      return 0;
+                    }
+                    Shop shop = new Shop(id, new ShopTypePermanent());
+                    shop.setType(ShopType.get(StringArgumentType.getString(context, "type")));
+                    ShopApi.getConfig(options).createShop(options, shop);
+                    return 1;
+                  })
+              )
+          )
       );
 
     return base;
   }
 
-  private static void openShop(CommandContext<ServerCommandSource> context, ShopOptionsApi options, boolean withClose) throws CommandSyntaxException {
-    ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
-    String s = StringArgumentType.getString(context, "IdShop");
-    Config config = ShopApi.getConfig(options);
-    Shop shop = ShopApi.getShop(options, s);
-    Stack<Shop> stack = new Stack<>();
-    stack.push(shop);
+  private static void openShop(CommandContext<ServerCommandSource> context, ShopOptionsApi options, boolean withClose) {
+    try {
+      var players = EntityArgumentType.getPlayers(context, "player");
+      String s = StringArgumentType.getString(context, "IdShop");
+      Config config = ShopApi.getConfig(options);
+      Shop shop = ShopApi.getShop(options, s);
+      if (shop == null) {
+        for (ServerPlayerEntity player : players) {
+          config.open(player, options);
+        }
+      } else {
+        Stack<Shop> stack = new Stack<>();
+        stack.push(shop);
+        for (ServerPlayerEntity player : players) {
+          shop.open(
+            player,
+            options,
+            config,
+            0,
+            stack,
+            withClose
+          );
+        }
+      }
 
-    shop.open(
-      player,
-      options,
-      config,
-      0,
-      stack,
-      withClose
-    );
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
   }
 
 

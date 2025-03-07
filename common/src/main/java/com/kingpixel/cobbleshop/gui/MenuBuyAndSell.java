@@ -12,6 +12,7 @@ import com.kingpixel.cobbleshop.models.Product;
 import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.PanelsConfig;
+import com.kingpixel.cobbleutils.api.EconomyApi;
 import com.kingpixel.cobbleutils.util.AdventureTranslator;
 import com.kingpixel.cobbleutils.util.UIUtils;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -58,7 +59,9 @@ public class MenuBuyAndSell {
 
     // Product Icon
     if (UIUtils.isInside(productSlot, rows)) {
-      template.set(productSlot, product.getIcon(player, stack, actionShop, amount, options, config, withClose));
+      String playerBalance = EconomyApi.formatMoney(EconomyApi.getMoney(player, stack.peek().getCurrency()),
+        stack.peek().getCurrency());
+      template.set(productSlot, product.getIcon(player, stack, actionShop, amount, options, config, withClose, playerBalance));
     }
 
     // Remove and Add Buttons
@@ -114,7 +117,7 @@ public class MenuBuyAndSell {
           }
           shop.getType().buyProduct(player, product, shop, max, options, config, stack, withClose);
         } else {
-          product.sell(player, shop, amount, product);
+          product.sell(player, shop, amount, product, options, config, stack, withClose);
         }
       }));
     }

@@ -24,8 +24,10 @@ public class Lang {
   private String messageNotEnoughMoney;
   private String messageNotSell;
   private String messageSell;
+  private String messageSimpleSell;
   private String messageYouCantBuyNow;
   private String formatSell;
+  private String notExtraInfo;
   private InfoShopType infoShopType;
   private List<String> infoProduct;
   // Buttons Shop
@@ -57,8 +59,10 @@ public class Lang {
     messageNotEnoughMoney = "%prefix% <#eb4747>You do not have enough money";
     messageNotSell = "%prefix% <#eb4747>You don't have anything to sell";
     messageSell = "%prefix% <#4ddb93>You have sold:\n %sell%";
+    messageSimpleSell = "%prefix% <#4ddb93>You have sold %amount% and you have earned %price%";
     messageYouCantBuyNow = "%prefix% <#eb4747>You can't buy now the product you get the limit -> %limit%. You have to wait %time% seconds";
     formatSell = " <#bfbfbf>- <#f1d46B>%price%";
+    notExtraInfo = "<#bfbfbf>No extra information";
     infoShopType = new InfoShopType();
     infoProduct = List.of(
       "%info%",
@@ -70,7 +74,9 @@ public class Lang {
       "<#bfbfbf>Sell: <#eb4747>%sell% %removesell%",
       " ",
       "<#bfbfbf>Left click to buy %removebuy%",
-      "<#bfbfbf>Right click to sell %removesell%"
+      "<#bfbfbf>Right click to sell %removesell%",
+      " ",
+      "<#bfbfbf>Your Balance: %balance% "
     );
     globalDisplay = new ItemModel(0, "cobblemon:poke_ball", "<#4ddb93>Shop %shop%", List.of(""), 0);
     globalItemInfoShop = new ItemModel(0, "minecraft:book", "<#4ddb93>Info", List.of(

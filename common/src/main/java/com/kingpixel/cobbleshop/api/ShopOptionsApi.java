@@ -22,4 +22,8 @@ public class ShopOptionsApi {
     this.commands = commands;
   }
 
+  public String getPathShop() {
+    return path + "shop/";
+  }
+
 }

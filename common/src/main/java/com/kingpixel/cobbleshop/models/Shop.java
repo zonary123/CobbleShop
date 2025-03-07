@@ -2,6 +2,7 @@ package com.kingpixel.cobbleshop.models;
 
 import ca.landonjw.gooeylibs2.api.UIManager;
 import ca.landonjw.gooeylibs2.api.button.Button;
+import ca.landonjw.gooeylibs2.api.button.GooeyButton;
 import ca.landonjw.gooeylibs2.api.button.linked.LinkType;
 import ca.landonjw.gooeylibs2.api.button.linked.LinkedPageButton;
 import ca.landonjw.gooeylibs2.api.helpers.PaginationHelper;
@@ -19,14 +20,12 @@ import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.*;
 import com.kingpixel.cobbleutils.api.EconomyApi;
 import com.kingpixel.cobbleutils.api.PermissionApi;
-import com.kingpixel.cobbleutils.util.AdventureTranslator;
-import com.kingpixel.cobbleutils.util.PlayerUtils;
-import com.kingpixel.cobbleutils.util.TypeMessage;
-import com.kingpixel.cobbleutils.util.UIUtils;
+import com.kingpixel.cobbleutils.util.*;
 import lombok.Data;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:19
@@ -117,6 +116,15 @@ public class Shop {
     );
   }
 
+  private void write(ShopOptionsApi options) {
+    CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(this.getPath(), this.getId() + ".json",
+      CobbleShop.gson.toJson(this));
+    if (!futureWrite.join()) {
+      CobbleUtils.LOGGER.error("Error writing file: " + this.getPath() + this.getId() + ".json");
+    }
+    CobbleShop.load(options);
+  }
+
   private Product from(ItemChance itemChance) {
     Product product = new Product();
     product.setProduct(itemChance.getItem());
@@ -176,7 +184,8 @@ public class Shop {
         .build();
 
       PanelsConfig.applyConfig(template, this.getPanels(), rows);
-
+      String playerBalance = EconomyApi.formatMoney(EconomyApi.getMoney(player, this.getCurrency()),
+        this.getCurrency());
       int totalSlots = rectangle.getLength() * rectangle.getWidth();
       List<Product> products = type.getProducts(this, options);
       int totalProducts = products.size();
@@ -187,7 +196,9 @@ public class Shop {
         // Products
         if (hasEnoughtButtons || autoPlace) {
           for (Product product : products) {
-            if (!product.hasErrors()) buttons.add(product.getIcon(player, shop, null, 1, options, config, withClose));
+
+            if (!product.hasErrors())
+              buttons.add(product.getIcon(player, shop, null, 1, options, config, withClose, playerBalance));
           }
         } else {
           for (Product product : products) {
@@ -199,7 +210,7 @@ public class Shop {
             TemplateSlotDelegate templateSlotDelegate = template.getSlot(slot);
             if (templateSlotDelegate != null) {
               if (UIUtils.isInside(slot, rows)) template.set(slot, product.getIcon(player, shop, null, 1, options,
-                config, withClose));
+                config, withClose, playerBalance));
             } else {
               CobbleUtils.LOGGER.error(options.getModId(),
                 "Slot has a product or button -> " + slot + " Product -> " + product.getProduct());
@@ -214,19 +225,16 @@ public class Shop {
         }
       } else {
         // Categories
-        List<Shop> categorys = ShopApi.getShops(subShops);
-        for (Shop category : categorys) {
-          if (UIUtils.isInside(category.getDisplay().getSlot(), rows)) {
-            ItemModel display = CobbleShop.lang.getGlobalDisplay(category.getDisplay());
-            Button button = display.getButton(
-              1,
-              display.getDisplayname().replace("%shop%", category.getId()),
-              action -> {
-                Config.manageOpenShop(player, options, config, category, shop, this, withClose);
-              }
-            );
-            template.set(category.getDisplay().getSlot(), button);
-          }
+        if (autoPlace) {
+          subShops.forEach(subShop -> {
+            buttons.add(getSubShopButton(options, subShop, player, config, shop, withClose));
+          });
+        } else {
+          subShops.forEach(subShop -> {
+            if (UIUtils.isInside(subShop.getSlot(), rows)) {
+              template.set(subShop.getSlot(), getSubShopButton(options, subShop, player, config, shop, withClose));
+            }
+          });
         }
       }
 
@@ -303,7 +311,7 @@ public class Shop {
         LinkedPage.Builder linkedPage = LinkedPage.builder()
           .template(template)
           .onOpen(action -> {
-            new Sound(soundOpen).playSoundPlayer(player);
+            new Sound(soundOpen).playSoundPlayer(action.getPlayer());
           })
           .title(AdventureTranslator.toNative(title));
 
@@ -331,5 +339,19 @@ public class Shop {
     }
   }
 
+  private GooeyButton getSubShopButton(ShopOptionsApi options, SubShop subShop, ServerPlayerEntity player,
+                                       Config config, Stack<Shop> shop, boolean withClose) {
+    Shop category = ShopApi.getShop(options, subShop.getIdShop());
+    if (category == null) {
+      CobbleUtils.LOGGER.info(CobbleShop.MOD_ID, "Not Found the shop with id -> " + subShop.getIdShop());
+      return null;
+    }
+    ItemModel display = CobbleShop.lang.getGlobalDisplay(category.getDisplay());
+    return display.getButton(
+      1,
+      display.getDisplayname().replace("%shop%", category.getId()),
+      action -> Config.manageOpenShop(player, options, config, category, shop, this, withClose)
+    );
+  }
 
 }

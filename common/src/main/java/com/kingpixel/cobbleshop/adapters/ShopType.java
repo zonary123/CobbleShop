@@ -22,6 +22,21 @@ import java.util.Stack;
 public abstract class ShopType {
   private TypeShop typeShop;
 
+  public static ShopType get(String type) {
+    switch (TypeShop.valueOf(type)) {
+      case DYNAMIC:
+        return new ShopTypeDynamic();
+      case DYNAMIC_WEEKLY:
+        return new ShopTypeDynamicWeekly();
+      case PERMANENT:
+        return new ShopTypePermanent();
+      case WEEKLY:
+        return new ShopTypeWeekly();
+      default:
+        return new ShopTypePermanent();
+    }
+  }
+
 
   public List<Product> getProducts(Shop shop, ShopOptionsApi options) {
     return shop.getProducts();

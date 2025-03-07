@@ -131,10 +131,16 @@ public class Config {
     for (Shop shop : shops) {
       shop.getDisplay().setSlot(i++);
       shop.check();
-      CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(path, shop.getId() + ".json", CobbleShop.gson.toJson(shop));
-      if (!futureWrite.join()) {
-        CobbleUtils.LOGGER.error("Error writing file: " + path + shop.getId() + ".json");
-      }
+      write(path, shop);
+    }
+  }
+
+  private static void write(String path, Shop shop) {
+    String finalPath = path == null ? shop.getPath() : path;
+    if (finalPath == null) return;
+    CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(finalPath, shop.getId() + ".json", CobbleShop.gson.toJson(shop));
+    if (!futureWrite.join()) {
+      CobbleUtils.LOGGER.error("Error writing file: " + finalPath + shop.getId() + ".json");
     }
   }
 
@@ -147,10 +153,13 @@ public class Config {
         if (file.getName().endsWith(".json")) {
           Shop shop = null;
           try {
+            String path = file.getPath();
             shop = CobbleShop.gson.fromJson(Utils.readFileSync(file), Shop.class);
             shop.setId(file.getName().replace(".json", ""));
             shop.check();
+            shop.setPath(null);
             Utils.writeFileSync(file, CobbleShop.gson.toJson(shop));
+            shop.setPath(path);
           } catch (IOException e) {
             e.printStackTrace();
           }
@@ -227,5 +236,11 @@ public class Config {
       }
       shop.open(player, options, config, 0, stack, withClose);
     }
+  }
+
+  public void createShop(ShopOptionsApi options, Shop shop) {
+    shop.check();
+    write(options.getPathShop(), shop);
+    CobbleShop.load(options);
   }
 }
