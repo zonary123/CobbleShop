@@ -39,7 +39,7 @@ public class ShopApi {
     Config.readShops(options);
     CobbleShop.lang.init(configs.get(CobbleShop.MOD_ID));
     CommandTree.register(options, dispatcher);
-    CobbleShop.initSellProduct();
+    CobbleShop.initSellProduct(options);
   }
 
 
@@ -59,10 +59,11 @@ public class ShopApi {
     return configs.get(options.getModId());
   }
 
-  public static void sellAll(ServerPlayerEntity player, List<ItemStack> itemStacks) {
+  public static void sellAll(ServerPlayerEntity player, List<ItemStack> itemStacks, ShopOptionsApi options) {
     Map<String, BigDecimal> dataSell = new HashMap<>();
     for (ItemStack itemStack : itemStacks) {
       sellProducts.forEach((shop, products) -> products.forEach(product -> {
+        if (!product.canSell(player, shop, options)) return;
         Product.SellProduct sellProduct = Product.sellProduct(shop, itemStack, product);
         if (sellProduct == null) return;
         int amount = itemStack.getCount();

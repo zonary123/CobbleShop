@@ -57,7 +57,7 @@ public class CommandTree {
               if (player == null) return 0;
               PlayerInventory inventory = player.getInventory();
               if (inventory == null) return 0;
-              ShopApi.sellAll(context.getSource().getPlayer(), List.of(inventory.getMainHandStack()));
+              ShopApi.sellAll(context.getSource().getPlayer(), List.of(inventory.getMainHandStack()), options);
               return 1;
             }).then(
               CommandManager.argument("player", EntityArgumentType.player())
@@ -65,7 +65,7 @@ public class CommandTree {
                 .executes(context -> {
                   if (!context.getSource().isExecutedByPlayer()) return 0;
                   ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
-                  ShopApi.sellAll(player, List.of(player.getMainHandStack()));
+                  ShopApi.sellAll(player, List.of(player.getMainHandStack()), options);
                   return 1;
                 })
             )
@@ -77,7 +77,7 @@ public class CommandTree {
               if (player == null) return 0;
               PlayerInventory inventory = player.getInventory();
               if (inventory == null) return 0;
-              ShopApi.sellAll(context.getSource().getPlayer(), inventory.main);
+              ShopApi.sellAll(context.getSource().getPlayer(), inventory.main, options);
               return 1;
             }).then(
               CommandManager.argument("player", EntityArgumentType.player())
@@ -85,7 +85,7 @@ public class CommandTree {
                 .executes(context -> {
                   if (!context.getSource().isExecutedByPlayer()) return 0;
                   ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
-                  ShopApi.sellAll(player, player.getInventory().main);
+                  ShopApi.sellAll(player, player.getInventory().main, options);
                   return 1;
                 })
             )

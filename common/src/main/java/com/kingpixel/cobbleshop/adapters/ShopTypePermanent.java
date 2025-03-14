@@ -25,7 +25,7 @@ public class ShopTypePermanent extends ShopType implements JsonSerializer<ShopTy
   }
 
   @Override public String replace(String text, Shop shop, ShopOptionsApi shopOptionsApi) {
-    return "";
+    return text;
   }
 
   // JSON

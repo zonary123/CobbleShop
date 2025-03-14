@@ -26,6 +26,7 @@ public class Lang {
   private String messageSell;
   private String messageSimpleSell;
   private String messageYouCantBuyNow;
+  private String messageBuyPriceLessThanSell;
   private String formatSell;
   private String notExtraInfo;
   private InfoShopType infoShopType;
@@ -59,6 +60,7 @@ public class Lang {
     messageNotEnoughMoney = "%prefix% <#eb4747>You do not have enough money";
     messageNotSell = "%prefix% <#eb4747>You don't have anything to sell";
     messageSell = "%prefix% <#4ddb93>You have sold:\n %sell%";
+    messageBuyPriceLessThanSell = "%prefix% <#eb4747>The buy price is less than the sell price";
     messageSimpleSell = "%prefix% <#4ddb93>You have sold %amount% and you have earned %price%";
     messageYouCantBuyNow = "%prefix% <#eb4747>You can't buy now the product you get the limit -> %limit%. You have to wait %time% seconds";
     formatSell = " <#bfbfbf>- <#f1d46B>%price%";
@@ -70,7 +72,8 @@ public class Lang {
       "<#bfbfbf>Pack: <#4da6ff>%pack%",
       "<#bfbfbf>Amount: <#f4d03f>%amount%",
       " ",
-      "<#bfbfbf>Buy: <#4ddb93>%buy% <#ffac33>%discount% %removebuy%",
+      "<#bfbfbf>Buy: <#4ddb93>%buy% %removebuy%",
+      "<#bfbfbf>Discount: <#ffac33>%discount%",
       "<#bfbfbf>Sell: <#eb4747>%sell% %removesell%",
       " ",
       "<#bfbfbf>Left click to buy %removebuy%",

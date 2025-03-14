@@ -23,18 +23,15 @@ public abstract class ShopType {
   private TypeShop typeShop;
 
   public static ShopType get(String type) {
-    switch (TypeShop.valueOf(type)) {
-      case DYNAMIC:
-        return new ShopTypeDynamic();
-      case DYNAMIC_WEEKLY:
-        return new ShopTypeDynamicWeekly();
-      case PERMANENT:
-        return new ShopTypePermanent();
-      case WEEKLY:
-        return new ShopTypeWeekly();
-      default:
-        return new ShopTypePermanent();
-    }
+    return switch (TypeShop.valueOf(type)) {
+      case DYNAMIC -> new ShopTypeDynamic();
+      case DYNAMIC_WEEKLY -> new ShopTypeDynamicWeekly();
+      case PERMANENT -> new ShopTypePermanent();
+      case WEEKLY -> new ShopTypeWeekly();
+      case DYNAMIC_CALENDAR -> new ShopTypeDynamicCalendar();
+      case CALENDAR -> new ShopTypeCalendar();
+      default -> new ShopTypePermanent();
+    };
   }
 
 

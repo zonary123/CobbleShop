@@ -98,6 +98,9 @@ public class Shop {
     this.rows = 6;
     this.globalDiscount = 0;
     this.type = type;
+    this.discounts = new HashMap<>();
+    discounts.put("group.vip", 2.0f);
+    this.subShops = new ArrayList<>();
     this.rectangle = new Rectangle(1, 1, 4, 7);
     this.display = new ItemModel("");
     this.itemInfoShop = new ItemModel("");
@@ -143,31 +146,19 @@ public class Shop {
   }
 
   public void check() {
-    if (subShops == null) {
-      subShops = new ArrayList<>();
-      subShops.add(new SubShop(2, "PERMANENT"));
-    }
-    if (!currency.contains(":")) currency = "impactor:" + currency;
+    if (subShops == null) subShops = new ArrayList<>();
     products.forEach(product -> product.check(this));
     type.check();
   }
 
   public String getPermission(ShopOptionsApi options) {
-    return options.getModId() + ".shop.shops." + id;
+    String modId = options.getModId().equals(CobbleShop.MOD_ID) ? CobbleShop.MOD_ID :
+      options.getModId() + ".shop";
+    return modId + ".shops." + id;
   }
 
   public void open(ServerPlayerEntity player, ShopOptionsApi options, Config config, int position, Stack<Shop> shop, boolean withClose) {
     try {
-      if (!type.isOpen()) {
-        PlayerUtils.sendMessage(
-          player,
-          CobbleShop.lang.getMessageShopNotOpen()
-            .replace("%shop%", title),
-          CobbleShop.lang.getPrefix(),
-          TypeMessage.CHAT
-        );
-        return;
-      }
       if (!PermissionApi.hasPermission(player, getPermission(options), 4)) {
         PlayerUtils.sendMessage(
           player,
@@ -196,7 +187,6 @@ public class Shop {
         // Products
         if (hasEnoughtButtons || autoPlace) {
           for (Product product : products) {
-
             if (!product.hasErrors())
               buttons.add(product.getIcon(player, shop, null, 1, options, config, withClose, playerBalance));
           }
@@ -347,9 +337,11 @@ public class Shop {
       return null;
     }
     ItemModel display = CobbleShop.lang.getGlobalDisplay(category.getDisplay());
+    List<String> lore = new ArrayList<>(display.getLore());
     return display.getButton(
       1,
       display.getDisplayname().replace("%shop%", category.getId()),
+      lore,
       action -> Config.manageOpenShop(player, options, config, category, shop, this, withClose)
     );
   }

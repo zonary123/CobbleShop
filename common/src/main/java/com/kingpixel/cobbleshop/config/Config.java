@@ -5,21 +5,18 @@ import ca.landonjw.gooeylibs2.api.button.GooeyButton;
 import ca.landonjw.gooeylibs2.api.page.GooeyPage;
 import ca.landonjw.gooeylibs2.api.template.types.ChestTemplate;
 import com.kingpixel.cobbleshop.CobbleShop;
-import com.kingpixel.cobbleshop.adapters.ShopTypeDynamic;
-import com.kingpixel.cobbleshop.adapters.ShopTypeDynamicWeekly;
-import com.kingpixel.cobbleshop.adapters.ShopTypePermanent;
-import com.kingpixel.cobbleshop.adapters.ShopTypeWeekly;
+import com.kingpixel.cobbleshop.adapters.*;
 import com.kingpixel.cobbleshop.api.ShopApi;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.models.Shop;
+import com.kingpixel.cobbleshop.models.SubShop;
 import com.kingpixel.cobbleshop.models.TypeShop;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.DataBaseConfig;
 import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.PanelsConfig;
-import com.kingpixel.cobbleutils.util.AdventureTranslator;
-import com.kingpixel.cobbleutils.util.UIUtils;
-import com.kingpixel.cobbleutils.util.Utils;
+import com.kingpixel.cobbleutils.Model.Sound;
+import com.kingpixel.cobbleutils.util.*;
 import lombok.Data;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -123,10 +120,21 @@ public class Config {
     }
     List<Shop> shops = new ArrayList<>();
     shops.add(new Shop(TypeShop.PERMANENT.name(), new ShopTypePermanent()));
-    shops.getFirst().setSubShops(new ArrayList<>());
     shops.add(new Shop(TypeShop.DYNAMIC.name(), new ShopTypeDynamic()));
     shops.add(new Shop(TypeShop.WEEKLY.name(), new ShopTypeWeekly()));
     shops.add(new Shop(TypeShop.DYNAMIC_WEEKLY.name(), new ShopTypeDynamicWeekly()));
+    shops.add(new Shop(TypeShop.CALENDAR.name(), new ShopTypeCalendar()));
+    shops.add(new Shop(TypeShop.DYNAMIC_CALENDAR.name(), new ShopTypeDynamicCalendar()));
+    shops.add(new Shop("categorys", new ShopTypePermanent()));
+    shops.getLast().setSubShops(List.of(
+      new SubShop(10, TypeShop.PERMANENT.name()),
+      new SubShop(11, TypeShop.DYNAMIC.name()),
+      new SubShop(12, TypeShop.WEEKLY.name()),
+      new SubShop(13, TypeShop.DYNAMIC_WEEKLY.name()),
+      new SubShop(14, TypeShop.CALENDAR.name()),
+      new SubShop(15, TypeShop.DYNAMIC_CALENDAR.name())
+    ));
+    shops.getLast().setProducts(new ArrayList<>());
     int i = 0;
     for (Shop shop : shops) {
       shop.getDisplay().setSlot(i++);
@@ -192,6 +200,7 @@ public class Config {
       .builder()
       .template(template)
       .title(AdventureTranslator.toNative(title))
+      .onOpen(action -> new Sound(soundOpen).playSoundPlayer(action.getPlayer()))
       .build();
 
     UIManager.openUIForcefully(player, page);
@@ -215,18 +224,36 @@ public class Config {
     }
   }
 
+  private static boolean canOpen(ServerPlayerEntity player, Shop shop) {
+    boolean canopen = shop.getType().isOpen();
+    if (!canopen) {
+      PlayerUtils.sendMessage(
+        player,
+        CobbleShop.lang.getMessageShopNotOpen()
+          .replace("%shop%", shop.getId()),
+        CobbleShop.lang.getPrefix(),
+        TypeMessage.CHAT
+      );
+    }
+    return canopen;
+  }
+
   public static void manageOpenShop(ServerPlayerEntity player, ShopOptionsApi options, Config config, Shop add,
                                     Stack<Shop> stack, Shop actual, boolean withClose) {
+    Shop shop = null;
     if (stack == null) stack = new Stack<>();
     if (actual == null) {
-      stack.peek().open(player, options, config, 0, stack, withClose);
+      shop = stack.peek();
+      shop.open(player, options, config, 0, stack, withClose);
     } else if (add != null) {
-      stack.push(add);
-      add.open(player, options, config, 0, stack, withClose);
+      if (canOpen(player, add)) {
+        stack.push(add);
+        add.open(player, options, config, 0, stack, withClose);
+      }
     } else if (stack.isEmpty()) {
       config.open(player, options);
     } else {
-      Shop shop = stack.pop();
+      shop = stack.pop();
       if (actual.equals(shop)) {
         if (stack.isEmpty()) {
           config.open(player, options);

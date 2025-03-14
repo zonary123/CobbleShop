@@ -71,18 +71,16 @@ public class ShopTypeDynamic extends ShopType implements JsonSerializer<ShopType
   @Override
   public ShopTypeDynamic deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
     JsonObject jsonObject = json.getAsJsonObject();
+
     JsonElement jsonCooldown = jsonObject.get("cooldown");
-    if (jsonCooldown == null) {
-      jsonCooldown = jsonObject.get("minutes");
-    }
-    int cooldown = jsonCooldown.getAsInt();
+    int cooldown = (jsonCooldown != null) ? jsonCooldown.getAsInt() : 30; // Default value 30
+
     JsonElement jsonProductsRotation = jsonObject.get("productsRotation");
-    if (jsonProductsRotation == null) {
-      jsonProductsRotation = jsonObject.get("amountProducts");
-    }
-    int productsRotation = jsonProductsRotation.getAsInt();
+    int productsRotation = (jsonProductsRotation != null) ? jsonProductsRotation.getAsInt() : 3; // Default value 3
+
     ShopTypeDynamic shopTypeDynamic = new ShopTypeDynamic(cooldown, productsRotation);
     shopTypeDynamic.setTypeShop(TypeShop.valueOf(jsonObject.get("typeShop").getAsString()));
+
     return shopTypeDynamic;
   }
 }

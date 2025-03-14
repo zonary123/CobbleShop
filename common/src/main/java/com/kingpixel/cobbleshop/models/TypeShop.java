@@ -8,4 +8,5 @@ public enum TypeShop {
   DYNAMIC,
   WEEKLY,
   DYNAMIC_WEEKLY,
+  DYNAMIC_CALENDAR, CALENDAR
 }

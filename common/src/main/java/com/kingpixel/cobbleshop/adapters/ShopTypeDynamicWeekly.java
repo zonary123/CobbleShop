@@ -83,26 +83,29 @@ public class ShopTypeDynamicWeekly extends ShopType implements JsonSerializer<Sh
   @Override
   public ShopTypeDynamicWeekly deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
     JsonObject jsonObject = json.getAsJsonObject();
+
     JsonElement jsonCooldown = jsonObject.get("cooldown");
-    if (jsonCooldown == null) {
-      jsonCooldown = jsonObject.get("minutes");
-    }
-    int cooldown = jsonCooldown.getAsInt();
+    int cooldown = (jsonCooldown != null) ? jsonCooldown.getAsInt() : 30; // Default value 30
+
     JsonElement jsonProductsRotation = jsonObject.get("productsRotation");
-    if (jsonProductsRotation == null) {
-      jsonProductsRotation = jsonObject.get("amountProducts");
-    }
-    int productsRotation = jsonProductsRotation.getAsInt();
+    int productsRotation = (jsonProductsRotation != null) ? jsonProductsRotation.getAsInt() : 3; // Default value 3
+
     JsonArray daysArray = jsonObject.getAsJsonArray("days");
     if (daysArray == null) {
       daysArray = jsonObject.getAsJsonArray("dayOfWeek");
     }
     List<DayOfWeek> days = new ArrayList<>();
-    for (JsonElement dayElement : daysArray) {
-      days.add(DayOfWeek.valueOf(dayElement.getAsString()));
+    if (daysArray != null) {
+      for (JsonElement dayElement : daysArray) {
+        days.add(DayOfWeek.valueOf(dayElement.getAsString()));
+      }
+    } else {
+      days = Arrays.stream(DayOfWeek.values()).toList(); // Default to all days
     }
+
     ShopTypeDynamicWeekly shopTypeDynamicWeekly = new ShopTypeDynamicWeekly(cooldown, productsRotation, days);
     shopTypeDynamicWeekly.setTypeShop(TypeShop.valueOf(jsonObject.get("typeShop").getAsString()));
+
     return shopTypeDynamicWeekly;
   }
 }

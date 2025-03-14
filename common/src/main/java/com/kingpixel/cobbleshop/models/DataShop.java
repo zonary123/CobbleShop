@@ -68,7 +68,7 @@ public class DataShop {
       List<Product> products = getNewProducts(shop, options);
       dynamicProduct.setProducts(products);
       write();
-      CobbleShop.initSellProduct();
+      CobbleShop.initSellProduct(options);
       return products;
     }
     return dynamicProduct.getProducts();

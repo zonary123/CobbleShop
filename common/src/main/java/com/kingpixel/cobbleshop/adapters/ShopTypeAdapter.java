@@ -27,6 +27,8 @@ public class ShopTypeAdapter implements JsonDeserializer<ShopType> {
       case DYNAMIC -> context.deserialize(jsonObject, ShopTypeDynamic.class);
       case WEEKLY -> context.deserialize(jsonObject, ShopTypeWeekly.class);
       case DYNAMIC_WEEKLY -> context.deserialize(jsonObject, ShopTypeDynamicWeekly.class);
+      case CALENDAR -> context.deserialize(jsonObject, ShopTypeCalendar.class);
+      case DYNAMIC_CALENDAR -> context.deserialize(jsonObject, ShopTypeDynamicCalendar.class);
       default -> throw new JsonParseException("Unknown type: " + typeShop);
     };
   }

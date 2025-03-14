@@ -1,6 +1,7 @@
 package com.kingpixel.cobbleshop;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.kingpixel.cobbleshop.adapters.*;
 import com.kingpixel.cobbleshop.api.ShopApi;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
@@ -42,22 +43,20 @@ public class CobbleShop {
   public static Gson gsonWithOutSpaces;
   public static DataShop dataShop = new DataShop();
 
+
+  private static GsonBuilder addAdapters(GsonBuilder gsonBuilder) {
+    return gsonBuilder.registerTypeAdapter(ShopType.class, ShopTypeAdapter.INSTANCE)
+      .registerTypeAdapter(ShopTypePermanent.class, ShopTypePermanent.INSTANCE)
+      .registerTypeAdapter(ShopTypeDynamic.class, ShopTypeDynamic.INSTANCE)
+      .registerTypeAdapter(ShopTypeWeekly.class, ShopTypeWeekly.INSTANCE)
+      .registerTypeAdapter(ShopTypeDynamicWeekly.class, ShopTypeDynamicWeekly.INSTANCE)
+      .registerTypeAdapter(ShopTypeCalendar.class, ShopTypeCalendar.INSTANCE)
+      .registerTypeAdapter(ShopTypeDynamicCalendar.class, ShopTypeDynamicCalendar.INSTANCE);
+  }
+
   public static void init() {
-    gson = Utils.newGson().newBuilder()
-      .registerTypeAdapter(ShopType.class, ShopTypeAdapter.INSTANCE)
-      .registerTypeAdapter(ShopTypePermanent.class, ShopTypePermanent.INSTANCE)
-      .registerTypeAdapter(ShopTypeDynamic.class, ShopTypeDynamic.INSTANCE)
-      .registerTypeAdapter(ShopTypeWeekly.class, ShopTypeWeekly.INSTANCE)
-      .registerTypeAdapter(ShopTypeDynamicWeekly.class, ShopTypeDynamicWeekly.INSTANCE)
-      .create();
-    gsonWithOutSpaces = Utils.newWithoutSpacingGson().newBuilder()
-      .registerTypeAdapter(ShopType.class, ShopTypeAdapter.INSTANCE)
-      .registerTypeAdapter(ShopTypePermanent.class, ShopTypePermanent.INSTANCE)
-      .registerTypeAdapter(ShopTypeDynamic.class, ShopTypeDynamic.INSTANCE)
-      .registerTypeAdapter(ShopTypeWeekly.class, ShopTypeWeekly.INSTANCE)
-      .registerTypeAdapter(ShopTypeDynamicWeekly.class, ShopTypeDynamicWeekly.INSTANCE)
-      .setPrettyPrinting()
-      .create();
+    gson = addAdapters(Utils.newGson().newBuilder()).create();
+    gsonWithOutSpaces = addAdapters(Utils.newWithoutSpacingGson().newBuilder()).create();
     options = ShopOptionsApi.builder()
       .modId(MOD_ID)
       .path(PATH)
@@ -95,7 +94,7 @@ public class CobbleShop {
 
   }
 
-  public static void initSellProduct() {
+  public static void initSellProduct(ShopOptionsApi options) {
     Map<Shop, List<Product>> products = new HashMap<>();
 
     ShopApi.shops.forEach((modId, shops) -> {
@@ -104,7 +103,7 @@ public class CobbleShop {
         shop.getType().getProducts(shop, ShopOptionsApi.builder()
           .modId(modId)
           .build()).forEach(product -> {
-          if (product.canSell()) {
+          if (product.canSell(null, shop, options)) {
             productsShop.add(product);
           }
         });

@@ -331,8 +331,6 @@ public class Product {
         return true;
       }
     }
-
-
     return false;
   }
 
@@ -342,7 +340,15 @@ public class Product {
     return new ItemChance(product, 0).getItemStack().getMaxCount();
   }
 
-  public boolean canSell() {
+  public boolean canSell(ServerPlayerEntity player, Shop shop, ShopOptionsApi options) {
+    if (player != null) {
+      BigDecimal price = getBuyPrice(player, 1, shop, ShopApi.getConfig(options));
+      boolean result = price.compareTo(getSellPricePerUnit(getItemStack())) > 0;
+      if (ShopApi.getMainConfig().isDebug()) {
+        CobbleUtils.LOGGER.info("Price: " + price + " Sell: " + sell + " Result: " + result);
+      }
+      return result;
+    }
     return !product.startsWith("command:") && !product.startsWith("pokemon:") && sell.compareTo(BigDecimal.ZERO) > 0 && !product.contains("|");
   }
 

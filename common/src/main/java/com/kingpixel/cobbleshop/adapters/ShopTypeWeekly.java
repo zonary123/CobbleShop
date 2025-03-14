@@ -72,8 +72,12 @@ public class ShopTypeWeekly extends ShopType implements JsonSerializer<ShopTypeW
       daysArray = jsonObject.getAsJsonArray("dayOfWeek");
     }
     List<DayOfWeek> days = new ArrayList<>();
-    for (JsonElement dayElement : daysArray) {
-      days.add(DayOfWeek.valueOf(dayElement.getAsString()));
+    if (daysArray != null) {
+      for (JsonElement dayElement : daysArray) {
+        days.add(DayOfWeek.valueOf(dayElement.getAsString()));
+      }
+    } else {
+      days = Arrays.stream(DayOfWeek.values()).toList(); // Default to all days
     }
     ShopTypeWeekly shopTypeWeekly = new ShopTypeWeekly(days);
     shopTypeWeekly.setTypeShop(TypeShop.valueOf(jsonObject.get("typeShop").getAsString()));

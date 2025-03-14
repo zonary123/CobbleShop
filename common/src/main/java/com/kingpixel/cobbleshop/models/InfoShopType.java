@@ -17,6 +17,7 @@ public class InfoShopType {
   private ItemModel shopDynamic;
   private ItemModel shopWeekly;
   private ItemModel shopDynamicWeekly;
+  private ItemModel shopCalendar;
 
   public InfoShopType() {
     this.shopPermanent = new ItemModel(0, "minecraft:book", "Info Shop", List.of(
@@ -48,6 +49,11 @@ public class InfoShopType {
       "&7Number items: %number%",
       "&7Days: %days%"
     ), 0);
+    this.shopCalendar = new ItemModel(4, "minecraft:book", "Info Shop", List.of(
+      "§7This is a calendar shop,",
+      "§7this shop is only open",
+      "§7on certain range of date."
+    ), 0);
   }
 
   public GooeyButton getShopType(Shop shop, ShopOptionsApi options, ItemModel supportItemModel) {
@@ -55,10 +61,13 @@ public class InfoShopType {
     String title;
     List<String> lore;
     itemModel = switch (shop.getType().getTypeShop()) {
-      case TypeShop.PERMANENT -> shopPermanent;
-      case TypeShop.DYNAMIC -> shopDynamic;
-      case TypeShop.WEEKLY -> shopWeekly;
-      case TypeShop.DYNAMIC_WEEKLY -> shopDynamicWeekly;
+      case PERMANENT -> shopPermanent;
+      case DYNAMIC -> shopDynamic;
+      case WEEKLY -> shopWeekly;
+      case DYNAMIC_WEEKLY -> shopDynamicWeekly;
+      case CALENDAR -> shopCalendar;
+      case DYNAMIC_CALENDAR -> shopCalendar;
+      default -> throw new IllegalStateException("Unexpected value: " + shop.getType().getTypeShop());
     };
 
     if (supportItemModel.getDisplayname().isEmpty()) {
