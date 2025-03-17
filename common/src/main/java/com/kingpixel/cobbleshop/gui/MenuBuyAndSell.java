@@ -19,6 +19,7 @@ import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.cobbleutils.util.UIUtils;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Stack;
 
@@ -50,14 +51,17 @@ public class MenuBuyAndSell {
 
   public void open(ServerPlayerEntity player, Stack<Shop> stack, Product product, int amount, ActionShop actionShop,
                    ShopOptionsApi options, Config config, boolean withClose) {
-    if (product.getBuyPrice(player, amount, stack.peek(), config).compareTo(product.getSellPrice(amount)) < 0) {
-      PlayerUtils.sendMessage(
-        player,
-        CobbleShop.lang.getMessageBuyPriceLessThanSell(),
-        CobbleShop.lang.getPrefix(),
-        TypeMessage.CHAT
-      );
-      return;
+    BigDecimal buyPrice = product.getBuyPrice(player, amount, stack.peek(), config);
+    if (buyPrice.compareTo(BigDecimal.ZERO) > 0) {
+      if (buyPrice.compareTo(product.getSellPrice(amount)) < 0) {
+        PlayerUtils.sendMessage(
+          player,
+          CobbleShop.lang.getMessageBuyPriceLessThanSell(),
+          CobbleShop.lang.getPrefix(),
+          TypeMessage.CHAT
+        );
+        return;
+      }
     }
     if (!product.isBuyable() && actionShop.equals(ActionShop.BUY)) return;
     if ((!product.isSellable() || !product.canSell(player, stack.peek(), options)) && actionShop.equals(ActionShop.SELL)) {
@@ -79,8 +83,11 @@ public class MenuBuyAndSell {
 
     // Product Icon
     if (UIUtils.isInside(productSlot, rows)) {
-      String playerBalance = EconomyApi.formatMoney(EconomyApi.getMoney(player, stack.peek().getCurrency()),
-        stack.peek().getCurrency());
+      var economyUse = stack.peek().getEconomy();
+      BigDecimal balance = EconomyApi.getBalance(player.getUuid(), economyUse.getCurrency(),
+        economyUse.getEconomyId());
+      String playerBalance = EconomyApi.formatMoney(balance,
+        economyUse.getCurrency(), economyUse.getEconomyId());
       template.set(productSlot, product.getIcon(player, stack, actionShop, amount, options, config, withClose, playerBalance));
     }
 

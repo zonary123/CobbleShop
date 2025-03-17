@@ -253,14 +253,16 @@ public class Product {
 
   private String replace(ServerPlayerEntity player, String s, Shop shop, int amount, Config config, String playerBalance) {
     if (s == null || s.isEmpty()) return "";
-    String currency = shop.getCurrency();
+    var economy = shop.getEconomy();
 
 
     if (s.contains("%buy%")) {
-      s = s.replace("%buy%", EconomyApi.formatMoney(getBuyPrice(player, amount, shop, config), currency));
+      BigDecimal buyPrice = getBuyPrice(player, amount, shop, config);
+      s = s.replace("%buy%", EconomyApi.formatMoney(buyPrice, economy.getCurrency(), economy.getEconomyId()));
     }
     if (s.contains("%sell%")) {
-      s = s.replace("%sell%", EconomyApi.formatMoney(getSellPrice(amount), currency));
+      BigDecimal sellPrice = getSellPrice(amount);
+      s = s.replace("%sell%", EconomyApi.formatMoney(sellPrice, economy.getCurrency(), economy.getEconomyId()));
     }
     if (s.contains("%amount%")) {
       s = s.replace("%amount%", String.valueOf(amount));
@@ -298,7 +300,8 @@ public class Product {
     boolean result = false;
     ItemChance itemChance = new ItemChance(product, 0);
     BigDecimal totalBuy = getBuyPrice(player, amount, shop, config);
-    if (EconomyApi.hasEnoughMoney(player, totalBuy, shop.getCurrency(), false)) {
+    if (EconomyApi.hasEnoughMoney(player.getUuid(), totalBuy, shop.getEconomy().getCurrency(), true,
+      shop.getEconomy().getEconomyId())) {
       ItemChance.giveReward(player, itemChance, amount);
       result = true;
     }
@@ -309,7 +312,7 @@ public class Product {
           .replace("%product%", itemChance.getTitle())
           .replace("%amount%", String.valueOf(amount))
           .replace("%pack%", itemChance.getItemStack().getCount() + "")
-          .replace("%price%", EconomyApi.formatMoney(totalBuy, shop.getCurrency())),
+          .replace("%price%", EconomyApi.formatMoney(totalBuy, shop.getEconomy().getCurrency(), shop.getEconomy().getEconomyId())),
         CobbleShop.lang.getPrefix(),
         TypeMessage.CHAT
       );
@@ -342,13 +345,18 @@ public class Product {
 
   public boolean canSell(ServerPlayerEntity player, Shop shop, ShopOptionsApi options) {
     if (player != null) {
-      BigDecimal price = getBuyPrice(player, 1, shop, ShopApi.getConfig(options));
-      boolean result = price.compareTo(getSellPricePerUnit(getItemStack())) > 0;
+      BigDecimal buyPrice = getBuyPrice(player, 1, shop, ShopApi.getConfig(options));
+      BigDecimal sellPricePerUnit = getSellPricePerUnit(getItemStack());
+
+      boolean canSell = buyPrice.compareTo(BigDecimal.ZERO) <= 0 || buyPrice.compareTo(sellPricePerUnit) > 0;
+
       if (ShopApi.getMainConfig().isDebug()) {
-        CobbleUtils.LOGGER.info("Price: " + price + " Sell: " + sell + " Result: " + result);
+        CobbleUtils.LOGGER.info("Buy Price: " + buyPrice + " Sell Price: " + sellPricePerUnit + " Can Sell: " + canSell);
       }
-      return result;
+
+      return canSell;
     }
+
     return !product.startsWith("command:") && !product.startsWith("pokemon:") && sell.compareTo(BigDecimal.ZERO) > 0 && !product.contains("|");
   }
 
@@ -384,14 +392,14 @@ public class Product {
       if (remainingAmount <= 0) break;
     }
 
-    EconomyApi.addMoney(player, total, shop.getCurrency());
+    EconomyApi.addMoney(player.getUuid(), total, shop.getEconomy().getCurrency(), shop.getEconomy().getEconomyId());
 
     PlayerUtils.sendMessage(
       player,
       CobbleShop.lang.getMessageSimpleSell()
         .replace("%product%", productItemStack.getName().getString())
         .replace("%amount%", String.valueOf(selled))
-        .replace("%price%", EconomyApi.formatMoney(total, shop.getCurrency())),
+        .replace("%price%", EconomyApi.formatMoney(total, shop.getEconomy().getCurrency(), shop.getEconomy().getEconomyId())),
       CobbleShop.lang.getPrefix(),
       TypeMessage.CHAT
     );

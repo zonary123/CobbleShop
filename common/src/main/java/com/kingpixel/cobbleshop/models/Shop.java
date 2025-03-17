@@ -21,9 +21,11 @@ import com.kingpixel.cobbleutils.Model.*;
 import com.kingpixel.cobbleutils.api.EconomyApi;
 import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.kingpixel.cobbleutils.util.*;
+import com.kingpixel.cobbleutils.util.economys.ImpactorEconomy;
 import lombok.Data;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -38,6 +40,7 @@ public class Shop {
   private String id;
   private String title;
   private String currency;
+  private EconomyUse economy;
   private String closeCommand;
   private String soundOpen;
   private String soundClose;
@@ -147,6 +150,7 @@ public class Shop {
 
   public void check() {
     if (subShops == null) subShops = new ArrayList<>();
+    if (economy == null) economy = new EconomyUse(ImpactorEconomy.IDENTIFY, currency);
     products.forEach(product -> product.check(this));
     type.check();
   }
@@ -175,8 +179,9 @@ public class Shop {
         .build();
 
       PanelsConfig.applyConfig(template, this.getPanels(), rows);
-      String playerBalance = EconomyApi.formatMoney(EconomyApi.getMoney(player, this.getCurrency()),
-        this.getCurrency());
+      BigDecimal balance = EconomyApi.getBalance(player.getUuid(), economy.getCurrency(),
+        economy.getEconomyId());
+      String playerBalance = EconomyApi.formatMoney(balance, economy.getCurrency(), economy.getEconomyId());
       int totalSlots = rectangle.getLength() * rectangle.getWidth();
       List<Product> products = type.getProducts(this, options);
       int totalProducts = products.size();
@@ -239,15 +244,15 @@ public class Shop {
 
       if (UIUtils.isInside(this.itemBalance.getSlot(), rows)) {
         ItemModel itemBalance = CobbleShop.lang.getGlobalItemBalance(this.itemBalance);
-        String format = EconomyApi.formatMoney(EconomyApi.getMoney(player, currency), currency);
+        String format = EconomyApi.formatMoney(balance, economy.getCurrency(), economy.getEconomyId());
         String nameBalance = itemBalance.getDisplayname()
           .replace("%balance%", format)
-          .replace("%currency%", currency)
+          .replace("%currency%", economy.getCurrency())
           .replace("%amount%", format);
         List<String> lore = new ArrayList<>(itemBalance.getLore());
         lore.replaceAll(s -> s
           .replace("%balance%", format)
-          .replace("%currency%", currency)
+          .replace("%currency%", economy.getCurrency())
           .replace("%amount%", format));
         template.set(this.itemBalance.getSlot(), itemBalance.getButton(1,
           nameBalance, lore, action -> {

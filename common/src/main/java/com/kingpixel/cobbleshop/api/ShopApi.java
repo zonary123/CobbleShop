@@ -9,6 +9,7 @@ import com.kingpixel.cobbleshop.models.ActionShop;
 import com.kingpixel.cobbleshop.models.Product;
 import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleshop.models.SubShop;
+import com.kingpixel.cobbleutils.Model.EconomyUse;
 import com.kingpixel.cobbleutils.api.EconomyApi;
 import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
@@ -60,39 +61,41 @@ public class ShopApi {
   }
 
   public static void sellAll(ServerPlayerEntity player, List<ItemStack> itemStacks, ShopOptionsApi options) {
-    Map<String, BigDecimal> dataSell = new HashMap<>();
+    Map<EconomyUse, BigDecimal> dataSell = new HashMap<>();
+
     for (ItemStack itemStack : itemStacks) {
-      sellProducts.forEach((shop, products) -> products.forEach(product -> {
-        if (!product.canSell(player, shop, options)) return;
-        Product.SellProduct sellProduct = Product.sellProduct(shop, itemStack, product);
-        if (sellProduct == null) return;
-        int amount = itemStack.getCount();
-        DataBaseFactory.INSTANCE.addTransaction(player, shop, product, ActionShop.SELL, amount,
-          product.getSellPrice(amount));
-        dataSell.put(sellProduct.getCurrency(), dataSell.getOrDefault(sellProduct.getCurrency(), BigDecimal.ZERO).add(sellProduct.getPrice()));
-      }));
+      for (Map.Entry<Shop, List<Product>> entry : sellProducts.entrySet()) {
+        Shop shop = entry.getKey();
+        List<Product> products = entry.getValue();
+
+        for (Product product : products) {
+          if (!product.canSell(player, shop, options)) continue;
+
+          Product.SellProduct sellProduct = Product.sellProduct(shop, itemStack, product);
+          if (sellProduct == null) continue;
+
+          int amount = itemStack.getCount();
+          DataBaseFactory.INSTANCE.addTransaction(player, shop, product, ActionShop.SELL, amount, product.getSellPrice(amount));
+
+          dataSell.merge(shop.getEconomy(), sellProduct.getPrice(), BigDecimal::add);
+        }
+      }
     }
+
     if (!dataSell.isEmpty()) {
       String message = CobbleShop.lang.getMessageSell();
       StringBuilder allSell = new StringBuilder();
-      dataSell.forEach((currency, price) -> {
-        allSell.append(CobbleShop.lang.getFormatSell().replace("%price%", EconomyApi.formatMoney(price, currency))).append("\n");
-        EconomyApi.addMoney(player, price, currency);
+
+      dataSell.forEach((economyUse, price) -> {
+        allSell.append(CobbleShop.lang.getFormatSell()
+            .replace("%price%", EconomyApi.formatMoney(price, economyUse.getCurrency(), economyUse.getEconomyId())))
+          .append("\n");
+        EconomyApi.addMoney(player.getUuid(), price, economyUse.getCurrency(), economyUse.getEconomyId());
       });
 
-      PlayerUtils.sendMessage(
-        player,
-        message.replace("%sell%", allSell.toString()),
-        CobbleShop.lang.getPrefix(),
-        TypeMessage.CHAT
-      );
+      PlayerUtils.sendMessage(player, message.replace("%sell%", allSell.toString()), CobbleShop.lang.getPrefix(), TypeMessage.CHAT);
     } else {
-      PlayerUtils.sendMessage(
-        player,
-        CobbleShop.lang.getMessageNotSell(),
-        CobbleShop.lang.getPrefix(),
-        TypeMessage.CHAT
-      );
+      PlayerUtils.sendMessage(player, CobbleShop.lang.getMessageNotSell(), CobbleShop.lang.getPrefix(), TypeMessage.CHAT);
     }
   }
 
