@@ -62,7 +62,6 @@ public class ShopApi {
 
   public static void sellAll(ServerPlayerEntity player, List<ItemStack> itemStacks, ShopOptionsApi options) {
     Map<EconomyUse, BigDecimal> dataSell = new HashMap<>();
-
     for (ItemStack itemStack : itemStacks) {
       for (Map.Entry<Shop, List<Product>> entry : sellProducts.entrySet()) {
         Shop shop = entry.getKey();
@@ -70,7 +69,6 @@ public class ShopApi {
 
         for (Product product : products) {
           if (!product.canSell(player, shop, options)) continue;
-
           Product.SellProduct sellProduct = Product.sellProduct(shop, itemStack, product);
           if (sellProduct == null) continue;
 

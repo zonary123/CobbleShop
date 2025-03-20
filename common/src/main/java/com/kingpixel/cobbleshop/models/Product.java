@@ -232,11 +232,12 @@ public class Product {
   public BigDecimal getBuyPrice(ServerPlayerEntity player, int amount, Shop shop, Config config) {
     BigDecimal totalBuy = buy.multiply(BigDecimal.valueOf(amount));
     totalBuy = totalBuy.subtract(totalBuy.multiply(BigDecimal.valueOf(getDiscount(player, shop, config) / 100.0)));
-    return totalBuy;
+    return totalBuy.setScale(5, RoundingMode.UNNECESSARY);
   }
 
   public BigDecimal getSellPrice(int amount) {
-    return sell.multiply(BigDecimal.valueOf(amount));
+    BigDecimal copySell = sell.setScale(5, RoundingMode.UNNECESSARY);
+    return copySell.multiply(BigDecimal.valueOf(amount));
   }
 
   public BigDecimal getSellPricePerUnit(ItemStack itemStack) {
@@ -247,7 +248,7 @@ public class Product {
     if (amount == 1) {
       return sell;
     } else {
-      return sell.divide(BigDecimal.valueOf(amount), RoundingMode.HALF_UP);
+      return sell.divide(BigDecimal.valueOf(amount), 5, RoundingMode.UNNECESSARY);
     }
   }
 
@@ -422,9 +423,10 @@ public class Product {
       // Calcular el precio total de venta basado en la cantidad
       BigDecimal totalSellPrice = product.getSellPrice(itemStackCount);
 
-      // Ajustar el precio basado en la cantidad del producto
-      BigDecimal adjustedPrice = totalSellPrice.divide(BigDecimal.valueOf(itemProductCount), RoundingMode.HALF_UP);
-
+      // Ajustar el precio basado en la cantidad del producto con escala y redondeo
+      BigDecimal adjustedPrice = totalSellPrice.divide(BigDecimal.valueOf(itemProductCount), 5,
+        RoundingMode.UNNECESSARY);
+      if (adjustedPrice.compareTo(BigDecimal.ZERO) <= 0) return null;
       itemStack.decrement(itemStackCount);
       return new SellProduct(shop.getCurrency(), adjustedPrice);
     }
