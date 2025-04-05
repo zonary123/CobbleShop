@@ -193,7 +193,7 @@ public class Shop {
         if (hasEnoughtButtons || autoPlace) {
           for (Product product : products) {
             if (!product.hasErrors())
-              buttons.add(product.getIcon(player, shop, null, 1, options, config, withClose, playerBalance));
+              buttons.add(product.getIcon(player, shop, null, null, options, config, withClose, playerBalance));
           }
         } else {
           for (Product product : products) {
@@ -204,7 +204,7 @@ public class Shop {
             }
             TemplateSlotDelegate templateSlotDelegate = template.getSlot(slot);
             if (templateSlotDelegate != null) {
-              if (UIUtils.isInside(slot, rows)) template.set(slot, product.getIcon(player, shop, null, 1, options,
+              if (UIUtils.isInside(slot, rows)) template.set(slot, product.getIcon(player, shop, null, null, options,
                 config, withClose, playerBalance));
             } else {
               CobbleUtils.LOGGER.error(options.getModId(),

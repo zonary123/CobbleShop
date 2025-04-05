@@ -95,7 +95,7 @@ public class Product {
     }
   }
 
-  public GooeyButton getIcon(ServerPlayerEntity player, Stack<Shop> shop, ActionShop actionShop, int amount,
+  public GooeyButton getIcon(ServerPlayerEntity player, Stack<Shop> shop, ActionShop actionShop, Integer amount,
                              ShopOptionsApi options,
                              Config config, boolean withClose, String playerBalance) {
     String finalDisplay = this.display != null ? this.display : product;
@@ -149,7 +149,9 @@ public class Product {
 
 
     ItemStack itemStack = itemChance.getItemStack();
-    itemStack.setCount(amount);
+    if (amount != null) {
+      itemStack.setCount(amount);
+    }
     GooeyButton.Builder builder = GooeyButton.builder()
       .display(itemStack)
       .with(DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(title))
@@ -165,7 +167,6 @@ public class Product {
             case RIGHT_CLICK, SHIFT_RIGHT_CLICK -> shopAction = ActionShop.SELL;
             default -> shopAction = ActionShop.BUY;
           }
-
 
           // Need Permissions
           Shop peek = shop.peek();
