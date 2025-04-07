@@ -95,7 +95,7 @@ public class Product {
     }
   }
 
-  public GooeyButton getIcon(ServerPlayerEntity player, Stack<Shop> shop, ActionShop actionShop, Integer amount,
+  public GooeyButton getIcon(ServerPlayerEntity player, Stack<Shop> shop, ActionShop actionShop, int amount,
                              ShopOptionsApi options,
                              Config config, boolean withClose, String playerBalance) {
     String finalDisplay = this.display != null ? this.display : product;
@@ -149,9 +149,8 @@ public class Product {
 
 
     ItemStack itemStack = itemChance.getItemStack();
-    if (amount != null) {
-      itemStack.setCount(amount);
-    }
+    if (amount == itemStack.getCount()) itemStack.setCount(amount);
+    if (itemStack.getCount() == 0) itemStack.setCount(1);
     GooeyButton.Builder builder = GooeyButton.builder()
       .display(itemStack)
       .with(DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(title))
@@ -350,7 +349,7 @@ public class Product {
       BigDecimal buyPrice = getBuyPrice(player, 1, shop, ShopApi.getConfig(options));
       BigDecimal sellPricePerUnit = getSellPricePerUnit(getItemStack());
 
-      boolean canSell = buyPrice.compareTo(BigDecimal.ZERO) <= 0 || buyPrice.compareTo(sellPricePerUnit) > 0;
+      boolean canSell = buyPrice.compareTo(BigDecimal.ZERO) <= 0 || buyPrice.compareTo(sellPricePerUnit) >= 0;
 
       if (ShopApi.getMainConfig().isDebug()) {
         CobbleUtils.LOGGER.info("Buy Price: " + buyPrice + " Sell Price: " + sellPricePerUnit + " Can Sell: " + canSell);
