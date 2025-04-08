@@ -63,7 +63,6 @@ public class CommandTree {
               CommandManager.argument("player", EntityArgumentType.player())
                 .requires(source -> PermissionApi.hasPermission(source, "cobbleshop.sell.other", 4))
                 .executes(context -> {
-                  if (!context.getSource().isExecutedByPlayer()) return 0;
                   ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
                   ShopApi.sellAll(player, List.of(player.getMainHandStack()), options);
                   return 1;
@@ -83,7 +82,6 @@ public class CommandTree {
               CommandManager.argument("player", EntityArgumentType.player())
                 .requires(source -> PermissionApi.hasPermission(source, "cobbleshop.sell.other", 4))
                 .executes(context -> {
-                  if (!context.getSource().isExecutedByPlayer()) return 0;
                   ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
                   ShopApi.sellAll(player, player.getInventory().main, options);
                   return 1;
@@ -100,14 +98,14 @@ public class CommandTree {
       options.getModId() + ".shop";
     base
       .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".base",
-        modId + ".admin"), 4))
+        modId + ".admin"), 2))
       .executes(context -> {
         if (!context.getSource().isExecutedByPlayer()) return 0;
         ShopApi.getConfig(options).open(context.getSource().getPlayer(), options);
         return 1;
       }).then(
         CommandManager.literal("reload")
-          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".reload", modId + ".admin"), 4))
+          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".reload", modId + ".admin"), 2))
           .executes(context -> {
             if (!context.getSource().isExecutedByPlayer()) return 0;
             CobbleShop.load(options);
@@ -116,7 +114,7 @@ public class CommandTree {
       ).then(
         CommandManager.literal("other")
           .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".other",
-            modId + ".admin"), 4))
+            modId + ".admin"), 2))
           .then(
             CommandManager.argument("player", EntityArgumentType.players())
               .executes(context -> {
