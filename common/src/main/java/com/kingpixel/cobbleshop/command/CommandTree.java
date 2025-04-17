@@ -109,6 +109,9 @@ public class CommandTree {
           .executes(context -> {
             if (!context.getSource().isExecutedByPlayer()) return 0;
             CobbleShop.load(options);
+            context.getSource().sendMessage(
+              Text.literal("Reloaded " + options.getModId() + " shops")
+            );
             return 1;
           })
       ).then(
@@ -200,6 +203,9 @@ public class CommandTree {
                     return 1;
                   })
               )
+          ).then(
+            CommandManager.argument("restartShop", StringArgumentType.string())
+
           )
       );
 

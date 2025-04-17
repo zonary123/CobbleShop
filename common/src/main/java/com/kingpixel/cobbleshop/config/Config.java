@@ -51,8 +51,8 @@ public class Config {
     this.lang = "en";
     this.rows = 6;
     this.title = "Shop";
-    this.soundOpen = "block.chest.open";
-    this.soundClose = "block.chest.close";
+    this.soundOpen = "";
+    this.soundClose = "";
     this.discounts = new HashMap<>();
     this.discounts.put("group.vip", 2.0f);
     this.dataBase = new DataBaseConfig();

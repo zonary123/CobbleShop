@@ -84,10 +84,8 @@ public class MenuBuyAndSell {
     // Product Icon
     if (UIUtils.isInside(productSlot, rows)) {
       var economyUse = stack.peek().getEconomy();
-      BigDecimal balance = EconomyApi.getBalance(player.getUuid(), economyUse.getCurrency(),
-        economyUse.getEconomyId());
-      String playerBalance = EconomyApi.formatMoney(balance,
-        economyUse.getCurrency(), economyUse.getEconomyId());
+      BigDecimal balance = EconomyApi.getBalance(player.getUuid(), economyUse);
+      String playerBalance = EconomyApi.formatMoney(balance, economyUse);
       template.set(productSlot, product.getIcon(player, stack, actionShop, amount, options, config, withClose, playerBalance));
     }
 

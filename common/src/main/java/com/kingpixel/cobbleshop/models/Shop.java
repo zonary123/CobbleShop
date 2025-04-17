@@ -44,6 +44,7 @@ public class Shop {
   private String closeCommand;
   private String soundOpen;
   private String soundClose;
+  private String colorProduct;
   private int rows;
   private float globalDiscount;
   private ShopType type;
@@ -65,8 +66,9 @@ public class Shop {
     this.title = "%shop%";
     this.currency = "impactor:dollars";
     this.closeCommand = "";
-    this.soundOpen = "block.chest.open";
-    this.soundClose = "block.chest.close";
+    this.colorProduct = "";
+    this.soundOpen = "minecraft:block.chest.open";
+    this.soundClose = "minecraft:block.chest.close";
     this.rows = 6;
     this.globalDiscount = 0;
     this.type = new ShopTypePermanent();
@@ -179,9 +181,8 @@ public class Shop {
         .build();
 
       PanelsConfig.applyConfig(template, this.getPanels(), rows);
-      BigDecimal balance = EconomyApi.getBalance(player.getUuid(), economy.getCurrency(),
-        economy.getEconomyId());
-      String playerBalance = EconomyApi.formatMoney(balance, economy.getCurrency(), economy.getEconomyId());
+      BigDecimal balance = EconomyApi.getBalance(player.getUuid(), economy);
+      String playerBalance = EconomyApi.formatMoney(balance, economy);
       int totalSlots = rectangle.getLength() * rectangle.getWidth();
       List<Product> products = type.getProducts(this, options);
       int totalProducts = products.size();
@@ -244,7 +245,7 @@ public class Shop {
 
       if (UIUtils.isInside(this.itemBalance.getSlot(), rows)) {
         ItemModel itemBalance = CobbleShop.lang.getGlobalItemBalance(this.itemBalance);
-        String format = EconomyApi.formatMoney(balance, economy.getCurrency(), economy.getEconomyId());
+        String format = EconomyApi.formatMoney(balance, economy);
         String nameBalance = itemBalance.getDisplayname()
           .replace("%balance%", format)
           .replace("%currency%", economy.getCurrency())

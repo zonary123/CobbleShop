@@ -84,6 +84,7 @@ public class CobbleShop {
       });
     });
 
+
     CommandRegistrationEvent.EVENT.register((dispatcher, commandRegistryAccess, registrationEnvironment) -> {
       ShopApi.register(options, dispatcher);
       dataShop.init();
@@ -91,7 +92,7 @@ public class CobbleShop {
     });
 
     PlayerEvent.PLAYER_JOIN.register(player -> DataBaseFactory.INSTANCE.getUserInfo(player));
-
+    PlayerEvent.PLAYER_QUIT.register(player -> ShopApi.sellLock.remove(player.getUuid()));
   }
 
   public static void initSellProduct(ShopOptionsApi options) {
