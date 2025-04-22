@@ -92,7 +92,10 @@ public class CobbleShop {
     });
 
     PlayerEvent.PLAYER_JOIN.register(player -> DataBaseFactory.INSTANCE.getUserInfo(player));
-    PlayerEvent.PLAYER_QUIT.register(player -> ShopApi.sellLock.remove(player.getUuid()));
+    PlayerEvent.PLAYER_QUIT.register(player -> {
+      DataBaseFactory.INSTANCE.removeIfNecessary(player);
+      ShopApi.sellLock.remove(player.getUuid());
+    });
   }
 
   public static void initSellProduct(ShopOptionsApi options) {

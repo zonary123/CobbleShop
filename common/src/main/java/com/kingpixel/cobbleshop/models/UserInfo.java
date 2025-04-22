@@ -3,7 +3,6 @@ package com.kingpixel.cobbleshop.models;
 import com.kingpixel.cobbleshop.CobbleShop;
 import com.kingpixel.cobbleshop.api.ShopApi;
 import com.kingpixel.cobbleshop.database.DataBaseFactory;
-import com.kingpixel.cobbleshop.database.DataBaseJSON;
 import com.kingpixel.cobbleutils.util.Utils;
 import lombok.Data;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -41,7 +40,7 @@ public class UserInfo {
       call -> {
         UserInfo userInfo = CobbleShop.gson.fromJson(call, UserInfo.class);
         userInfo.check(true);
-        DataBaseJSON.users.put(player.getUuid(), userInfo);
+        DataBaseFactory.users.put(player.getUuid(), userInfo);
       });
 
     if (!futureRead.join()) {
@@ -79,10 +78,10 @@ public class UserInfo {
     }
   }
 
-  public int getProductLimit(Product product) {
+  public int getActualProductLimit(Product product) {
     ProductLimit productLimit = cooldownProduct.get(product.getUuid());
-    if (productLimit == null) return product.getMax();
-    return Math.min(productLimit.getAmount(), product.getMax());
+    if (productLimit == null) return 0;
+    return productLimit.getAmount();
   }
 
   public void addProductLimit(Product product, int amount) {

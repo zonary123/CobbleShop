@@ -4,12 +4,14 @@ import ca.landonjw.gooeylibs2.api.UIManager;
 import ca.landonjw.gooeylibs2.api.page.GooeyPage;
 import ca.landonjw.gooeylibs2.api.template.types.ChestTemplate;
 import com.kingpixel.cobbleshop.CobbleShop;
+import com.kingpixel.cobbleshop.api.ShopApi;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.config.Config;
 import com.kingpixel.cobbleshop.database.DataBaseFactory;
 import com.kingpixel.cobbleshop.models.ActionShop;
 import com.kingpixel.cobbleshop.models.Product;
 import com.kingpixel.cobbleshop.models.Shop;
+import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.PanelsConfig;
 import com.kingpixel.cobbleutils.api.EconomyApi;
@@ -134,13 +136,19 @@ public class MenuBuyAndSell {
       template.set(itemConfirm.getSlot(), itemConfirm.getButton(action -> {
         Shop shop = stack.peek();
         if (actionShop.equals(ActionShop.BUY)) {
-          int max;
+          int finalAmount = amount;
           if (product.getUuid() != null) {
-            max = DataBaseFactory.INSTANCE.getUserInfo(player).getProductLimit(product);
-          } else {
-            max = amount;
+            var userinfo = DataBaseFactory.INSTANCE.getUserInfo(player);
+            int actual = userinfo.getActualProductLimit(product);
+            int max = product.getMax();
+            if (actual >= max) UIManager.closeUI(player);
+            finalAmount = Math.min(finalAmount, max);
+            if (ShopApi.getMainConfig().isDebug()) {
+              CobbleUtils.LOGGER.info(CobbleShop.MOD_ID,
+                "Limit: " + actual + " / " + max + " - Uuid: " + product.getUuid() + " - Amount: " + finalAmount);
+            }
           }
-          shop.getType().buyProduct(player, product, shop, max, options, config, stack, withClose);
+          shop.getType().buyProduct(player, product, shop, finalAmount, options, config, stack, withClose);
         } else {
           product.sell(player, shop, amount, product, options, config, stack, withClose);
         }

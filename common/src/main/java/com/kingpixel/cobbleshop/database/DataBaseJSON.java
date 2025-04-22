@@ -8,16 +8,12 @@ import com.kingpixel.cobbleutils.Model.DataBaseConfig;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * @author Carlos Varas Alonso - 22/02/2025 4:10
  */
 public class DataBaseJSON extends DataBaseClient {
 
-  public static final Map<UUID, UserInfo> users = new HashMap<>();
 
   public DataBaseJSON(DataBaseConfig config) {
     super();
@@ -32,7 +28,7 @@ public class DataBaseJSON extends DataBaseClient {
   }
 
   @Override public UserInfo getUserInfo(ServerPlayerEntity player) {
-    UserInfo userInfo = users.get(player.getUuid());
+    UserInfo userInfo = DataBaseFactory.users.get(player.getUuid());
     if (userInfo == null) {
       userInfo = new UserInfo(player);
       userInfo.read(player);

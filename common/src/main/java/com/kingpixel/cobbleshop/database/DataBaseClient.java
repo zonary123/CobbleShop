@@ -32,7 +32,7 @@ public abstract class DataBaseClient {
     UserInfo userInfo = getUserInfo(player);
     var productLimit = userInfo.getCooldownProduct().get(product.getUuid());
     boolean isCooldown = productLimit != null && productLimit.getCooldown() > System.currentTimeMillis();
-    boolean isLimit = userInfo.getProductLimit(product) >= product.getMax();
+    boolean isLimit = userInfo.getActualProductLimit(product) >= product.getMax();
     if (isLimit) {
       if (isCooldown) {
         return false;
@@ -41,12 +41,16 @@ public abstract class DataBaseClient {
         updateUserInfo(userInfo);
       }
     }
-    return isLimit;
+    return !isLimit;
   }
 
   public long getProductCooldown(ServerPlayerEntity player, Product product) {
     UserInfo userInfo = getUserInfo(player);
     ProductLimit limit = userInfo.getCooldownProduct().get(product.getUuid());
     return limit == null ? System.currentTimeMillis() : limit.getCooldown();
+  }
+
+  public void removeIfNecessary(ServerPlayerEntity player) {
+
   }
 }

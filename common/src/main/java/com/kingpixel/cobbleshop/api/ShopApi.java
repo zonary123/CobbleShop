@@ -39,12 +39,15 @@ public class ShopApi {
 
   public static void register(ShopOptionsApi options, CommandDispatcher<ServerCommandSource> dispatcher) {
     OldShop.migration();
-    new Config().readConfig(options);
-    options.setCommands(configs.get(options.getModId()).getCommands());
+    Config config = new Config().readConfig(options);
+    configs.put(options.getModId(), config);
+    options.setCommands(config.getCommands());
     Config.readShops(options);
-    CobbleShop.lang.init(configs.get(CobbleShop.MOD_ID));
     CommandTree.register(options, dispatcher);
     CobbleShop.initSellProduct(options);
+    Config main = configs.get(CobbleShop.MOD_ID);
+    if (main == null) return;
+    CobbleShop.lang.init(main);
   }
 
 
@@ -67,9 +70,9 @@ public class ShopApi {
   public static final Map<UUID, Long> sellLock = new HashMap<>();
 
   public static void sellAll(ServerPlayerEntity player, List<ItemStack> itemStacks, ShopOptionsApi options) {
+    if (itemStacks.isEmpty()) return;
     if (sellLock.containsKey(player.getUuid())) return;
     sellLock.put(player.getUuid(), System.currentTimeMillis());
-
     CompletableFuture.runAsync(() -> {
       long start = System.currentTimeMillis();
       Map<EconomyUse, BigDecimal> dataSell = itemStacks.stream()

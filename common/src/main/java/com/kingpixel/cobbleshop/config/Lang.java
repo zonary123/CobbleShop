@@ -55,7 +55,7 @@ public class Lang {
   public Lang() {
     prefix = "<#4ddb93>[<#ebb35a>CobbleShop🏪<#4ddb93>] ";
     messageShopNotOpen = "%prefix% <#eb4747>The shop is not open";
-    messageNotBuyPermission = "%prefix% <#eb4747>You do not have permission to buy in this shop";
+    messageNotBuyPermission = "%prefix% <#eb4747>You can´t buy this product";
     messageNotHavePermission = "%prefix% <#eb4747>You do not have the permission for this shop -> %permission%";
     messageNotEnoughMoney = "%prefix% <#eb4747>You do not have enough money";
     messageNotSell = "%prefix% <#eb4747>You don't have anything to sell";

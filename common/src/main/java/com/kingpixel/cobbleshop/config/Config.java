@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:27
@@ -65,22 +66,24 @@ public class Config {
     );
   }
 
-  public void readConfig(ShopOptionsApi options) {
+  public Config readConfig(ShopOptionsApi options) {
+    AtomicReference<Config> config = new AtomicReference<>();
     String path = options.getPath();
     File folder = Utils.getAbsolutePath(path);
 
     if (!folder.exists()) {
       folder.mkdirs();
     }
-    CompletableFuture<Boolean> futureRead = Utils.readFileAsync(options.getPath(), "config.json", call -> {
-      Config config = CobbleShop.gson.fromJson(call, Config.class);
-      write(config, options);
+    boolean read = Utils.readFileSync(Utils.getAbsolutePath(options.getPath() + "config.json"), call -> {
+      config.set(CobbleShop.gson.fromJson(call, Config.class));
+      write(config.get(), options);
     });
 
-    if (!futureRead.join()) {
-      Config config = this;
-      write(config, options);
+    if (!read) {
+      config.set(this);
+      write(config.get(), options);
     }
+    return config.get();
   }
 
   private void write(Config config, ShopOptionsApi options) {

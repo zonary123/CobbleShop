@@ -10,6 +10,8 @@ import com.kingpixel.cobbleshop.gui.edit.MenuEdit;
 import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleshop.models.TypeShop;
 import com.kingpixel.cobbleutils.api.PermissionApi;
+import com.kingpixel.cobbleutils.util.PlayerUtils;
+import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -176,7 +178,7 @@ public class CommandTree {
           )
       ).then(
         CommandManager.literal("create")
-          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".create", modId + ".admin"), 4))
+          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".create", modId + ".admin"), 2))
           .then(
             CommandManager.argument("shop", StringArgumentType.string())
               .then(
@@ -203,9 +205,34 @@ public class CommandTree {
                     return 1;
                   })
               )
-          ).then(
-            CommandManager.argument("restartShop", StringArgumentType.string())
-
+          )
+      ).then(
+        CommandManager.literal("restartShop")
+          .requires(context -> PermissionApi.hasPermission(context, modId + ".restart.shop", 4))
+          .then(
+            CommandManager.argument("shop", StringArgumentType.string())
+              .suggests((commandContext, suggestionsBuilder) -> {
+                var shops = ShopApi.getShops(options);
+                for (Shop shop : shops) {
+                  var type = shop.getType().getTypeShop();
+                  if (type == TypeShop.DYNAMIC || type == TypeShop.DYNAMIC_WEEKLY || type == TypeShop.DYNAMIC_CALENDAR)
+                    suggestionsBuilder.suggest(shop.getId());
+                }
+                return suggestionsBuilder.buildFuture();
+              })
+              .executes(context -> {
+                String shopId = StringArgumentType.getString(context, "shop");
+                var shop = ShopApi.getShop(options, shopId);
+                var type = shop.getType();
+                switch (type.getTypeShop()) {
+                  case DYNAMIC, DYNAMIC_WEEKLY, DYNAMIC_CALENDAR ->
+                    CobbleShop.dataShop.updateDynamicProducts(shop, options);
+                  default -> context.getSource().sendMessage(
+                    Text.literal("This shop is not dynamic, please use the command /shop reload")
+                  );
+                }
+                return 1;
+              })
           )
       );
 
@@ -220,7 +247,12 @@ public class CommandTree {
       Shop shop = ShopApi.getShop(options, s);
       if (shop == null) {
         for (ServerPlayerEntity player : players) {
-          config.open(player, options);
+          PlayerUtils.sendMessage(
+            player,
+            "The shop with id " + s + " does not exist",
+            CobbleShop.lang.getPrefix(),
+            TypeMessage.CHAT
+          );
         }
       } else {
         Stack<Shop> stack = new Stack<>();
