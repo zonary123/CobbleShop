@@ -60,9 +60,9 @@ public abstract class ShopType {
    * @param product The product to buy
    * @param amount  The amount of product to buy
    */
-  public void buyProduct(ServerPlayerEntity player, Product product, Shop shop, int amount,
-                         ShopOptionsApi options, Config config, Stack<Shop> stack, boolean withClose) {
-    product.buy(player, shop, amount, options, config, stack, withClose);
+  public boolean buyProduct(ServerPlayerEntity player, Product product, Shop shop, int amount,
+                            ShopOptionsApi options, Config config, Stack<Shop> stack, boolean withClose) {
+    return product.buy(player, shop, amount, options, config, stack, withClose);
   }
 }
 

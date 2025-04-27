@@ -300,6 +300,30 @@ public class Product {
                      Stack<Shop> stack, boolean withClose) {
     boolean result = false;
     ItemChance itemChance = new ItemChance(product, 0);
+    ItemStack itemStack = itemChance.getItemStack();
+    itemStack.setCount(amount);
+    // TODO: Check if the inventory has space
+    int emptySlots = 0;
+    var inventoryMain = player.getInventory().main;
+    for (ItemStack item : inventoryMain)
+      if (item.isEmpty()) emptySlots++;
+
+    if (!product.startsWith("command:") && !product.startsWith("pokemon:") && !product.contains("|")) {
+      int maxStack = itemStack.getMaxCount();
+      int slotsNeeded = (int) Math.ceil((double) amount / maxStack);
+      if (emptySlots < slotsNeeded) {
+        PlayerUtils.sendMessage(
+          player,
+          CobbleShop.lang.getMessageNotEnoughSpace()
+            .replace("%amount%", String.valueOf(amount))
+            .replace("%slots%", String.valueOf(slotsNeeded)),
+          CobbleShop.lang.getPrefix(),
+          TypeMessage.CHAT
+        );
+        return false;
+      }
+    }
+
     BigDecimal totalBuy = getBuyPrice(player, amount, shop, config);
     if (EconomyApi.hasEnoughMoney(player.getUuid(), totalBuy, shop.getEconomy(), true)) {
       ItemChance.giveReward(player, itemChance, amount);

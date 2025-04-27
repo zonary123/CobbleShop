@@ -27,6 +27,7 @@ public class Lang {
   private String messageSimpleSell;
   private String messageYouCantBuyNow;
   private String messageBuyPriceLessThanSell;
+  private String messageNotEnoughSpace;
   private String formatSell;
   private String notExtraInfo;
   private InfoShopType infoShopType;
@@ -60,6 +61,7 @@ public class Lang {
     messageNotEnoughMoney = "%prefix% <#eb4747>You do not have enough money";
     messageNotSell = "%prefix% <#eb4747>You don't have anything to sell";
     messageSell = "%prefix% <#4ddb93>You have sold:\n %sell%";
+    messageNotEnoughSpace = "%prefix% <#eb4747>You don't have enough space in your inventory";
     messageBuyPriceLessThanSell = "%prefix% <#eb4747>The buy price is less than the sell price";
     messageSimpleSell = "%prefix% <#4ddb93>You have sold %amount% and you have earned %price%";
     messageYouCantBuyNow = "%prefix% <#eb4747>You can't buy now the product you get the limit -> %limit%. You have to wait %time% seconds";
