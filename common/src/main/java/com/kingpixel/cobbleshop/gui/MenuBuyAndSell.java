@@ -97,63 +97,43 @@ public class MenuBuyAndSell {
     if (totalStack != 1) {
       // Add and Remove 1
       putButton(player, stack, product, amount, actionShop, options, config, withClose, template, CobbleShop.lang.getAdd1(), 1, CobbleShop.lang.getRemove1());
-
-      if (totalStack == 16 || totalStack == 64) {
-        putButton(player, stack, product, amount, actionShop, options, config, withClose, template, CobbleShop.lang.getAdd8(), 8, CobbleShop.lang.getRemove8());
-      }
-
-      if (totalStack == 64) {
-        putButton(player, stack, product, amount, actionShop, options, config, withClose, template, CobbleShop.lang.getAdd16(), 16, CobbleShop.lang.getRemove16());
-      }
-
-      if (UIUtils.isInside(CobbleShop.lang.getAdd64().getSlot(), rows)) {
-        template.set(CobbleShop.lang.getAdd64().getSlot(), CobbleShop.lang.getAdd64().getButton(action -> {
-          open(player, stack, product, amount + 64, actionShop, options, config, withClose);
-        }));
-      }
-
-      if (UIUtils.isInside(CobbleShop.lang.getRemove64().getSlot(), rows)) {
-        template.set(CobbleShop.lang.getRemove64().getSlot(), CobbleShop.lang.getRemove64().getButton(action -> {
-          open(player, stack, product, Math.max(amount - 64, 1), actionShop, options, config, withClose);
-        }));
-      }
+      // Add and Remove 8
+      putButton(player, stack, product, amount, actionShop, options, config, withClose, template, CobbleShop.lang.getAdd8(), 8, CobbleShop.lang.getRemove8());
+      // Add and Remove 16
+      putButton(player, stack, product, amount, actionShop, options, config, withClose, template, CobbleShop.lang.getAdd16(), 16, CobbleShop.lang.getRemove16());
+      // Add and Remove 64
+      putButton(player, stack, product, amount, actionShop, options, config, withClose, template, CobbleShop.lang.getAdd64(), 64, CobbleShop.lang.getRemove64());
     }
 
     // Extra Buttons
-    if (UIUtils.isInside(itemCancel.getSlot(), rows)) {
-      template.set(itemCancel.getSlot(), itemCancel.getButton(action -> {
-        Config.manageOpenShop(player, options, config, null, stack, null, withClose);
-      }));
-    }
+    itemCancel.applyTemplate(template, itemCancel.getButton(action -> {
+      Config.manageOpenShop(player, options, config, null, stack, null, withClose);
+    }));
 
-    if (UIUtils.isInside(itemClose.getSlot(), rows)) {
-      template.set(itemClose.getSlot(), itemClose.getButton(action -> {
-        Config.manageOpenShop(player, options, config, null, stack, null, withClose);
-      }));
-    }
+    itemClose.applyTemplate(template, itemClose.getButton(action -> {
+      Config.manageOpenShop(player, options, config, null, stack, null, withClose);
+    }));
 
-    if (UIUtils.isInside(itemConfirm.getSlot(), rows)) {
-      template.set(itemConfirm.getSlot(), itemConfirm.getButton(action -> {
-        Shop shop = stack.peek();
-        if (actionShop.equals(ActionShop.BUY)) {
-          int finalAmount = amount;
-          if (product.getUuid() != null) {
-            var userinfo = DataBaseFactory.INSTANCE.getUserInfo(player);
-            int actual = userinfo.getActualProductLimit(product);
-            int max = product.getMax();
-            if (actual >= max) UIManager.closeUI(player);
-            finalAmount = Math.min(finalAmount, max);
-            if (ShopApi.getMainConfig().isDebug()) {
-              CobbleUtils.LOGGER.info(CobbleShop.MOD_ID,
-                "Limit: " + actual + " / " + max + " - Uuid: " + product.getUuid() + " - Amount: " + finalAmount);
-            }
+    itemConfirm.applyTemplate(template, itemConfirm.getButton(action -> {
+      Shop shop = stack.peek();
+      if (actionShop.equals(ActionShop.BUY)) {
+        int finalAmount = amount;
+        if (product.getUuid() != null) {
+          var userinfo = DataBaseFactory.INSTANCE.getUserInfo(player);
+          int actual = userinfo.getActualProductLimit(product);
+          int max = product.getMax();
+          if (actual >= max) UIManager.closeUI(player);
+          finalAmount = Math.min(finalAmount, max);
+          if (ShopApi.getMainConfig().isDebug()) {
+            CobbleUtils.LOGGER.info(CobbleShop.MOD_ID,
+              "Limit: " + actual + " / " + max + " - Uuid: " + product.getUuid() + " - Amount: " + finalAmount);
           }
-          shop.getType().buyProduct(player, product, shop, finalAmount, options, config, stack, withClose);
-        } else {
-          product.sell(player, shop, amount, product, options, config, stack, withClose);
         }
-      }));
-    }
+        shop.getType().buyProduct(player, product, shop, finalAmount, options, config, stack, withClose);
+      } else {
+        product.sell(player, shop, amount, product, options, config, stack, withClose);
+      }
+    }));
 
     GooeyPage page = GooeyPage
       .builder()
@@ -165,16 +145,13 @@ public class MenuBuyAndSell {
     UIManager.openUIForcefully(player, page);
   }
 
-  private void putButton(ServerPlayerEntity player, Stack<Shop> stack, Product product, int amount, ActionShop actionShop, ShopOptionsApi options, Config config, boolean withClose, ChestTemplate template, ItemModel add1, int i, ItemModel remove1) {
-    if (UIUtils.isInside(add1.getSlot(), rows)) {
-      template.set(add1.getSlot(), add1.getButton(action -> {
-        open(player, stack, product, amount + i, actionShop, options, config, withClose);
-      }));
-    }
-    if (UIUtils.isInside(remove1.getSlot(), rows)) {
-      template.set(remove1.getSlot(), remove1.getButton(action -> {
-        if (amount > i) open(player, stack, product, Math.max(amount - i, 1), actionShop, options, config, withClose);
-      }));
-    }
+  private void putButton(ServerPlayerEntity player, Stack<Shop> stack, Product product, int amount, ActionShop actionShop, ShopOptionsApi options, Config config, boolean withClose, ChestTemplate template, ItemModel buttonAdd, int i, ItemModel buttonRemove) {
+    buttonAdd.applyTemplate(template, buttonAdd.getButton(action -> {
+      open(player, stack, product, amount + i, actionShop, options, config, withClose);
+    }));
+
+    buttonRemove.applyTemplate(template, buttonRemove.getButton(action -> {
+      open(player, stack, product, Math.max(amount - i, 1), actionShop, options, config, withClose);
+    }));
   }
 }
