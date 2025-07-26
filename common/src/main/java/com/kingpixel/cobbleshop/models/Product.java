@@ -16,6 +16,7 @@ import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
 import lombok.Data;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.CustomModelDataComponent;
 import net.minecraft.component.type.LoreComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -152,6 +153,8 @@ public class Product {
     ItemStack itemStack = itemChance.getItemStack();
     if (amount == itemStack.getCount()) itemStack.setCount(amount);
     if (itemStack.getCount() == 0) itemStack.setCount(1);
+    if (CustomModelData != null && itemStack.get(DataComponentTypes.CUSTOM_MODEL_DATA) == null)
+      itemStack.set(DataComponentTypes.CUSTOM_MODEL_DATA, new CustomModelDataComponent(CustomModelData));
     GooeyButton.Builder builder = GooeyButton.builder()
       .display(itemStack)
       .with(DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(peek.getColorProduct() + title))

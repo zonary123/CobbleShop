@@ -98,7 +98,7 @@ public class MenuBuyAndSell {
       // Add and Remove 1
       putButton(player, stack, product, amount, actionShop, options, config, withClose, template, CobbleShop.lang.getAdd1(), 1, CobbleShop.lang.getRemove1());
 
-      if (totalStack == 16) {
+      if (totalStack == 16 || totalStack == 64) {
         putButton(player, stack, product, amount, actionShop, options, config, withClose, template, CobbleShop.lang.getAdd8(), 8, CobbleShop.lang.getRemove8());
       }
 
