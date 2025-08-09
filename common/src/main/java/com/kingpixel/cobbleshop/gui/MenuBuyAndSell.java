@@ -67,6 +67,7 @@ public class MenuBuyAndSell {
             return;
           }
         }
+        
         if (!product.isBuyable() && actionShop.equals(ActionShop.BUY)) return;
         if ((!product.isSellable() || !product.canSell(player, stack.peek(), options)) && actionShop.equals(ActionShop.SELL)) {
           PlayerUtils.sendMessage(
