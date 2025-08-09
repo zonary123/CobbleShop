@@ -74,47 +74,49 @@ public class ShopApi {
     if (sellLock.containsKey(player.getUuid())) return;
     sellLock.put(player.getUuid(), System.currentTimeMillis());
     CompletableFuture.runAsync(() -> {
-      long start = System.currentTimeMillis();
-      Map<EconomyUse, BigDecimal> dataSell = itemStacks.stream()
-        .flatMap(itemStack -> sellProducts.entrySet().stream()
-          .flatMap(entry -> entry.getValue().stream()
-            .filter(product -> product.canSell(player, entry.getKey(), options))
-            .map(product -> {
-              BigDecimal sellPrice = Product.sellProduct(entry.getKey(), itemStack, product);
-              if (sellPrice.compareTo(BigDecimal.ZERO) > 0) {
-                int amount = itemStack.getCount();
-                DataBaseFactory.INSTANCE.addTransaction(player, entry.getKey(), product, ActionShop.SELL, amount, product.getSellPrice(amount));
-              }
-              return Map.entry(entry.getKey().getEconomy(), sellPrice);
-            })
-            .filter(e -> e.getValue().compareTo(BigDecimal.ZERO) > 0)
+        long start = System.currentTimeMillis();
+        Map<EconomyUse, BigDecimal> dataSell = itemStacks.stream()
+          .flatMap(itemStack -> sellProducts.entrySet().stream()
+            .flatMap(entry -> entry.getValue().stream()
+              .filter(product -> product.canSell(player, entry.getKey(), options))
+              .map(product -> {
+                BigDecimal sellPrice = Product.sellProduct(entry.getKey(), itemStack, product);
+                if (sellPrice.compareTo(BigDecimal.ZERO) > 0) {
+                  int amount = itemStack.getCount();
+                  DataBaseFactory.INSTANCE.addTransaction(player, entry.getKey(), product, ActionShop.SELL, amount, product.getSellPrice(amount));
+                }
+                return Map.entry(entry.getKey().getEconomy(), sellPrice);
+              })
+              .filter(e -> e.getValue().compareTo(BigDecimal.ZERO) > 0)
+            )
           )
-        )
-        .collect(HashMap::new, (map, entry) -> map.merge(entry.getKey(), entry.getValue(), BigDecimal::add), HashMap::putAll);
+          .collect(HashMap::new, (map, entry) -> map.merge(entry.getKey(), entry.getValue(), BigDecimal::add), HashMap::putAll);
 
-      if (!dataSell.isEmpty()) {
-        StringBuilder allSell = new StringBuilder();
-        dataSell.forEach((economyUse, price) -> {
-          allSell.append(CobbleShop.lang.getFormatSell()
-              .replace("%price%", EconomyApi.formatMoney(price, economyUse)))
-            .append("\n");
-          EconomyApi.addMoney(player.getUuid(), price, economyUse);
-        });
-        PlayerUtils.sendMessage(player, CobbleShop.lang.getMessageSell().replace("%sell%", allSell.toString()), CobbleShop.lang.getPrefix(), TypeMessage.CHAT);
-      } else {
-        PlayerUtils.sendMessage(player, CobbleShop.lang.getMessageNotSell(), CobbleShop.lang.getPrefix(), TypeMessage.CHAT);
-      }
+        if (!dataSell.isEmpty()) {
+          StringBuilder allSell = new StringBuilder();
+          dataSell.forEach((economyUse, price) -> {
+            allSell.append(CobbleShop.lang.getFormatSell()
+                .replace("%price%", EconomyApi.formatMoney(price, economyUse)))
+              .append("\n");
+            EconomyApi.addMoney(player.getUuid(), price, economyUse);
+          });
+          PlayerUtils.sendMessage(player, CobbleShop.lang.getMessageSell().replace("%sell%", allSell.toString()), CobbleShop.lang.getPrefix(), TypeMessage.CHAT);
+        } else {
+          PlayerUtils.sendMessage(player, CobbleShop.lang.getMessageNotSell(), CobbleShop.lang.getPrefix(), TypeMessage.CHAT);
+        }
 
-      if (ShopApi.getMainConfig().isDebug()) {
-        long duration = System.currentTimeMillis() - start;
-        CobbleUtils.LOGGER.info(CobbleShop.MOD_ID, "Sell took " + duration + "ms");
-      }
-      sellLock.remove(player.getUuid());
-    }).orTimeout(30, TimeUnit.SECONDS).exceptionally(e -> {
-      CobbleUtils.LOGGER.error(CobbleShop.MOD_ID, "Error selling items -> " + e);
-      sellLock.remove(player.getUuid());
-      return null;
-    });
+        if (ShopApi.getMainConfig().isDebug()) {
+          long duration = System.currentTimeMillis() - start;
+          CobbleUtils.LOGGER.info(CobbleShop.MOD_ID, "Sell took " + duration + "ms");
+        }
+        sellLock.remove(player.getUuid());
+      }, CobbleShop.SHOP_EXECUTOR)
+      .orTimeout(30, TimeUnit.SECONDS)
+      .exceptionally(e -> {
+        CobbleUtils.LOGGER.error(CobbleShop.MOD_ID, "Error selling items -> " + e);
+        sellLock.remove(player.getUuid());
+        return null;
+      });
   }
 
   public static Config getMainConfig() {

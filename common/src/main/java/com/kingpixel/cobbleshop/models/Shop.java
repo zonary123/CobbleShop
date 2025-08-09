@@ -164,175 +164,181 @@ public class Shop {
   }
 
   public void open(ServerPlayerEntity player, ShopOptionsApi options, Config config, int position, Stack<Shop> shop, boolean withClose) {
-    try {
-      if (!PermissionApi.hasPermission(player, getPermission(options), 4)) {
-        PlayerUtils.sendMessage(
-          player,
-          CobbleShop.lang.getMessageNotHavePermission()
-            .replace("%shop%", title)
-            .replace("%permission%", getPermission(options)),
-          CobbleShop.lang.getPrefix(),
-          TypeMessage.CHAT
-        );
-        return;
-      }
-      ChestTemplate template = ChestTemplate
-        .builder(rows)
-        .build();
-
-      PanelsConfig.applyConfig(template, this.getPanels(), rows);
-      BigDecimal balance = EconomyApi.getBalance(player.getUuid(), economy);
-      String playerBalance = EconomyApi.formatMoney(balance, economy);
-      int totalSlots = rectangle.getLength() * rectangle.getWidth();
-      List<Product> products = type.getProducts(this, options);
-      int totalProducts = products.size();
-      int totalSubShops = subShops.size();
-      boolean hasEnoughtButtons = subShops.isEmpty() ? totalProducts > totalSlots : totalSubShops > totalSlots;
-      List<Button> buttons = new ArrayList<>();
-      if (subShops.isEmpty()) {
-        // Products
-        if (hasEnoughtButtons || autoPlace) {
-          for (Product product : products) {
-            if (!product.hasErrors())
-              buttons.add(product.getIcon(player, shop, null, 1, options, config, withClose, playerBalance));
-          }
-        } else {
-          for (Product product : products) {
-            Integer slot = product.getSlot();
-            if (slot == null) {
-              CobbleUtils.LOGGER.error(options.getModId(), "Slot is null -> " + product.getProduct());
-              continue;
-            }
-            TemplateSlotDelegate templateSlotDelegate = template.getSlot(slot);
-            if (templateSlotDelegate != null) {
-              if (UIUtils.isInside(slot, rows)) template.set(slot, product.getIcon(player, shop, null, 1, options,
-                config, withClose, playerBalance));
-            } else {
-              CobbleUtils.LOGGER.error(options.getModId(),
-                "Slot has a product or button -> " + slot + " Product -> " + product.getProduct());
-              PlayerUtils.sendMessage(
-                player,
-                "Slot has a product or button -> " + slot + " Product -> " + product.getProduct(),
-                CobbleShop.lang.getPrefix(),
-                TypeMessage.CHAT
-              );
-            }
-          }
-        }
-      } else {
-        // Categories
-        if (autoPlace) {
-          subShops.forEach(subShop -> {
-            buttons.add(getSubShopButton(options, subShop, player, config, shop, withClose));
-          });
-        } else {
-          subShops.forEach(subShop -> {
-            if (UIUtils.isInside(subShop.getSlot(), rows)) {
-              template.set(subShop.getSlot(), getSubShopButton(options, subShop, player, config, shop, withClose));
-            }
-          });
-        }
-      }
-
-      if (UIUtils.isInside(itemInfoShop.getSlot(), rows)) {
-        template.set(itemInfoShop.getSlot(), CobbleShop.lang.getInfoShopType().getShopType(
-          this,
-          options,
-          getItemInfoShop()
-        ));
-      }
-
-
-      if (UIUtils.isInside(this.itemBalance.getSlot(), rows)) {
-        ItemModel itemBalance = CobbleShop.lang.getGlobalItemBalance(this.itemBalance);
-        String format = EconomyApi.formatMoney(balance, economy);
-        String nameBalance = itemBalance.getDisplayname()
-          .replace("%balance%", format)
-          .replace("%currency%", economy.getCurrency())
-          .replace("%amount%", format);
-        List<String> lore = new ArrayList<>(itemBalance.getLore());
-        lore.replaceAll(s -> s
-          .replace("%balance%", format)
-          .replace("%currency%", economy.getCurrency())
-          .replace("%amount%", format));
-        template.set(this.itemBalance.getSlot(), itemBalance.getButton(1,
-          nameBalance, lore, action -> {
-
-          }));
-      }
-
-
-      if (UIUtils.isInside(this.itemClose.getSlot(), rows) && withClose) {
-        ItemModel itemClose = CobbleShop.lang.getGlobalItemClose(this.itemClose);
-        Button closeButton = itemClose.getButton(1, action -> {
-          if (!this.getCloseCommand().isEmpty()) {
-            PlayerUtils.executeCommand(
-              this.getCloseCommand(),
-              player
+    CompletableFuture.runAsync(() -> {
+        try {
+          if (!PermissionApi.hasPermission(player, getPermission(options), 4)) {
+            PlayerUtils.sendMessage(
+              player,
+              CobbleShop.lang.getMessageNotHavePermission()
+                .replace("%shop%", title)
+                .replace("%permission%", getPermission(options)),
+              CobbleShop.lang.getPrefix(),
+              TypeMessage.CHAT
             );
             return;
           }
-          Config.manageOpenShop(player, options, config, null, shop, this, withClose);
-        });
-        template.set(this.itemClose.getSlot(), closeButton);
-      }
+          ChestTemplate template = ChestTemplate
+            .builder(rows)
+            .build();
 
-      if (hasEnoughtButtons) {
-        if (UIUtils.isInside(this.itemPrevious.getSlot(), rows)) {
-          ItemModel previous = CobbleShop.lang.getGlobalItemPrevious(this.itemPrevious);
-          template.set(this.itemPrevious.getSlot(), LinkedPageButton.builder()
-            .display(previous.getItemStack())
-            .linkType(LinkType.Previous)
-            .build());
+          PanelsConfig.applyConfig(template, this.getPanels(), rows);
+          BigDecimal balance = EconomyApi.getBalance(player.getUuid(), economy);
+          String playerBalance = EconomyApi.formatMoney(balance, economy);
+          int totalSlots = rectangle.getLength() * rectangle.getWidth();
+          List<Product> products = type.getProducts(this, options);
+          int totalProducts = products.size();
+          int totalSubShops = subShops.size();
+          boolean hasEnoughtButtons = subShops.isEmpty() ? totalProducts > totalSlots : totalSubShops > totalSlots;
+          List<Button> buttons = new ArrayList<>();
+          if (subShops.isEmpty()) {
+            // Products
+            if (hasEnoughtButtons || autoPlace) {
+              for (Product product : products) {
+                if (!product.hasErrors())
+                  buttons.add(product.getIcon(player, shop, null, 1, options, config, withClose, playerBalance));
+              }
+            } else {
+              for (Product product : products) {
+                Integer slot = product.getSlot();
+                if (slot == null) {
+                  CobbleUtils.LOGGER.error(options.getModId(), "Slot is null -> " + product.getProduct());
+                  continue;
+                }
+                TemplateSlotDelegate templateSlotDelegate = template.getSlot(slot);
+                if (templateSlotDelegate != null) {
+                  if (UIUtils.isInside(slot, rows)) template.set(slot, product.getIcon(player, shop, null, 1, options,
+                    config, withClose, playerBalance));
+                } else {
+                  CobbleUtils.LOGGER.error(options.getModId(),
+                    "Slot has a product or button -> " + slot + " Product -> " + product.getProduct());
+                  PlayerUtils.sendMessage(
+                    player,
+                    "Slot has a product or button -> " + slot + " Product -> " + product.getProduct(),
+                    CobbleShop.lang.getPrefix(),
+                    TypeMessage.CHAT
+                  );
+                }
+              }
+            }
+          } else {
+            // Categories
+            if (autoPlace) {
+              subShops.forEach(subShop -> {
+                buttons.add(getSubShopButton(options, subShop, player, config, shop, withClose));
+              });
+            } else {
+              subShops.forEach(subShop -> {
+                if (UIUtils.isInside(subShop.getSlot(), rows)) {
+                  template.set(subShop.getSlot(), getSubShopButton(options, subShop, player, config, shop, withClose));
+                }
+              });
+            }
+          }
+
+          if (UIUtils.isInside(itemInfoShop.getSlot(), rows)) {
+            template.set(itemInfoShop.getSlot(), CobbleShop.lang.getInfoShopType().getShopType(
+              this,
+              options,
+              getItemInfoShop()
+            ));
+          }
+
+
+          if (UIUtils.isInside(this.itemBalance.getSlot(), rows)) {
+            ItemModel itemBalance = CobbleShop.lang.getGlobalItemBalance(this.itemBalance);
+            String format = EconomyApi.formatMoney(balance, economy);
+            String nameBalance = itemBalance.getDisplayname()
+              .replace("%balance%", format)
+              .replace("%currency%", economy.getCurrency())
+              .replace("%amount%", format);
+            List<String> lore = new ArrayList<>(itemBalance.getLore());
+            lore.replaceAll(s -> s
+              .replace("%balance%", format)
+              .replace("%currency%", economy.getCurrency())
+              .replace("%amount%", format));
+            template.set(this.itemBalance.getSlot(), itemBalance.getButton(1,
+              nameBalance, lore, action -> {
+
+              }));
+          }
+
+
+          if (UIUtils.isInside(this.itemClose.getSlot(), rows) && withClose) {
+            ItemModel itemClose = CobbleShop.lang.getGlobalItemClose(this.itemClose);
+            Button closeButton = itemClose.getButton(1, action -> {
+              if (!this.getCloseCommand().isEmpty()) {
+                PlayerUtils.executeCommand(
+                  this.getCloseCommand(),
+                  player
+                );
+                return;
+              }
+              Config.manageOpenShop(player, options, config, null, shop, this, withClose);
+            });
+            template.set(this.itemClose.getSlot(), closeButton);
+          }
+
+          if (hasEnoughtButtons) {
+            if (UIUtils.isInside(this.itemPrevious.getSlot(), rows)) {
+              ItemModel previous = CobbleShop.lang.getGlobalItemPrevious(this.itemPrevious);
+              template.set(this.itemPrevious.getSlot(), LinkedPageButton.builder()
+                .display(previous.getItemStack())
+                .linkType(LinkType.Previous)
+                .build());
+            }
+
+            if (UIUtils.isInside(this.itemNext.getSlot(), rows)) {
+              ItemModel next = CobbleShop.lang.getGlobalItemNext(this.itemNext);
+              template.set(this.itemNext.getSlot(), LinkedPageButton.builder()
+                .display(next.getItemStack())
+                .linkType(LinkType.Next)
+                .build());
+            }
+
+          }
+
+
+          GooeyPage page;
+
+          title = title.replace("%shop%", id);
+
+          if (hasEnoughtButtons || autoPlace) {
+            rectangle.apply(template);
+
+            LinkedPage.Builder linkedPage = LinkedPage.builder()
+              .template(template)
+              .onOpen(action -> {
+                new Sound(soundOpen).playSoundPlayer(action.getPlayer());
+              })
+              .title(AdventureTranslator.toNative(title));
+
+            page = PaginationHelper.createPagesFromPlaceholders(template, buttons, linkedPage);
+          } else {
+            page = GooeyPage.builder()
+              .template(template)
+              .onOpen(action -> {
+                new Sound(soundOpen).playSoundPlayer(player);
+              })
+              .build();
+            page.setTitle(AdventureTranslator.toNative(title));
+          }
+
+
+          UIManager.openUIForcefully(player, page);
+        } catch (Exception e) {
+          e.printStackTrace();
+          PlayerUtils.sendMessage(
+            player,
+            "Please contact the server administrator to report this error. Shop -> " + id + " Mod -> " + options.getModId(),
+            CobbleShop.lang.getPrefix(),
+            TypeMessage.CHAT
+          );
         }
-
-        if (UIUtils.isInside(this.itemNext.getSlot(), rows)) {
-          ItemModel next = CobbleShop.lang.getGlobalItemNext(this.itemNext);
-          template.set(this.itemNext.getSlot(), LinkedPageButton.builder()
-            .display(next.getItemStack())
-            .linkType(LinkType.Next)
-            .build());
-        }
-
-      }
-
-
-      GooeyPage page;
-
-      title = title.replace("%shop%", id);
-
-      if (hasEnoughtButtons || autoPlace) {
-        rectangle.apply(template);
-
-        LinkedPage.Builder linkedPage = LinkedPage.builder()
-          .template(template)
-          .onOpen(action -> {
-            new Sound(soundOpen).playSoundPlayer(action.getPlayer());
-          })
-          .title(AdventureTranslator.toNative(title));
-
-        page = PaginationHelper.createPagesFromPlaceholders(template, buttons, linkedPage);
-      } else {
-        page = GooeyPage.builder()
-          .template(template)
-          .onOpen(action -> {
-            new Sound(soundOpen).playSoundPlayer(player);
-          })
-          .build();
-        page.setTitle(AdventureTranslator.toNative(title));
-      }
-
-
-      UIManager.openUIForcefully(player, page);
-    } catch (Exception e) {
-      e.printStackTrace();
-      PlayerUtils.sendMessage(
-        player,
-        "Please contact the server administrator to report this error. Shop -> " + id + " Mod -> " + options.getModId(),
-        CobbleShop.lang.getPrefix(),
-        TypeMessage.CHAT
-      );
-    }
+      }, CobbleShop.SHOP_EXECUTOR)
+      .exceptionally(e -> {
+        e.printStackTrace();
+        return null;
+      });
   }
 
   private GooeyButton getSubShopButton(ShopOptionsApi options, SubShop subShop, ServerPlayerEntity player,

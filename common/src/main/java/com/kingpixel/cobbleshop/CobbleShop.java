@@ -1,5 +1,6 @@
 package com.kingpixel.cobbleshop;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.kingpixel.cobbleshop.adapters.*;
@@ -21,6 +22,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:05
@@ -42,6 +45,10 @@ public class CobbleShop {
   public static Gson gson;
   public static Gson gsonWithOutSpaces;
   public static DataShop dataShop = new DataShop();
+  public static ExecutorService SHOP_EXECUTOR = Executors.newFixedThreadPool(4, new ThreadFactoryBuilder()
+    .setDaemon(true)
+    .setNameFormat("CobbleShop-Executor-%d")
+    .build());
 
 
   private static GsonBuilder addAdapters(GsonBuilder gsonBuilder) {
