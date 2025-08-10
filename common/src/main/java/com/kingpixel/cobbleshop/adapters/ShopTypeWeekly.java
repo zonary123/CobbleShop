@@ -1,9 +1,11 @@
 package com.kingpixel.cobbleshop.adapters;
 
 import com.google.gson.*;
+import com.kingpixel.cobbleshop.api.ShopApi;
 import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleshop.models.TypeShop;
+import com.kingpixel.cobbleutils.CobbleUtils;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -42,6 +44,10 @@ public class ShopTypeWeekly extends ShopType implements JsonSerializer<ShopTypeW
   }
 
   public static boolean canEnterDay(List<DayOfWeek> days) {
+    if (days == null || days.isEmpty()) return true; // If no days are specified, assume open every day
+    if (ShopApi.getMainConfig().isDebug()) {
+      CobbleUtils.LOGGER.info("Checking if shop is open today. Days: " + days);
+    }
     return days.contains(DayOfWeek.from(LocalDate.now()));
   }
 

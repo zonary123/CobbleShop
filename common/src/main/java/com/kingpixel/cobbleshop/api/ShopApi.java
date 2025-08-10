@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author Carlos Varas Alonso - 28/09/2024 20:15
@@ -111,7 +110,6 @@ public class ShopApi {
         }
         sellLock.remove(player.getUuid());
       }, CobbleShop.SHOP_EXECUTOR)
-      .orTimeout(30, TimeUnit.SECONDS)
       .exceptionally(e -> {
         CobbleUtils.LOGGER.error(CobbleShop.MOD_ID, "Error selling items -> " + e);
         sellLock.remove(player.getUuid());
