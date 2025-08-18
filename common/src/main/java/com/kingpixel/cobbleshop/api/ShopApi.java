@@ -59,7 +59,12 @@ public class ShopApi {
   }
 
   public static Shop getShop(ShopOptionsApi options, String id) {
-    return shops.get(options.getModId()).stream().filter(shop -> shop.getId().equals(id)).findFirst().orElse(null);
+    var s = shops.get(options.getModId());
+    for (Shop shop : s) {
+      if (shop.getId().equals(id))
+        return shop;
+    }
+    return null;
   }
 
   public static Config getConfig(ShopOptionsApi options) {
@@ -69,10 +74,10 @@ public class ShopApi {
   public static final Map<UUID, Long> sellLock = new HashMap<>();
 
   public static void sellAll(ServerPlayerEntity player, List<ItemStack> itemStacks, ShopOptionsApi options) {
-    if (itemStacks.isEmpty()) return;
-    if (sellLock.containsKey(player.getUuid())) return;
-    sellLock.put(player.getUuid(), System.currentTimeMillis());
     CompletableFuture.runAsync(() -> {
+        if (itemStacks.isEmpty()) return;
+        if (sellLock.containsKey(player.getUuid())) return;
+        sellLock.put(player.getUuid(), System.currentTimeMillis());
         long start = System.currentTimeMillis();
         Map<EconomyUse, BigDecimal> dataSell = itemStacks.stream()
           .flatMap(itemStack -> sellProducts.entrySet().stream()

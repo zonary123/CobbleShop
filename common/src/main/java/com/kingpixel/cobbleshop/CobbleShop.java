@@ -9,8 +9,6 @@ import com.kingpixel.cobbleshop.api.ShopOptionsApi;
 import com.kingpixel.cobbleshop.config.Lang;
 import com.kingpixel.cobbleshop.database.DataBaseFactory;
 import com.kingpixel.cobbleshop.models.DataShop;
-import com.kingpixel.cobbleshop.models.Product;
-import com.kingpixel.cobbleshop.models.Shop;
 import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.kingpixel.cobbleutils.util.Utils;
 import dev.architectury.event.events.common.CommandRegistrationEvent;
@@ -18,12 +16,11 @@ import dev.architectury.event.events.common.LifecycleEvent;
 import dev.architectury.event.events.common.PlayerEvent;
 import net.minecraft.server.MinecraftServer;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:05
@@ -98,30 +95,26 @@ public class CobbleShop {
       new DataBaseFactory(ShopApi.getMainConfig().getDataBase());
     });
 
-    PlayerEvent.PLAYER_JOIN.register(player -> DataBaseFactory.INSTANCE.getUserInfo(player));
+    PlayerEvent.PLAYER_JOIN.register(player -> {
+      CompletableFuture.runAsync(() -> {
+        DataBaseFactory.INSTANCE.getUserInfo(player);
+      }, SHOP_EXECUTOR);
+    });
     PlayerEvent.PLAYER_QUIT.register(player -> {
       DataBaseFactory.INSTANCE.removeIfNecessary(player);
       ShopApi.sellLock.remove(player.getUuid());
     });
   }
 
+
   public static void initSellProduct(ShopOptionsApi options) {
-    Map<Shop, List<Product>> products = new HashMap<>();
-
-    ShopApi.shops.forEach((modId, shops) -> {
-      shops.forEach(shop -> {
-        List<Product> productsShop = new ArrayList<>();
-        shop.getType().getProducts(shop, ShopOptionsApi.builder()
-          .modId(modId)
-          .build()).forEach(product -> {
-          if (product.canSell(null, shop, options)) {
-            productsShop.add(product);
-          }
-        });
-        products.put(shop, productsShop);
-      });
-    });
-
-    ShopApi.sellProducts = products;
+    ShopApi.sellProducts = ShopApi.shops.values().stream()
+      .flatMap(List::stream)
+      .collect(Collectors.toMap(
+        shop -> shop,
+        shop -> shop.getType().getProducts(shop, options).stream()
+          .filter(product -> product.canSell(null, shop, options))
+          .collect(Collectors.toList())
+      ));
   }
 }

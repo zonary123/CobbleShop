@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Data
 public class DataShop {
-  // ModId -> ProductId -> DynamicProduct
+  // ModId -> ShopId -> DynamicProduct
   public Map<String, Map<String, DynamicProduct>> products;
 
   public DataShop() {
@@ -44,8 +44,9 @@ public class DataShop {
 
   }
 
-  public void write() {
-    Utils.writeFileAsync(CobbleShop.PATH_DATA, "dataShop.json", CobbleShop.gsonWithOutSpaces.toJson(CobbleShop.dataShop));
+  public synchronized void write() {
+    File file = Utils.getAbsolutePath(CobbleShop.PATH_DATA + "dataShop.json");
+    Utils.writeFileSync(file, CobbleShop.gsonWithOutSpaces.toJson(CobbleShop.dataShop));
   }
 
   public void check() {
@@ -60,16 +61,19 @@ public class DataShop {
   }
 
   public List<Product> updateDynamicProducts(Shop shop, ShopOptionsApi options) {
-    products.computeIfAbsent(options.getModId(), k -> new HashMap<>()).computeIfAbsent(shop.getId(), k -> new DynamicProduct());
+    products.computeIfAbsent(options.getModId(), k -> new HashMap<>())
+      .computeIfAbsent(shop.getId(), k -> new DynamicProduct());
     DynamicProduct dynamicProduct = products.get(options.getModId()).get(shop.getId());
-    if (dynamicProduct.getTimeToUpdate() < System.currentTimeMillis() || dynamicProduct.getProducts().isEmpty()
+    if (dynamicProduct.getTimeToUpdate() < System.currentTimeMillis()
+      || dynamicProduct.getProducts().isEmpty()
       || dynamicProduct.getProducts().size() != getRotationProducts(shop)) {
-      dynamicProduct.setTimeToUpdate(System.currentTimeMillis() + getCooldown(shop.getType()));
-      List<Product> products = getNewProducts(shop, options);
-      dynamicProduct.setProducts(products);
-      write();
-      CobbleShop.initSellProduct(options);
-      return products;
+      CompletableFuture.runAsync(() -> {
+        dynamicProduct.setTimeToUpdate(System.currentTimeMillis() + getCooldown(shop.getType()));
+        List<Product> nuevosProductos = getNewProducts(shop, options);
+        dynamicProduct.setProducts(nuevosProductos);
+        write();
+        CobbleShop.initSellProduct(options);
+      }, CobbleShop.SHOP_EXECUTOR);
     }
     return dynamicProduct.getProducts();
   }

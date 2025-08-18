@@ -15,7 +15,6 @@ import java.lang.reflect.Type;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -63,7 +62,7 @@ public class ShopTypeDynamicCalendar extends ShopType implements JsonSerializer<
   @Override public String replace(String text, Shop shop, ShopOptionsApi shopOptionsApi) {
     return text
       .replace("%cooldown%", PlayerUtils.getCooldown(
-        new Date(CobbleShop.dataShop.getActualCooldown(shop, shopOptionsApi))
+        CobbleShop.dataShop.getActualCooldown(shop, shopOptionsApi)
       ))
       .replace("%number%", String.valueOf(this.getProductsRotation()))
       .replace("%amountProducts%", String.valueOf(this.getProductsRotation()));

@@ -14,7 +14,6 @@ import java.lang.reflect.Type;
 import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -59,7 +58,7 @@ public class ShopTypeDynamicWeekly extends ShopType implements JsonSerializer<Sh
   @Override public String replace(String text, Shop shop, ShopOptionsApi shopOptionsApi) {
     String[] days = getDays().stream().map(DayOfWeek::toString).toArray(String[]::new);
     return text
-      .replace("%cooldown%", PlayerUtils.getCooldown(new Date(CobbleShop.dataShop.getActualCooldown(shop, shopOptionsApi))))
+      .replace("%cooldown%", PlayerUtils.getCooldown(CobbleShop.dataShop.getActualCooldown(shop, shopOptionsApi)))
       .replace("%number%", String.valueOf(this.getProductsRotation()))
       .replace("%amountProducts%", String.valueOf(this.getProductsRotation()))
       .replace("%days%", String.join(", ", days));

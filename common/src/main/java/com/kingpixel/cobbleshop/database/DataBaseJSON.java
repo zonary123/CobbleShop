@@ -33,6 +33,7 @@ public class DataBaseJSON extends DataBaseClient {
       userInfo = new UserInfo(player);
       userInfo.read(player);
     }
+    DataBaseFactory.users.put(player.getUuid(), userInfo);
     return userInfo;
   }
 

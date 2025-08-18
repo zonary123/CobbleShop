@@ -182,7 +182,7 @@ public class Product {
                 player,
                 CobbleShop.lang.getMessageYouCantBuyNow()
                   .replace("%limit%", String.valueOf(max))
-                  .replace("%time%", PlayerUtils.getCooldown(new Date(DataBaseFactory.INSTANCE.getProductCooldown(player, this)))),
+                  .replace("%time%", PlayerUtils.getCooldown(DataBaseFactory.INSTANCE.getProductCooldown(player, this))),
                 CobbleShop.lang.getPrefix(),
                 TypeMessage.CHAT
               );

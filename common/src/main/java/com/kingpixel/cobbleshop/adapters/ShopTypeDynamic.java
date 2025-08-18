@@ -11,7 +11,6 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.lang.reflect.Type;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -52,7 +51,7 @@ public class ShopTypeDynamic extends ShopType implements JsonSerializer<ShopType
   @Override public String replace(String text, Shop shop, ShopOptionsApi shopOptionsApi) {
     return text
       .replace("%cooldown%", PlayerUtils.getCooldown(
-        new Date(CobbleShop.dataShop.getActualCooldown(shop, shopOptionsApi))
+        CobbleShop.dataShop.getActualCooldown(shop, shopOptionsApi)
       ))
       .replace("%number%", String.valueOf(this.getProductsRotation()))
       .replace("%amountProducts%", String.valueOf(this.getProductsRotation()));
