@@ -75,13 +75,13 @@ public class Lang {
       "<#bfbfbf>Amount: <#f4d03f>%amount%",
       " ",
       "<#bfbfbf>Buy: <#4ddb93>%buy% %removebuy%",
-      "<#bfbfbf>Discount: <#ffac33>%discount%",
+      "<#bfbfbf>Discount: <#ffac33>%discount% %removediscount%",
       "<#bfbfbf>Sell: <#eb4747>%sell% %removesell%",
       " ",
       "<#bfbfbf>Left click to buy %removebuy%",
       "<#bfbfbf>Right click to sell %removesell%",
       " ",
-      "<#bfbfbf>Your Balance: %balance% "
+      "<#bfbfbf>Your Balance: %balance%"
     );
     globalDisplay = new ItemModel(0, "cobblemon:poke_ball", "<#4ddb93>Shop %shop%", List.of(""), 0);
     globalItemInfoShop = new ItemModel(0, "minecraft:book", "<#4ddb93>Info", List.of(
