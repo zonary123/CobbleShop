@@ -181,7 +181,6 @@ public class OldShop {
     shop.setAutoPlace(true);
     shop.setId(oldShop.getId());
     shop.setTitle(oldShop.getTitle());
-    shop.setCurrency(oldShop.getCurrency());
     shop.setCloseCommand(oldShop.getCloseCommand());
     shop.setSoundOpen(oldShop.getSoundopen());
     shop.setSoundClose(oldShop.getSoundclose());
