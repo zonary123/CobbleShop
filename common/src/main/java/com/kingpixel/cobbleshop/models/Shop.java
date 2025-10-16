@@ -39,7 +39,6 @@ public class Shop {
   private boolean autoPlace;
   private String id;
   private String title;
-  private String currency;
   private EconomyUse economy;
   private String closeCommand;
   private String soundOpen;
@@ -64,7 +63,6 @@ public class Shop {
     this.autoPlace = true;
     this.id = "shop";
     this.title = "%shop%";
-    this.currency = "impactor:dollars";
     this.closeCommand = "";
     this.colorProduct = "";
     this.soundOpen = "minecraft:block.chest.open";
@@ -96,7 +94,6 @@ public class Shop {
     this.autoPlace = true;
     this.id = id;
     this.title = "%shop%";
-    this.currency = "impactor:dollars";
     this.closeCommand = "";
     this.soundOpen = "block.chest.open";
     this.soundClose = "block.chest.close";
@@ -152,7 +149,7 @@ public class Shop {
 
   public void check() {
     if (subShops == null) subShops = new ArrayList<>();
-    if (economy == null) economy = new EconomyUse(ImpactorEconomy.IDENTIFY, currency);
+    if (economy == null) economy = new EconomyUse(ImpactorEconomy.IDENTIFY, "impactor:dollars");
     products.forEach(product -> product.check(this));
     type.check();
   }
