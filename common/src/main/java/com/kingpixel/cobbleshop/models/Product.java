@@ -80,19 +80,11 @@ public class Product {
   public void check(Shop shop) {
     // Limit Product
     if (product == null) product = "minecraft:stone";
-    if (!shop.isAutoPlace()) {
-      if (slot == null) slot = 0;
-    }
+    if (!shop.isAutoPlace() && slot == null) slot = 0;
     if (cooldown != null || max != null) {
-      if (uuid == null) {
-        uuid = UUID.randomUUID();
-      }
-      if (max == null) {
-        max = 1;
-      }
-      if (cooldown == null) {
-        cooldown = 60;
-      }
+      if (uuid == null) uuid = UUID.randomUUID();
+      if (max == null) max = 1;
+      if (cooldown == null) cooldown = 60;
     }
   }
 
@@ -109,20 +101,19 @@ public class Product {
     lore.removeIf(s -> {
       if (s == null || s.isEmpty()) return false;
       boolean notSellable = sell == null || sell.compareTo(BigDecimal.ZERO) <= 0;
-      boolean notBuyable = buy == null || buy.compareTo(BigDecimal.ZERO) <= 0;
+      if (notSellable && (s.contains("%sell%") || s.contains("%removesell%"))) return true;
 
-      if (notSellable && (s.contains("%sell%") || s.contains("%removesell%"))) {
-        return true;
-      }
-      if (notBuyable && (s.contains("%buy%") || s.contains("%removebuy%"))) {
-        return true;
-      }
+      boolean notBuyable = buy == null || buy.compareTo(BigDecimal.ZERO) <= 0;
+      if (notBuyable && (s.contains("%buy%") || s.contains("%removebuy%"))) return true;
+
+      boolean discount = getDiscount(player, peek, config) > 0f;
+      if (!discount && s.contains("%removediscount%")) return true;
 
       if (actionShop != null) {
-        if (actionShop == ActionShop.BUY && (s.contains("%sell%") || s.contains("%removesell%"))) {
+        if (actionShop.equals(ActionShop.BUY) && (s.contains("%sell%") || s.contains("%removesell%"))) {
           return true;
         }
-        return actionShop == ActionShop.SELL && (s.contains("%buy%") || s.contains("%removebuy%"));
+        return actionShop.equals(ActionShop.SELL) && (s.contains("%buy%") || s.contains("%removebuy%"));
       }
       return false;
     });
@@ -211,8 +202,10 @@ public class Product {
   private float getEspecialDiscount(Map<String, Float> discounts, ServerPlayerEntity player, float result) {
     if (discounts != null && !discounts.isEmpty()) {
       for (Map.Entry<String, Float> entry : discounts.entrySet()) {
+        var value = entry.getValue();
+        if (result >= value) continue;
         if (PermissionApi.hasPermission(player, entry.getKey(), 4)) {
-          if (result < entry.getValue()) result = entry.getValue();
+          result = entry.getValue();
         }
       }
     }
