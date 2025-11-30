@@ -277,6 +277,9 @@ public class Product {
     if (s.contains("%removesell%")) {
       s = s.replace("%removesell%", "");
     }
+    if (s.contains("%removediscount%")) {
+      s = s.replace("%removediscount%", "");
+    }
 
     s = s.replace("%balance%", playerBalance == null ? "" : playerBalance);
 

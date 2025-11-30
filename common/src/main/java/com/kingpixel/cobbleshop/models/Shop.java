@@ -28,6 +28,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:19
@@ -326,12 +327,13 @@ public class Shop {
           e.printStackTrace();
           PlayerUtils.sendMessage(
             player,
-            "Please contact the server administrator to report this error. Shop -> " + id + " Mod -> " + options.getModId(),
+            "Please contact the server administrator to report this error. The administrator needs to check the console. Shop -> " + id + " Mod -> " + options.getModId(),
             CobbleShop.lang.getPrefix(),
             TypeMessage.CHAT
           );
         }
       }, CobbleShop.SHOP_EXECUTOR)
+      .orTimeout(5, TimeUnit.SECONDS)
       .exceptionally(e -> {
         e.printStackTrace();
         return null;
