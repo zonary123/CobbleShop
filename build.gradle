@@ -12,7 +12,7 @@ loom {
     splitEnvironmentSourceSets()
 
     mods {
-        "cobblequests" {
+        "cobbleshop" {
             sourceSet sourceSets.main
             sourceSet sourceSets.client
         }
