@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${version}",
+  "name": "${mod_name}",
+  "description": "",
+  "authors": [
+    "${author}"
+  ],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/${mod_id}/icon.png",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "com.kingpixel.cobbleshop.CobbleShop"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}",
+    "cobbleutils": "*"
+  }
+}
