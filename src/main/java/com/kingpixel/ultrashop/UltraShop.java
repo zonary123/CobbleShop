@@ -3,14 +3,14 @@ package com.kingpixel.ultrashop;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.kingpixel.cobbleutils.api.PermissionApi;
+import com.kingpixel.cobbleutils.util.Utils;
 import com.kingpixel.ultrashop.adapters.*;
 import com.kingpixel.ultrashop.api.ShopApi;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
 import com.kingpixel.ultrashop.config.Lang;
 import com.kingpixel.ultrashop.database.DataBaseFactory;
 import com.kingpixel.ultrashop.models.DataShop;
-import com.kingpixel.cobbleutils.api.PermissionApi;
-import com.kingpixel.cobbleutils.util.Utils;
 import dev.architectury.event.events.common.CommandRegistrationEvent;
 import dev.architectury.event.events.common.LifecycleEvent;
 import dev.architectury.event.events.common.PlayerEvent;
@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 public class UltraShop implements ModInitializer {
 
   public static final String MOD_ID = "ultrashop";
-  public static final String MOD_NAME = "CobbleShop";
+  public static final String MOD_NAME = "UltraShop";
   public static final String PATH = "/config/ultrashop/";
   public static final String PATH_SHOP = PATH + "shop/";
   public static final String PATH_LANG = PATH + "lang/";
