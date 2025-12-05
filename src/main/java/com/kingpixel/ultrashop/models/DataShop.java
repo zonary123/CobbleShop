@@ -1,5 +1,6 @@
 package com.kingpixel.ultrashop.models;
 
+import com.kingpixel.cobbleutils.Model.DurationValue;
 import com.kingpixel.cobbleutils.util.Utils;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.adapters.ShopType;
@@ -97,26 +98,24 @@ public class DataShop {
 
   private int getRotationProducts(Shop shop) {
     ShopType shopType = shop.getType();
-    if (shopType instanceof ShopTypeDynamic) {
-      ShopTypeDynamic shopTypeDynamic = (ShopTypeDynamic) shopType;
+    if (shopType instanceof ShopTypeDynamic shopTypeDynamic) {
       return shopTypeDynamic.getProductsRotation();
-    } else if (shopType instanceof ShopTypeDynamicWeekly) {
-      ShopTypeDynamicWeekly shopTypeDynamicWeekly = (ShopTypeDynamicWeekly) shopType;
+    } else if (shopType instanceof ShopTypeDynamicWeekly shopTypeDynamicWeekly) {
       return shopTypeDynamicWeekly.getProductsRotation();
     }
     return 3;
   }
 
   public long getCooldown(ShopType shopType) {
-    long cooldown = 30;
-    if (shopType instanceof ShopTypeDynamic) {
-      ShopTypeDynamic shopTypeDynamic = (ShopTypeDynamic) shopType;
+    DurationValue cooldown = null;
+    if (shopType instanceof ShopTypeDynamic shopTypeDynamic) {
       cooldown = shopTypeDynamic.getCooldown();
-    } else if (shopType instanceof ShopTypeDynamicWeekly) {
-      ShopTypeDynamicWeekly shopTypeDynamicWeekly = (ShopTypeDynamicWeekly) shopType;
+    } else if (shopType instanceof ShopTypeDynamicWeekly shopTypeDynamicWeekly) {
       cooldown = shopTypeDynamicWeekly.getCooldown();
     }
-    return TimeUnit.MINUTES.toMillis(cooldown);
+    return cooldown == null
+      ? TimeUnit.MINUTES.toMillis(30)
+      : cooldown.toMillis();
   }
 
   public List<Product> getNewProducts(Shop shop, ShopOptionsApi options) {

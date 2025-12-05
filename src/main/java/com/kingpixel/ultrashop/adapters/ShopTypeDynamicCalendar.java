@@ -1,13 +1,14 @@
 package com.kingpixel.ultrashop.adapters;
 
 import com.google.gson.*;
+import com.kingpixel.cobbleutils.Model.DurationValue;
+import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
 import com.kingpixel.ultrashop.models.DateRange;
 import com.kingpixel.ultrashop.models.Product;
 import com.kingpixel.ultrashop.models.Shop;
 import com.kingpixel.ultrashop.models.TypeShop;
-import com.kingpixel.cobbleutils.util.PlayerUtils;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -24,7 +25,7 @@ import java.util.List;
 public class ShopTypeDynamicCalendar extends ShopType implements JsonSerializer<ShopTypeDynamicCalendar>, JsonDeserializer<ShopTypeDynamicCalendar> {
   public static ShopTypeDynamicCalendar INSTANCE = new ShopTypeDynamicCalendar();
   private List<DateRange> dateRanges;
-  private int cooldown;
+  private DurationValue cooldown;
   private int productsRotation;
 
   public ShopTypeDynamicCalendar() {
@@ -32,14 +33,14 @@ public class ShopTypeDynamicCalendar extends ShopType implements JsonSerializer<
     dateRanges = List.of(
       new DateRange(LocalDate.now(), LocalDate.now().plusWeeks(1))
     );
-    cooldown = 30;
+    cooldown = DurationValue.parse("30m");
     productsRotation = 3;
   }
 
   public ShopTypeDynamicCalendar(List<DateRange> dateRanges) {
     setTypeShop(TypeShop.DYNAMIC_CALENDAR);
     this.dateRanges = dateRanges;
-    cooldown = 30;
+    cooldown = DurationValue.parse("30m");
     productsRotation = 3;
   }
 
@@ -80,7 +81,7 @@ public class ShopTypeDynamicCalendar extends ShopType implements JsonSerializer<
       dateRangesArray.add(rangeObject);
     }
     jsonObject.add("dateRanges", dateRangesArray);
-    jsonObject.addProperty("cooldown", src.getCooldown());
+    jsonObject.add("cooldown", DurationValue.INSTANCE.serialize(src.getCooldown(), DurationValue.class, context));
     jsonObject.addProperty("productsRotation", src.getProductsRotation());
     jsonObject.addProperty("typeShop", src.getTypeShop().toString());
     return jsonObject;
@@ -105,7 +106,9 @@ public class ShopTypeDynamicCalendar extends ShopType implements JsonSerializer<
       dateRanges.add(new DateRange(today, today.plusWeeks(1)));
     }
 
-    int cooldown = jsonObject.has("cooldown") ? jsonObject.get("cooldown").getAsInt() : 30;
+    DurationValue cooldown = jsonObject.has("cooldown")
+      ? DurationValue.INSTANCE.deserialize(jsonObject.get("cooldown"), DurationValue.class, context)
+      : DurationValue.parse("30m");
     int productsRotation = jsonObject.has("productsRotation") ? jsonObject.get("productsRotation").getAsInt() : 3;
 
     ShopTypeDynamicCalendar shopTypeCalendar = new ShopTypeDynamicCalendar(dateRanges);

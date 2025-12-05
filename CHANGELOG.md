@@ -6,7 +6,7 @@
 
 ### Features
 
-- Any new features added in this version.
+- Added new format cooldown in dynamic shop. The new format is "1y 1mo 1w 1d 2h 30m 15s".
 
 ### Bug Fixes
 

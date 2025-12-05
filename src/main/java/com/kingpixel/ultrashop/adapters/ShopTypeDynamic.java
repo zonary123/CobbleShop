@@ -1,12 +1,13 @@
 package com.kingpixel.ultrashop.adapters;
 
 import com.google.gson.*;
+import com.kingpixel.cobbleutils.Model.DurationValue;
+import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
 import com.kingpixel.ultrashop.models.Product;
 import com.kingpixel.ultrashop.models.Shop;
 import com.kingpixel.ultrashop.models.TypeShop;
-import com.kingpixel.cobbleutils.util.PlayerUtils;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -19,16 +20,16 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true) @Data
 public class ShopTypeDynamic extends ShopType implements JsonSerializer<ShopTypeDynamic>, JsonDeserializer<ShopTypeDynamic> {
   public static ShopTypeDynamic INSTANCE = new ShopTypeDynamic();
-  private int cooldown;
+  private DurationValue cooldown;
   private int productsRotation;
 
   public ShopTypeDynamic() {
     setTypeShop(TypeShop.DYNAMIC);
-    cooldown = 30;
+    cooldown = DurationValue.parse("30m");
     productsRotation = 3;
   }
 
-  public ShopTypeDynamic(int cooldown, int productsRotation) {
+  public ShopTypeDynamic(DurationValue cooldown, int productsRotation) {
     setTypeShop(TypeShop.DYNAMIC);
     this.cooldown = cooldown;
     this.productsRotation = productsRotation;
@@ -36,7 +37,7 @@ public class ShopTypeDynamic extends ShopType implements JsonSerializer<ShopType
 
   @Override public void check() {
     setTypeShop(TypeShop.DYNAMIC);
-    cooldown = Math.max(1, cooldown);
+    if (cooldown == null) cooldown = DurationValue.parse("30m");
     productsRotation = Math.max(1, productsRotation);
   }
 
@@ -62,7 +63,7 @@ public class ShopTypeDynamic extends ShopType implements JsonSerializer<ShopType
   @Override public JsonElement serialize(ShopTypeDynamic src, Type typeOfSrc, JsonSerializationContext context) {
     JsonObject jsonObject = new JsonObject();
     jsonObject.addProperty("typeShop", src.getTypeShop().toString());
-    jsonObject.addProperty("cooldown", src.getCooldown());
+    jsonObject.add("cooldown", DurationValue.INSTANCE.serialize(src.getCooldown(), DurationValue.class, context));
     jsonObject.addProperty("productsRotation", src.getProductsRotation());
     return jsonObject;
   }
@@ -72,7 +73,9 @@ public class ShopTypeDynamic extends ShopType implements JsonSerializer<ShopType
     JsonObject jsonObject = json.getAsJsonObject();
 
     JsonElement jsonCooldown = jsonObject.get("cooldown");
-    int cooldown = (jsonCooldown != null) ? jsonCooldown.getAsInt() : 30; // Default value 30
+    DurationValue cooldown = (jsonCooldown != null)
+      ? DurationValue.INSTANCE.deserialize(jsonCooldown, DurationValue.class, context)
+      : DurationValue.parse("30m");
 
     JsonElement jsonProductsRotation = jsonObject.get("productsRotation");
     int productsRotation = (jsonProductsRotation != null) ? jsonProductsRotation.getAsInt() : 3; // Default value 3
