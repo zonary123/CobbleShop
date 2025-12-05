@@ -10,7 +10,9 @@ import com.kingpixel.ultrashop.api.ShopOptionsApi;
 import lombok.Data;
 
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -22,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 @Data
 public class DataShop {
   // ModId -> ShopId -> DynamicProduct
-  public ConcurrentMap<String, Map<String, DynamicProduct>> products;
+  public ConcurrentMap<String, ConcurrentMap<String, DynamicProduct>> products;
 
   public DataShop() {
     products = new ConcurrentHashMap<>();
@@ -72,7 +74,7 @@ public class DataShop {
   }
 
   public List<Product> updateDynamicProducts(Shop shop, ShopOptionsApi options) {
-    products.computeIfAbsent(options.getModId(), k -> new HashMap<>())
+    products.computeIfAbsent(options.getModId(), k -> new ConcurrentHashMap<>())
       .computeIfAbsent(shop.getId(), k -> new DynamicProduct());
 
     DynamicProduct dynamicProduct = products.get(options.getModId()).get(shop.getId());
@@ -132,7 +134,7 @@ public class DataShop {
 
   public long getActualCooldown(Shop shop, ShopOptionsApi shopOptionsApi) {
     return products
-      .computeIfAbsent(shopOptionsApi.getModId(), k -> new HashMap<>())
+      .computeIfAbsent(shopOptionsApi.getModId(), k -> new ConcurrentHashMap<>())
       .computeIfAbsent(shop.getId(), k -> new DynamicProduct())
       .getTimeToUpdate();
   }

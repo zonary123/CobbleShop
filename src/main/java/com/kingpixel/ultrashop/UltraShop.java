@@ -89,6 +89,9 @@ public class UltraShop implements ModInitializer {
       });
     });
 
+    LifecycleEvent.SERVER_STOPPING.register(event -> {
+      dataShop.write();
+    });
 
     CommandRegistrationEvent.EVENT.register((dispatcher, commandRegistryAccess, registrationEnvironment) -> {
       ShopApi.register(options, dispatcher);
@@ -96,11 +99,10 @@ public class UltraShop implements ModInitializer {
       new DataBaseFactory(ShopApi.getMainConfig().getDataBase());
     });
 
-    PlayerEvent.PLAYER_JOIN.register(player -> {
-      CompletableFuture.runAsync(() -> {
-        DataBaseFactory.INSTANCE.getUserInfo(player);
-      }, SHOP_EXECUTOR);
-    });
+    PlayerEvent.PLAYER_JOIN.register(player -> CompletableFuture.runAsync(() -> {
+      DataBaseFactory.INSTANCE.getUserInfo(player);
+    }, SHOP_EXECUTOR));
+
     PlayerEvent.PLAYER_QUIT.register(player -> {
       DataBaseFactory.INSTANCE.removeIfNecessary(player);
       ShopApi.sellLock.remove(player.getUuid());
