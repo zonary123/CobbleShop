@@ -1,16 +1,18 @@
 package com.kingpixel.ultrashop.models;
 
+import com.kingpixel.cobbleutils.util.Utils;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.adapters.ShopType;
 import com.kingpixel.ultrashop.adapters.ShopTypeDynamic;
 import com.kingpixel.ultrashop.adapters.ShopTypeDynamicWeekly;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
-import com.kingpixel.cobbleutils.util.Utils;
 import lombok.Data;
 
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -19,10 +21,10 @@ import java.util.concurrent.TimeUnit;
 @Data
 public class DataShop {
   // ModId -> ShopId -> DynamicProduct
-  public Map<String, Map<String, DynamicProduct>> products;
+  public ConcurrentMap<String, Map<String, DynamicProduct>> products;
 
   public DataShop() {
-    products = new HashMap<>();
+    products = new ConcurrentHashMap<>();
   }
 
   public void init() {
@@ -53,6 +55,7 @@ public class DataShop {
 
   public synchronized void write() {
     File file = Utils.getAbsolutePath(UltraShop.PATH_DATA + "dataShop.json");
+    if (UltraShop.dataShop == null) return;
     Utils.writeFileSync(file, UltraShop.gsonWithOutSpaces.toJson(UltraShop.dataShop));
   }
 

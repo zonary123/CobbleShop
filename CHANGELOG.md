@@ -6,4 +6,12 @@
 
 ### Features
 
-- Initial release of the project.
+- Any new features added in this version.
+
+### Bug Fixes
+
+- Fixed minor bugs in the initial release.
+
+### Optimizations
+
+- Any performance improvements made in this version.
