@@ -4,15 +4,38 @@ plugins {
     id "com.modrinth.minotaur" version "2.+"
 }
 
-version = project.mod_version
-group = project.maven_group
+ext.hash_id = ""
+
+// Leer isDev desde gradle.properties (default: false)
+def isDev = project.hasProperty("isDev") ? project.property("isDev").toBoolean() : false
+
+// Si es dev, generar hash de git, sino no hace falta
+if (isDev) {
+    try {
+        def stdout = new ByteArrayOutputStream()
+        exec {
+            commandLine 'git', 'rev-parse', '--short', 'HEAD'
+            standardOutput = stdout
+        }
+        ext.hash_id = stdout.toString().trim()
+    } catch (Exception e) {
+        ext.hash_id = "dev"
+    }
+}
+
+// Configurar el nombre del archivo
 archivesBaseName = project.archives_base_name
+
+// Version del mod (con sufijo dev si corresponde)
+version = project.mod_version + (isDev ? "-dev-${hash_id}" : "")
+
+group = project.maven_group
 
 loom {
     splitEnvironmentSourceSets()
 
     mods {
-        "ultrashop" {
+        "cobblequests" {
             sourceSet sourceSets.main
             sourceSet sourceSets.client
         }
@@ -27,8 +50,8 @@ fabricApi {
 
 modrinth {
     token = System.getenv("MODRINTH_TOKEN")
-    projectId = project.mod_name
-    versionNumber = project.mod_version
+    projectId = "CobbleQuests"
+    versionNumber = project.version
     versionType = "release"
     uploadFile = tasks.named("remapJar").flatMap { it.archiveFile }.get().asFile
     gameVersions = ["1.21.1"]
@@ -96,20 +119,20 @@ processResources {
     inputs.property "version", project.version
     inputs.property "minecraft_version", project.minecraft_version
     inputs.property "loader_version", project.fabric_loader_version
-    inputs.property "mod_version", project.mod_version
     inputs.property "mod_id", project.mod_id
     inputs.property "mod_name", project.mod_name
     inputs.property "author", project.author
+    inputs.property "license", project.license
     filteringCharset "UTF-8"
 
     filesMatching("fabric.mod.json") {
         expand "version": project.version,
                 "minecraft_version": project.minecraft_version,
                 "loader_version": project.fabric_loader_version,
-                "mod_version": project.mod_version,
-                "mod_name": project.mod_name,
                 "mod_id": project.mod_id,
-                "author": project.author
+                "mod_name": project.mod_name,
+                "author": project.author,
+                "license": project.license
     }
 }
 
