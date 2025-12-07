@@ -38,19 +38,22 @@ public class DataShop {
 
     CompletableFuture<Boolean> futureRead = Utils.readFileAsync(UltraShop.PATH_DATA, "dataShop.json", call -> {
       try {
-        UltraShop.dataShop = UltraShop.gsonWithOutSpaces.fromJson(call, DataShop.class);
-        if (UltraShop.dataShop == null) UltraShop.dataShop = new DataShop();
-        check();
-        write();
+        DataShop dataShop = UltraShop.gsonWithOutSpaces.fromJson(call, DataShop.class);
+        if (dataShop == null) dataShop = new DataShop();
+        dataShop.check();
+        this.setProducts(dataShop.getProducts());
+        dataShop.write();
       } catch (Exception e) {
         e.printStackTrace();
-        UltraShop.dataShop = new DataShop();
-        write();
+        DataShop dataShop = new DataShop();
+        this.setProducts(dataShop.getProducts());
+        dataShop.write();
       }
     });
 
     if (Boolean.FALSE.equals(futureRead.join())) {
-      UltraShop.dataShop = new DataShop();
+      DataShop dataShop = new DataShop();
+      this.setProducts(dataShop.getProducts());
       write();
     }
   }
@@ -58,7 +61,6 @@ public class DataShop {
 
   public synchronized void write() {
     File file = Utils.getAbsolutePath(UltraShop.PATH_DATA + "dataShop.json");
-    if (UltraShop.dataShop == null) return;
     Utils.writeFileSync(file, UltraShop.gsonWithOutSpaces.toJson(UltraShop.dataShop));
   }
 
