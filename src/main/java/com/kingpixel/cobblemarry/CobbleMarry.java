@@ -61,16 +61,20 @@ public class CobbleMarry implements ModInitializer {
 
     PlayerEvent.PLAYER_QUIT.register(player -> DataBaseClient.CACHE.invalidate(player.getUuid()));
 
-    Placeholders.register(Identifier.of("cobblemarry:gender"), (context, string) -> {
-      UserInfo userInfo = getUserInfo(context);
-      if (userInfo == null) return PlaceholderResult.invalid();
-      return PlaceholderResult.value(userInfo.obtainGender());
-    });
-    Placeholders.register(Identifier.of("cobblemarry:marry"), (context, string) -> {
-      UserInfo userInfo = getUserInfo(context);
-      if (userInfo == null) return PlaceholderResult.invalid();
-      return PlaceholderResult.value(userInfo.obtainMarry());
-    });
+    try {
+      Placeholders.register(Identifier.of("cobblemarry:gender"), (context, string) -> {
+        UserInfo userInfo = getUserInfo(context);
+        if (userInfo == null) return PlaceholderResult.invalid();
+        return PlaceholderResult.value(userInfo.obtainGender());
+      });
+      Placeholders.register(Identifier.of("cobblemarry:marry"), (context, string) -> {
+        UserInfo userInfo = getUserInfo(context);
+        if (userInfo == null) return PlaceholderResult.invalid();
+        return PlaceholderResult.value(userInfo.obtainMarry());
+      });
+    } catch (NoClassDefFoundError | Exception ignored) {
+     
+    }
   }
 
   private static UserInfo getUserInfo(PlaceholderContext context) {

@@ -21,7 +21,6 @@ public class Config {
   private List<String> commands;
   private Map<String, String> genders;
   private DataBaseConfig database;
-  private int cooldown;
 
   public Config() {
     this.debug = false;
@@ -37,7 +36,6 @@ public class Config {
     );
     this.database = new DataBaseConfig();
     database.setDatabase("cobblemarry");
-    cooldown = 15;
   }
 
   public void init() {
@@ -47,16 +45,16 @@ public class Config {
         CobbleMarry.config.check();
         CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(CobbleMarry.PATH, "config.json",
           Utils.newGson().toJson(CobbleMarry.config));
-        if (!futureWrite.join()) {
+        if (Boolean.FALSE.equals(futureWrite.join())) {
           CobbleUtils.LOGGER.error("Error writing file: " + CobbleMarry.PATH + "config.json");
         }
       });
 
-    if (!futureRead.join()) {
+    if (Boolean.FALSE.equals(futureRead.join())) {
       CobbleMarry.config = this;
       CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(CobbleMarry.PATH, "config.json",
         Utils.newGson().toJson(CobbleMarry.config));
-      if (!futureWrite.join()) {
+      if (Boolean.FALSE.equals(futureWrite.join())) {
         CobbleUtils.LOGGER.error("Error writing file: " + CobbleMarry.PATH + "config.json");
       }
     }

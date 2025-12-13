@@ -1,5 +1,6 @@
 package com.kingpixel.cobblemarry.database;
 
+import com.kingpixel.cobblemarry.CobbleMarry;
 import com.kingpixel.cobblemarry.models.UserInfo;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
@@ -44,7 +45,7 @@ public class DataBaseMONGODB extends DataBaseClient {
     var document = marriagesCollection.find(filter).first();
     if (document == null) {
       userInfo = new UserInfo(playerUUID);
-      updateUserInfo(playerUUID, userInfo);
+      updateUserInfo(userInfo);
     } else {
       userInfo = UserInfo.fromDocument(document);
     }
@@ -52,8 +53,8 @@ public class DataBaseMONGODB extends DataBaseClient {
     return CACHE.get(playerUUID, k -> finalUserInfo);
   }
 
-  @Override public void updateUserInfo(UUID playerUUID, UserInfo userInfo) {
-    var filter = Filters.eq(KEY_PLAYER_UUID, playerUUID.toString());
+  @Override public void updateUserInfo(UserInfo userInfo) {
+    var filter = Filters.eq(KEY_PLAYER_UUID, userInfo.getUuid().toString());
     var document = userInfo.toDocument();
     marriagesCollection.replaceOne(filter, document, new com.mongodb.client.model.ReplaceOptions().upsert(true));
   }
@@ -73,9 +74,23 @@ public class DataBaseMONGODB extends DataBaseClient {
     }
   }
 
+  @Override public void marry(UUID player1UUID, UUID player2UUID) {
+    var player1Info = getUserInfo(player1UUID);
+    var player2Info = getUserInfo(player2UUID);
+    var player1 = CobbleMarry.server.getPlayerManager().getPlayer(player1UUID);
+    var player2 = CobbleMarry.server.getPlayerManager().getPlayer(player2UUID);
+    if (player1 == null || player2 == null) return;
+    player1Info.setMarriedTo(player2);
+    player2Info.setMarriedTo(player1);
+    updateUserInfo(player1Info);
+    updateUserInfo(player2Info);
+    CACHE.invalidate(player1UUID);
+    CACHE.invalidate(player2UUID);
+  }
+
   private void helpDivorce(UserInfo userInfo) {
     userInfo.divorce();
-    updateUserInfo(userInfo.getUuid(), userInfo);
+    updateUserInfo(userInfo);
     CACHE.invalidate(userInfo.getUuid());
   }
 

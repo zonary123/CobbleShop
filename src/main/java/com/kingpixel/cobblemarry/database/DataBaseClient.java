@@ -34,9 +34,11 @@ public abstract class DataBaseClient {
 
   public abstract UserInfo getUserInfo(UUID playerUUID);
 
-  public abstract void updateUserInfo(UUID playerUUID, UserInfo userInfo);
+  public abstract void updateUserInfo(UserInfo userInfo);
 
   public abstract void divorce(UUID playerUUID);
+
+  public abstract void marry(UUID player1UUID, UUID player2UUID);
 
   // CHECK METHODS
   public boolean isMarried(ServerPlayerEntity player) {

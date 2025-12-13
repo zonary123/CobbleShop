@@ -8,7 +8,7 @@ import java.util.UUID;
  * @author Carlos Varas Alonso - 22/02/2025 4:10
  */
 public class DataBaseJSON extends DataBaseClient {
-  
+
   @Override public void connect() {
 
   }
@@ -21,12 +21,16 @@ public class DataBaseJSON extends DataBaseClient {
     return null;
   }
 
-  @Override public void updateUserInfo(UUID playerUUID, UserInfo userInfo) {
+  @Override public void updateUserInfo(UserInfo userInfo) {
 
   }
 
   @Override public void divorce(UUID playerUUID) {
 
+  }
+
+  @Override public void marry(UUID player1UUID, UUID player2UUID) {
+    
   }
 
   @Override public boolean isMarried(UUID uuid) {

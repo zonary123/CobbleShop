@@ -22,12 +22,16 @@ public class DataBaseSQL extends DataBaseClient {
     return null;
   }
 
-  @Override public void updateUserInfo(UUID playerUUID, UserInfo userInfo) {
+  @Override public void updateUserInfo(UserInfo userInfo) {
 
   }
 
   @Override public void divorce(UUID playerUUID) {
 
+  }
+
+  @Override public void marry(UUID player1UUID, UUID player2UUID) {
+    
   }
 
   @Override public boolean isMarried(UUID uuid) {
