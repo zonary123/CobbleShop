@@ -1,6 +1,6 @@
-package com.kingpixel.cobblemarry.command.base;
+package com.kingpixel.ultramarry.command.base;
 
-import com.kingpixel.cobblemarry.command.CommandTree;
+import com.kingpixel.ultramarry.command.CommandTree;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.command.CommandManager;
@@ -22,8 +22,8 @@ public class MarryCommand {
           CommandManager.argument("player", EntityArgumentType.player())
             .executes(context -> {
               if (!context.getSource().isExecutedByPlayer()) return 0;
-              ServerPlayerEntity player = context.getSource().getPlayer();
-              ServerPlayerEntity target = EntityArgumentType.getPlayer(context, "player");
+              ServerPlayerEntity player = context.getSource().getPlayer(); // Z
+              ServerPlayerEntity target = EntityArgumentType.getPlayer(context, "player"); // T
               UUID targetUUID = target.getUuid();
               if (player == null) return 0;
               UUID playerUUID = player.getUuid();

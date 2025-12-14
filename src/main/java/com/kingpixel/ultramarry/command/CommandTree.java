@@ -1,9 +1,10 @@
-package com.kingpixel.cobblemarry.command;
+package com.kingpixel.ultramarry.command;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.kingpixel.cobblemarry.CobbleMarry;
-import com.kingpixel.cobblemarry.command.base.*;
+import com.kingpixel.ultramarry.UltraMarry;
+import com.kingpixel.ultramarry.command.admin.ReloadCommand;
+import com.kingpixel.ultramarry.command.base.*;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import lombok.Data;
@@ -26,13 +27,14 @@ public class CommandTree {
 
   public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess commandRegistryAccess, CommandManager.RegistrationEnvironment registrationEnvironment) {
 
-    for (String command : CobbleMarry.config.getCommands()) {
+    for (String command : UltraMarry.config.getCommands()) {
       LiteralArgumentBuilder<ServerCommandSource> base = CommandManager.literal(command);
       DivorceCommand.register(base);
       GenderCommand.register(base);
       MarryCommand.register(base);
       CancelCommand.register(base);
       AcceptCommand.register(base);
+      ReloadCommand.register(base);
       dispatcher.register(base);
     }
   }

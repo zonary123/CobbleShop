@@ -1,8 +1,8 @@
-package com.kingpixel.cobblemarry.config;
+package com.kingpixel.ultramarry.config;
 
-import com.kingpixel.cobblemarry.CobbleMarry;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.util.Utils;
+import com.kingpixel.ultramarry.UltraMarry;
 import lombok.Data;
 
 import java.io.File;
@@ -48,28 +48,28 @@ public class Lang {
   }
 
   public void init() {
-    File folder = Utils.getAbsolutePath(CobbleMarry.PATH_LANG);
+    File folder = Utils.getAbsolutePath(UltraMarry.PATH_LANG);
     if (!folder.exists()) {
       folder.mkdirs();
     }
-    CompletableFuture<Boolean> futureRead = Utils.readFileAsync(CobbleMarry.PATH_LANG, CobbleMarry.config.getLang() +
+    CompletableFuture<Boolean> futureRead = Utils.readFileAsync(UltraMarry.PATH_LANG, UltraMarry.config.getLang() +
         ".json",
       call -> {
-        CobbleMarry.lang = Utils.newGson().fromJson(call, Lang.class);
-        CobbleMarry.lang.check();
-        CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(CobbleMarry.PATH_LANG, CobbleMarry.config.getLang() + ".json",
-          Utils.newGson().toJson(CobbleMarry.lang));
+        UltraMarry.lang = Utils.newGson().fromJson(call, Lang.class);
+        UltraMarry.lang.check();
+        CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(UltraMarry.PATH_LANG, UltraMarry.config.getLang() + ".json",
+          Utils.newGson().toJson(UltraMarry.lang));
         if (!futureWrite.join()) {
-          CobbleUtils.LOGGER.error("Error writing file: " + CobbleMarry.PATH_LANG + CobbleMarry.config.getLang() + ".json");
+          CobbleUtils.LOGGER.error("Error writing file: " + UltraMarry.PATH_LANG + UltraMarry.config.getLang() + ".json");
         }
       });
 
     if (!futureRead.join()) {
-      CobbleMarry.lang = this;
-      CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(CobbleMarry.PATH_LANG, CobbleMarry.config.getLang() + ".json",
-        Utils.newGson().toJson(CobbleMarry.lang));
+      UltraMarry.lang = this;
+      CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(UltraMarry.PATH_LANG, UltraMarry.config.getLang() + ".json",
+        Utils.newGson().toJson(UltraMarry.lang));
       if (!futureWrite.join()) {
-        CobbleUtils.LOGGER.error("Error writing file: " + CobbleMarry.PATH_LANG + CobbleMarry.config.getLang() + ".json");
+        CobbleUtils.LOGGER.error("Error writing file: " + UltraMarry.PATH_LANG + UltraMarry.config.getLang() + ".json");
       }
     }
   }

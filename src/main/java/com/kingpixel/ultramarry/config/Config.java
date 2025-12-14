@@ -1,9 +1,10 @@
-package com.kingpixel.cobblemarry.config;
+package com.kingpixel.ultramarry.config;
 
-import com.kingpixel.cobblemarry.CobbleMarry;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.DataBaseConfig;
+import com.kingpixel.cobbleutils.Model.DurationValue;
 import com.kingpixel.cobbleutils.util.Utils;
+import com.kingpixel.ultramarry.UltraMarry;
 import lombok.Data;
 
 import java.util.List;
@@ -18,6 +19,8 @@ public class Config {
   // Essential fields
   private boolean debug;
   private String lang;
+  private int amountParticles;
+  private DurationValue cooldown;
   private List<String> commands;
   private Map<String, String> genders;
   private DataBaseConfig database;
@@ -35,27 +38,27 @@ public class Config {
       "other", "⚥"
     );
     this.database = new DataBaseConfig();
-    database.setDatabase("cobblemarry");
+    database.setDatabase("ultramarry");
   }
 
   public void init() {
-    CompletableFuture<Boolean> futureRead = Utils.readFileAsync(CobbleMarry.PATH, "config.json",
+    CompletableFuture<Boolean> futureRead = Utils.readFileAsync(UltraMarry.PATH, "config.json",
       call -> {
-        CobbleMarry.config = Utils.newGson().fromJson(call, Config.class);
-        CobbleMarry.config.check();
-        CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(CobbleMarry.PATH, "config.json",
-          Utils.newGson().toJson(CobbleMarry.config));
+        UltraMarry.config = Utils.newGson().fromJson(call, Config.class);
+        UltraMarry.config.check();
+        CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(UltraMarry.PATH, "config.json",
+          Utils.newGson().toJson(UltraMarry.config));
         if (Boolean.FALSE.equals(futureWrite.join())) {
-          CobbleUtils.LOGGER.error("Error writing file: " + CobbleMarry.PATH + "config.json");
+          CobbleUtils.LOGGER.error("Error writing file: " + UltraMarry.PATH + "config.json");
         }
       });
 
     if (Boolean.FALSE.equals(futureRead.join())) {
-      CobbleMarry.config = this;
-      CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(CobbleMarry.PATH, "config.json",
-        Utils.newGson().toJson(CobbleMarry.config));
+      UltraMarry.config = this;
+      CompletableFuture<Boolean> futureWrite = Utils.writeFileAsync(UltraMarry.PATH, "config.json",
+        Utils.newGson().toJson(UltraMarry.config));
       if (Boolean.FALSE.equals(futureWrite.join())) {
-        CobbleUtils.LOGGER.error("Error writing file: " + CobbleMarry.PATH + "config.json");
+        CobbleUtils.LOGGER.error("Error writing file: " + UltraMarry.PATH + "config.json");
       }
     }
   }

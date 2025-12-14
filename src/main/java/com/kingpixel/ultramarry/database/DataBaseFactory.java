@@ -1,4 +1,4 @@
-package com.kingpixel.cobblemarry.database;
+package com.kingpixel.ultramarry.database;
 
 import com.kingpixel.cobbleutils.Model.DataBaseConfig;
 
@@ -19,5 +19,5 @@ public class DataBaseFactory {
     }
     INSTANCE.connect();
   }
-  
+
 }

@@ -1,12 +1,12 @@
-package com.kingpixel.cobblemarry;
+package com.kingpixel.ultramarry;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.kingpixel.cobblemarry.command.CommandTree;
-import com.kingpixel.cobblemarry.config.Config;
-import com.kingpixel.cobblemarry.config.Lang;
-import com.kingpixel.cobblemarry.database.DataBaseClient;
-import com.kingpixel.cobblemarry.database.DataBaseFactory;
-import com.kingpixel.cobblemarry.models.UserInfo;
+import com.kingpixel.ultramarry.command.CommandTree;
+import com.kingpixel.ultramarry.config.Config;
+import com.kingpixel.ultramarry.config.Lang;
+import com.kingpixel.ultramarry.database.DataBaseClient;
+import com.kingpixel.ultramarry.database.DataBaseFactory;
+import com.kingpixel.ultramarry.models.UserInfo;
 import dev.architectury.event.events.common.CommandRegistrationEvent;
 import dev.architectury.event.events.common.LifecycleEvent;
 import dev.architectury.event.events.common.PlayerEvent;
@@ -26,11 +26,11 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:05
  */
-public class CobbleMarry implements ModInitializer {
+public class UltraMarry implements ModInitializer {
 
-  public static final String MOD_ID = "cobblemarry";
-  public static final String MOD_NAME = "CobbleMarry";
-  public static final String PATH = "/config/cobblemarry/";
+  public static final String MOD_ID = "ultramarry";
+  public static final String MOD_NAME = "UltraMarry";
+  public static final String PATH = "/config/ultramarry/";
   public static final String PATH_LANG = PATH + "lang/";
   public static final String PATH_DATA = PATH + "data";
   public static MinecraftServer server;
@@ -38,7 +38,7 @@ public class CobbleMarry implements ModInitializer {
   public static Lang lang = new Lang();
   public static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
     .setDaemon(true)
-    .setNameFormat("cobblemarry-%d")
+    .setNameFormat("ultramarry-%d")
     .build());
 
   @Override public void onInitialize() {
@@ -57,23 +57,23 @@ public class CobbleMarry implements ModInitializer {
 
     CommandRegistrationEvent.EVENT.register(CommandTree::register);
 
-    PlayerEvent.PLAYER_JOIN.register(player -> DataBaseFactory.INSTANCE.getUserInfo(player.getUuid()));
+    PlayerEvent.PLAYER_JOIN.register(player -> runAsync(() -> DataBaseFactory.INSTANCE.getUserInfo(player.getUuid())));
 
     PlayerEvent.PLAYER_QUIT.register(player -> DataBaseClient.CACHE.invalidate(player.getUuid()));
 
     try {
-      Placeholders.register(Identifier.of("cobblemarry:gender"), (context, string) -> {
+      Placeholders.register(Identifier.of("ultramarry:gender"), (context, string) -> {
         UserInfo userInfo = getUserInfo(context);
         if (userInfo == null) return PlaceholderResult.invalid();
         return PlaceholderResult.value(userInfo.obtainGender());
       });
-      Placeholders.register(Identifier.of("cobblemarry:marry"), (context, string) -> {
+      Placeholders.register(Identifier.of("ultramarry:marry"), (context, string) -> {
         UserInfo userInfo = getUserInfo(context);
         if (userInfo == null) return PlaceholderResult.invalid();
         return PlaceholderResult.value(userInfo.obtainMarry());
       });
     } catch (NoClassDefFoundError | Exception ignored) {
-     
+
     }
   }
 
@@ -81,7 +81,7 @@ public class CobbleMarry implements ModInitializer {
     if (!context.hasPlayer()) return null;
     ServerPlayerEntity player = context.player();
     if (player == null) return null;
-    return DataBaseFactory.INSTANCE.getUserInfoCached(player.getUuid());
+    return DataBaseFactory.INSTANCE.getUserInfo(player.getUuid());
   }
 
   public static void runAsync(Runnable runnable) {

@@ -1,7 +1,7 @@
-package com.kingpixel.cobblemarry.database;
+package com.kingpixel.ultramarry.database;
 
-import com.kingpixel.cobblemarry.CobbleMarry;
-import com.kingpixel.cobblemarry.models.UserInfo;
+import com.kingpixel.ultramarry.UltraMarry;
+import com.kingpixel.ultramarry.models.UserInfo;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
@@ -77,8 +77,8 @@ public class DataBaseMONGODB extends DataBaseClient {
   @Override public void marry(UUID player1UUID, UUID player2UUID) {
     var player1Info = getUserInfo(player1UUID);
     var player2Info = getUserInfo(player2UUID);
-    var player1 = CobbleMarry.server.getPlayerManager().getPlayer(player1UUID);
-    var player2 = CobbleMarry.server.getPlayerManager().getPlayer(player2UUID);
+    var player1 = UltraMarry.server.getPlayerManager().getPlayer(player1UUID);
+    var player2 = UltraMarry.server.getPlayerManager().getPlayer(player2UUID);
     if (player1 == null || player2 == null) return;
     player1Info.setMarriedTo(player2);
     player2Info.setMarriedTo(player1);

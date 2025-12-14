@@ -1,6 +1,6 @@
-package com.kingpixel.cobblemarry.database;
+package com.kingpixel.ultramarry.database;
 
-import com.kingpixel.cobblemarry.models.UserInfo;
+import com.kingpixel.ultramarry.models.UserInfo;
 
 import java.util.UUID;
 
@@ -30,7 +30,7 @@ public class DataBaseJSON extends DataBaseClient {
   }
 
   @Override public void marry(UUID player1UUID, UUID player2UUID) {
-    
+
   }
 
   @Override public boolean isMarried(UUID uuid) {

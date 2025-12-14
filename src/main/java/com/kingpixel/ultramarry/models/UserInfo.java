@@ -1,8 +1,8 @@
-package com.kingpixel.cobblemarry.models;
+package com.kingpixel.ultramarry.models;
 
-import com.kingpixel.cobblemarry.CobbleMarry;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.util.Utils;
+import com.kingpixel.ultramarry.UltraMarry;
 import lombok.Data;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.bson.Document;
@@ -51,7 +51,7 @@ public class UserInfo {
 
 
   public String obtainGender() {
-    return CobbleMarry.config.getGenders().getOrDefault(gender, CobbleUtils.language.getUnknown());
+    return UltraMarry.config.getGenders().getOrDefault(gender, CobbleUtils.language.getUnknown());
   }
 
   public String obtainMarry() {
@@ -72,7 +72,7 @@ public class UserInfo {
     return Document.parse(json);
   }
 
-  public boolean isMarriedTo(ServerPlayerEntity self) {
-    return isMarried() && marriedTo.equals(self.getUuid());
+  public boolean isMarriedTo(ServerPlayerEntity interact) {
+    return isMarried() && marriedTo.equals(interact.getUuid());
   }
 }

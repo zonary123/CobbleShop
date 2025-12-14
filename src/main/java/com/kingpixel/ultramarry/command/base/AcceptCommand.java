@@ -1,9 +1,9 @@
-package com.kingpixel.cobblemarry.command.base;
+package com.kingpixel.ultramarry.command.base;
 
-import com.kingpixel.cobblemarry.CobbleMarry;
-import com.kingpixel.cobblemarry.command.CommandTree;
-import com.kingpixel.cobblemarry.database.DataBaseFactory;
-import com.kingpixel.cobblemarry.models.UserInfo;
+import com.kingpixel.ultramarry.UltraMarry;
+import com.kingpixel.ultramarry.command.CommandTree;
+import com.kingpixel.ultramarry.database.DataBaseFactory;
+import com.kingpixel.ultramarry.models.UserInfo;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
@@ -33,9 +33,10 @@ public class AcceptCommand {
             );
             return 1;
           }
-          UserInfo pedingUserInfo = DataBaseFactory.INSTANCE.getUserInfoCached(pedingUUID);
+          UserInfo pedingUserInfo = DataBaseFactory.INSTANCE.getUserInfo(pedingUUID);
           if (pedingUserInfo == null) return 0;
-          CobbleMarry.runAsync(() -> DataBaseFactory.INSTANCE.marry(player.getUuid(), pedingUUID));
+          UltraMarry.runAsync(() -> DataBaseFactory.INSTANCE.marry(player.getUuid(), pedingUUID));
+
           return 1;
         })
     );

@@ -1,7 +1,7 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "com.kingpixel.cobblemarry.mixins",
+  "package": "com.kingpixel.ultramarry.mixins",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "PlayerMixin"

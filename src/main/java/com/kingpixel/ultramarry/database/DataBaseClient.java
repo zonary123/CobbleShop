@@ -1,12 +1,11 @@
-package com.kingpixel.cobblemarry.database;
+package com.kingpixel.ultramarry.database;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.kingpixel.cobblemarry.CobbleMarry;
-import com.kingpixel.cobblemarry.models.UserInfo;
 import com.kingpixel.cobbleutils.Model.DataBaseConfig;
+import com.kingpixel.ultramarry.UltraMarry;
+import com.kingpixel.ultramarry.models.UserInfo;
 import net.minecraft.server.network.ServerPlayerEntity;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -16,11 +15,11 @@ import java.util.concurrent.TimeUnit;
  */
 public abstract class DataBaseClient {
   public static final Cache<UUID, UserInfo> CACHE = Caffeine.newBuilder()
-    .expireAfterAccess(1, TimeUnit.MINUTES)
+    .expireAfterWrite(1, TimeUnit.MINUTES)
     .build();
 
   public DataBaseConfig getConfig() {
-    return CobbleMarry.config.getDatabase();
+    return UltraMarry.config.getDatabase();
   }
 
   public abstract void connect();
@@ -28,10 +27,6 @@ public abstract class DataBaseClient {
   public abstract void disconnect();
 
   // GET/UPDATE/DELETE METHODS
-  @Nullable public UserInfo getUserInfoCached(UUID playerUUID) {
-    return CACHE.getIfPresent(playerUUID);
-  }
-
   public abstract UserInfo getUserInfo(UUID playerUUID);
 
   public abstract void updateUserInfo(UserInfo userInfo);

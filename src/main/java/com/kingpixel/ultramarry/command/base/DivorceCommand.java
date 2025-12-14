@@ -1,6 +1,6 @@
-package com.kingpixel.cobblemarry.command.base;
+package com.kingpixel.ultramarry.command.base;
 
-import com.kingpixel.cobblemarry.database.DataBaseFactory;
+import com.kingpixel.ultramarry.database.DataBaseFactory;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
