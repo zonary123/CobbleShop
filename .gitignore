@@ -8,6 +8,7 @@ fabric/run
 /run/
 .env
 
+
 /forge/.architectury-transformer/debug.log
 
 # eclipse
