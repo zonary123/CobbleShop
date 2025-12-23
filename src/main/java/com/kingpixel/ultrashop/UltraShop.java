@@ -76,8 +76,6 @@ public class UltraShop implements ModInitializer {
   }
 
   public static void events() {
-
-
     LifecycleEvent.SERVER_LEVEL_LOAD.register(level -> {
       server = level.getServer();
       var source = server.getCommandSource();

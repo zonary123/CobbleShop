@@ -1,5 +1,8 @@
 package com.kingpixel.ultrashop.command;
 
+import com.kingpixel.cobbleutils.api.PermissionApi;
+import com.kingpixel.cobbleutils.util.PlayerUtils;
+import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.adapters.ShopType;
 import com.kingpixel.ultrashop.adapters.ShopTypePermanent;
@@ -9,9 +12,6 @@ import com.kingpixel.ultrashop.config.Config;
 import com.kingpixel.ultrashop.gui.edit.MenuEdit;
 import com.kingpixel.ultrashop.models.Shop;
 import com.kingpixel.ultrashop.models.TypeShop;
-import com.kingpixel.cobbleutils.api.PermissionApi;
-import com.kingpixel.cobbleutils.util.PlayerUtils;
-import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -118,8 +118,7 @@ public class CommandTree {
           })
       ).then(
         CommandManager.literal("other")
-          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".other",
-            modId + ".admin"), 2))
+          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".other", modId + ".admin"), 2))
           .then(
             CommandManager.argument("player", EntityArgumentType.players())
               .executes(context -> {
@@ -208,7 +207,7 @@ public class CommandTree {
           )
       ).then(
         CommandManager.literal("restartShop")
-          .requires(context -> PermissionApi.hasPermission(context, modId + ".restart.shop", 4))
+          .requires(context -> PermissionApi.hasPermission(context, modId + ".restart.shop", 2))
           .then(
             CommandManager.argument("shop", StringArgumentType.string())
               .suggests((commandContext, suggestionsBuilder) -> {
