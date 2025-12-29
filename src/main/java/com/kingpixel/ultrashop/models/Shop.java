@@ -30,8 +30,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import static com.kingpixel.ultrashop.config.Config.IDENTIFIERS;
-
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:19
  */
@@ -152,19 +150,24 @@ public class Shop {
     return products;
   }
 
+  private static Map<String, Set<UUID>> IDENTIFIERS = new HashMap<>();
+
   public void check() {
     if (subShops == null) subShops = new ArrayList<>();
     if (economy == null) economy = new EconomyUse(ImpactorEconomy.IDENTIFY, "impactor:dollars");
     products.forEach(product -> product.check(this));
     type.check();
+    IDENTIFIERS.computeIfAbsent(this.getId(), k -> new HashSet<>());
+    IDENTIFIERS.get(this.getId()).clear();
+    Set<UUID> identifiers = IDENTIFIERS.values().stream().collect(HashSet::new, Set::addAll, Set::addAll);
     for (Product product : this.getProducts()) {
       if (product.getUuid() != null) {
-        if (IDENTIFIERS.contains(product.getUuid())) {
+        if (identifiers.contains(product.getUuid())) {
           CobbleUtils.LOGGER.warn("Duplicate product UUID found: " + product.getUuid() + " in shop " + this.getId() +
             ". Generating a new UUID.");
           product.setUuid(UUID.randomUUID());
         }
-        IDENTIFIERS.add(product.getUuid());
+        IDENTIFIERS.get(this.getId()).add(product.getUuid());
       }
     }
   }

@@ -70,6 +70,7 @@ public class UltraShop implements ModInitializer {
   }
 
   public static void load(ShopOptionsApi options) {
+
     ShopApi.register(options, server.getCommandManager().getDispatcher());
     dataShop.init();
     new DataBaseFactory(ShopApi.getMainConfig().getDataBase());

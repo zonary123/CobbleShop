@@ -103,7 +103,6 @@ public class Config {
     }
   }
 
-  public static final Set<UUID> IDENTIFIERS = new HashSet<>();
 
   public static void readShops(ShopOptionsApi options) {
     ShopApi.shops.getOrDefault(options.getModId(), new ArrayList<>()).clear();
@@ -159,6 +158,7 @@ public class Config {
 
   private static void readAllShops(File[] files, List<Shop> shops) {
     if (files == null) return;
+    var identifiers = new HashSet<UUID>();
     for (File file : files) {
       if (file.isDirectory()) {
         readAllShops(file.listFiles(), shops);

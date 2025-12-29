@@ -46,7 +46,7 @@ public class ShopTypeDynamic extends ShopType implements JsonSerializer<ShopType
   }
 
   public static List<Product> getDynamicProducts(Shop shop, ShopOptionsApi options) {
-    return UltraShop.dataShop.updateDynamicProducts(shop, options);
+    return UltraShop.dataShop.updateDynamicProducts(shop, options, false);
   }
 
   @Override public String replace(String text, Shop shop, ShopOptionsApi shopOptionsApi) {

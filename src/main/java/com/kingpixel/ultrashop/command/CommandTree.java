@@ -228,15 +228,19 @@ public class CommandTree {
                 return suggestionsBuilder.buildFuture();
               })
               .executes(context -> {
-                String shopId = StringArgumentType.getString(context, "shop");
-                var shop = ShopApi.getShop(options, shopId);
-                var type = shop.getType();
-                switch (type.getTypeShop()) {
-                  case DYNAMIC, DYNAMIC_WEEKLY, DYNAMIC_CALENDAR ->
-                    UltraShop.dataShop.updateDynamicProducts(shop, options);
-                  default -> context.getSource().sendMessage(
-                    Text.literal("This shop is not dynamic, please use the command /shop reload")
-                  );
+                try {
+                  String shopId = StringArgumentType.getString(context, "shop");
+                  var shop = ShopApi.getShop(options, shopId);
+                  var type = shop.getType();
+                  switch (type.getTypeShop()) {
+                    case DYNAMIC, DYNAMIC_WEEKLY, DYNAMIC_CALENDAR ->
+                      UltraShop.dataShop.updateDynamicProducts(shop, options, true);
+                    default -> context.getSource().sendMessage(
+                      Text.literal("This shop is not dynamic, please use the command /shop reload")
+                    );
+                  }
+                } catch (Exception e) {
+                  e.printStackTrace();
                 }
                 return 1;
               })
