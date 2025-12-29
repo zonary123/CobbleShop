@@ -1,6 +1,8 @@
 package com.kingpixel.ultrashop.models;
 
 import com.kingpixel.cobbleutils.Model.DurationValue;
+import com.kingpixel.cobbleutils.util.PlayerUtils;
+import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.cobbleutils.util.Utils;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.adapters.ShopType;
@@ -8,6 +10,7 @@ import com.kingpixel.ultrashop.adapters.ShopTypeDynamic;
 import com.kingpixel.ultrashop.adapters.ShopTypeDynamicWeekly;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
 import lombok.Data;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -85,6 +88,13 @@ public class DataShop {
       || dynamicProduct.getProducts().isEmpty()
       || dynamicProduct.getProducts().size() != getRotationProducts(shop)) {
       CompletableFuture.runAsync(() -> {
+          PlayerUtils.sendMessage(
+            (ServerPlayerEntity) null,
+            UltraShop.lang.getMessageShopRotated()
+              .replace("%shop%", shop.getName()),
+            UltraShop.lang.getPrefix(),
+            TypeMessage.BROADCAST
+          );
           dynamicProduct.setTimeToUpdate(System.currentTimeMillis() + getCooldown(shop.getType()));
           List<Product> nuevosProductos = getNewProducts(shop, options);
           dynamicProduct.setProducts(nuevosProductos);

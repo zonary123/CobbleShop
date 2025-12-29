@@ -109,12 +109,20 @@ public class CommandTree {
         CommandManager.literal("reload")
           .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".reload", modId + ".admin"), 2))
           .executes(context -> {
-            if (!context.getSource().isExecutedByPlayer()) return 0;
-            UltraShop.load(options);
-            context.getSource().sendMessage(
-              Text.literal("Reloaded " + options.getModId() + " shops")
-            );
-            return 1;
+            try {
+              if (!context.getSource().isExecutedByPlayer()) return 0;
+              UltraShop.load(options);
+              context.getSource().sendMessage(
+                Text.literal("Reloaded " + options.getModId() + " shops")
+              );
+              return 1;
+            } catch (Exception e) {
+              e.printStackTrace();
+              context.getSource().sendMessage(
+                Text.literal("Error reloading " + options.getModId() + " shops")
+              );
+              return 0;
+            }
           })
       ).then(
         CommandManager.literal("other")

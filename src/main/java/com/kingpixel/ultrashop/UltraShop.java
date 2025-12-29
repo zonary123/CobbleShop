@@ -43,7 +43,7 @@ public class UltraShop implements ModInitializer {
   public static Gson gson;
   public static Gson gsonWithOutSpaces;
   public static DataShop dataShop = new DataShop();
-  public static final ExecutorService SHOP_EXECUTOR = Executors.newFixedThreadPool(4, new ThreadFactoryBuilder()
+  public static final ExecutorService SHOP_EXECUTOR = Executors.newFixedThreadPool(1, new ThreadFactoryBuilder()
     .setDaemon(true)
     .setNameFormat("CobbleShop-Executor-%d")
     .build());

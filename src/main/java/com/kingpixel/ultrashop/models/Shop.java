@@ -10,18 +10,18 @@ import ca.landonjw.gooeylibs2.api.page.GooeyPage;
 import ca.landonjw.gooeylibs2.api.page.LinkedPage;
 import ca.landonjw.gooeylibs2.api.template.slot.TemplateSlotDelegate;
 import ca.landonjw.gooeylibs2.api.template.types.ChestTemplate;
-import com.kingpixel.ultrashop.UltraShop;
-import com.kingpixel.ultrashop.adapters.ShopType;
-import com.kingpixel.ultrashop.adapters.ShopTypePermanent;
-import com.kingpixel.ultrashop.api.ShopApi;
-import com.kingpixel.ultrashop.api.ShopOptionsApi;
-import com.kingpixel.ultrashop.config.Config;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.*;
 import com.kingpixel.cobbleutils.api.EconomyApi;
 import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.kingpixel.cobbleutils.util.*;
 import com.kingpixel.cobbleutils.util.economys.ImpactorEconomy;
+import com.kingpixel.ultrashop.UltraShop;
+import com.kingpixel.ultrashop.adapters.ShopType;
+import com.kingpixel.ultrashop.adapters.ShopTypePermanent;
+import com.kingpixel.ultrashop.api.ShopApi;
+import com.kingpixel.ultrashop.api.ShopOptionsApi;
+import com.kingpixel.ultrashop.config.Config;
 import lombok.Data;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -29,6 +29,8 @@ import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+
+import static com.kingpixel.ultrashop.config.Config.IDENTIFIERS;
 
 /**
  * @author Carlos Varas Alonso - 21/02/2025 5:19
@@ -39,6 +41,7 @@ public class Shop {
   // Essential fields
   private boolean autoPlace;
   private String id;
+  private String name = "Shop";
   private String title;
   private EconomyUse economy;
   private String closeCommand;
@@ -63,6 +66,7 @@ public class Shop {
   public Shop() {
     this.autoPlace = true;
     this.id = "shop";
+    this.name = "Shop";
     this.title = "%shop%";
     this.closeCommand = "";
     this.colorProduct = "";
@@ -153,6 +157,16 @@ public class Shop {
     if (economy == null) economy = new EconomyUse(ImpactorEconomy.IDENTIFY, "impactor:dollars");
     products.forEach(product -> product.check(this));
     type.check();
+    for (Product product : this.getProducts()) {
+      if (product.getUuid() != null) {
+        if (IDENTIFIERS.contains(product.getUuid())) {
+          CobbleUtils.LOGGER.warn("Duplicate product UUID found: " + product.getUuid() + " in shop " + this.getId() +
+            ". Generating a new UUID.");
+          product.setUuid(UUID.randomUUID());
+        }
+        IDENTIFIERS.add(product.getUuid());
+      }
+    }
   }
 
   public String getPermission(ShopOptionsApi options) {

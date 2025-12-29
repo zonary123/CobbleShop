@@ -14,7 +14,6 @@ import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.adapters.*;
 import com.kingpixel.ultrashop.api.ShopApi;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
-import com.kingpixel.ultrashop.models.Product;
 import com.kingpixel.ultrashop.models.Shop;
 import com.kingpixel.ultrashop.models.SubShop;
 import com.kingpixel.ultrashop.models.TypeShop;
@@ -116,17 +115,6 @@ public class Config {
     }
     List<Shop> shops = new ArrayList<>();
     readAllShops(folder.listFiles(), shops);
-    for (Shop shop : shops) {
-      for (Product product : shop.getProducts()) {
-        if (product.getUuid() != null) {
-          if (IDENTIFIERS.contains(product.getUuid())) {
-            CobbleUtils.LOGGER.warn("Duplicate product UUID found: " + product.getUuid() + " in shop " + shop.getId() + ". Generating a new UUID.");
-            product.setUuid(UUID.randomUUID());
-          }
-          IDENTIFIERS.add(product.getUuid());
-        }
-      }
-    }
     ShopApi.shops.put(options.getModId(), shops);
   }
 

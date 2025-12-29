@@ -1,11 +1,11 @@
 package com.kingpixel.ultrashop.config;
 
-import com.kingpixel.ultrashop.UltraShop;
-import com.kingpixel.ultrashop.gui.MenuBuyAndSell;
-import com.kingpixel.ultrashop.models.InfoShopType;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.util.Utils;
+import com.kingpixel.ultrashop.UltraShop;
+import com.kingpixel.ultrashop.gui.MenuBuyAndSell;
+import com.kingpixel.ultrashop.models.InfoShopType;
 import lombok.Data;
 
 import java.io.File;
@@ -30,6 +30,7 @@ public class Lang {
   private String messageNotEnoughSpace;
   private String formatSell;
   private String notExtraInfo;
+  private String messageShopRotated;
   private InfoShopType infoShopType;
   private List<String> infoProduct;
   // Buttons Shop
@@ -56,6 +57,7 @@ public class Lang {
   public Lang() {
     prefix = "<#4ddb93>[<#ebb35a>CobbleShop🏪<#4ddb93>] ";
     messageShopNotOpen = "%prefix% <#eb4747>The shop is not open";
+    messageShopRotated = "%prefix% <#4ddb93>The shop %shop% has been rotated";
     messageNotBuyPermission = "%prefix% <#eb4747>You can´t buy this product";
     messageNotHavePermission = "%prefix% <#eb4747>You do not have the permission for this shop -> %permission%";
     messageNotEnoughMoney = "%prefix% <#eb4747>You do not have enough money";
