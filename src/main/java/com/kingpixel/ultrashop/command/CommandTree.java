@@ -126,7 +126,7 @@ public class CommandTree {
           })
       ).then(
         CommandManager.literal("other")
-          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".other", modId + ".admin"), 2))
+          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".admin"), 2))
           .then(
             CommandManager.argument("player", EntityArgumentType.players())
               .executes(context -> {
@@ -160,7 +160,7 @@ public class CommandTree {
           )
       ).then(
         CommandManager.literal("edit")
-          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".edit", modId + ".admin"), 4))
+          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".admin"), 4))
           .then(
             CommandManager.argument("shop", StringArgumentType.string())
               .suggests((commandContext, suggestionsBuilder) -> {
@@ -185,7 +185,7 @@ public class CommandTree {
           )
       ).then(
         CommandManager.literal("create")
-          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".create", modId + ".admin"), 2))
+          .requires(source -> PermissionApi.hasPermission(source, List.of(modId + ".admin"), 2))
           .then(
             CommandManager.argument("shop", StringArgumentType.string())
               .then(
