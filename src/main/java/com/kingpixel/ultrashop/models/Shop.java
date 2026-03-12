@@ -339,8 +339,7 @@ public class Shop {
             page.setTitle(AdventureTranslator.toNative(title));
           }
 
-
-          UIManager.openUIForcefully(player, page);
+          CobbleUtils.server.execute(() -> UIManager.openUIForcefully(player, page));
         } catch (Exception e) {
           e.printStackTrace();
           PlayerUtils.sendMessage(

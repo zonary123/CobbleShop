@@ -3,14 +3,6 @@ package com.kingpixel.ultrashop.gui;
 import ca.landonjw.gooeylibs2.api.UIManager;
 import ca.landonjw.gooeylibs2.api.page.GooeyPage;
 import ca.landonjw.gooeylibs2.api.template.types.ChestTemplate;
-import com.kingpixel.ultrashop.UltraShop;
-import com.kingpixel.ultrashop.api.ShopApi;
-import com.kingpixel.ultrashop.api.ShopOptionsApi;
-import com.kingpixel.ultrashop.config.Config;
-import com.kingpixel.ultrashop.database.DataBaseFactory;
-import com.kingpixel.ultrashop.models.ActionShop;
-import com.kingpixel.ultrashop.models.Product;
-import com.kingpixel.ultrashop.models.Shop;
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.PanelsConfig;
@@ -19,6 +11,14 @@ import com.kingpixel.cobbleutils.util.AdventureTranslator;
 import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.cobbleutils.util.UIUtils;
+import com.kingpixel.ultrashop.UltraShop;
+import com.kingpixel.ultrashop.api.ShopApi;
+import com.kingpixel.ultrashop.api.ShopOptionsApi;
+import com.kingpixel.ultrashop.config.Config;
+import com.kingpixel.ultrashop.database.DataBaseFactory;
+import com.kingpixel.ultrashop.models.ActionShop;
+import com.kingpixel.ultrashop.models.Product;
+import com.kingpixel.ultrashop.models.Shop;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.math.BigDecimal;
@@ -125,7 +125,7 @@ public class MenuBuyAndSell {
               var userinfo = DataBaseFactory.INSTANCE.getUserInfo(player);
               int actual = userinfo.getActualProductLimit(product);
               int max = product.getMax();
-              if (actual >= max) UIManager.closeUI(player);
+              if (actual >= max) return;
               finalAmount = Math.min(finalAmount, max);
               if (ShopApi.getMainConfig().isDebug()) {
                 CobbleUtils.LOGGER.info(UltraShop.MOD_ID,
@@ -145,7 +145,7 @@ public class MenuBuyAndSell {
             "")))
           .build();
 
-        UIManager.openUIForcefully(player, page);
+        CobbleUtils.server.execute(() -> UIManager.openUIForcefully(player, page));
       }, UltraShop.SHOP_EXECUTOR)
       .exceptionally(e -> {
         e.printStackTrace();

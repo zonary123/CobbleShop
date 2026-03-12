@@ -14,6 +14,7 @@
 ### Bug Fixes
 
 - Fixed minor bugs in the initial release.
+- Fixed async menu opening.
 
 ### Optimizations
 

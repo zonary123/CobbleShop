@@ -208,7 +208,7 @@ public class Config {
       .onOpen(action -> new Sound(soundOpen).playSoundPlayer(action.getPlayer()))
       .build();
 
-    UIManager.openUIForcefully(player, page);
+    CobbleUtils.server.execute(() -> UIManager.openUIForcefully(player, page));
   }
 
   public static void applyShops(List<Shop> shops, ServerPlayerEntity player, ShopOptionsApi options, Config config,
