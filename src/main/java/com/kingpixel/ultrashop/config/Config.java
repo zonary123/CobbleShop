@@ -61,6 +61,7 @@ public class Config {
     this.itemClose = new ItemModel(49, "minecraft:barrier", "&cClose", List.of(), 0);
     this.commands = new ArrayList<>();
     commands.add("shop");
+    commands.add(UltraShop.MOD_ID);
     this.panels = List.of(
       new PanelsConfig(new ItemModel("minecraft:gray_stained_glass_pane"), rows)
     );
