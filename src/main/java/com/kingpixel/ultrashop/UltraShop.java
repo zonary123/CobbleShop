@@ -5,6 +5,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.kingpixel.cobbleutils.util.Utils;
+import com.kingpixel.cobbleutils.util.UtilsFile;
 import com.kingpixel.ultrashop.adapters.*;
 import com.kingpixel.ultrashop.api.ShopApi;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
@@ -59,9 +60,17 @@ public class UltraShop implements ModInitializer {
       .registerTypeAdapter(ShopTypeDynamicCalendar.class, ShopTypeDynamicCalendar.INSTANCE);
   }
 
-  @Override public void onInitialize() {
+  @Override
+  public void onInitialize() {
     gson = addAdapters(Utils.newGson().newBuilder()).create();
     gsonWithOutSpaces = addAdapters(Utils.newWithoutSpacingGson().newBuilder()).create();
+    UtilsFile.registerAdapter(ShopType.class, ShopTypeAdapter.INSTANCE);
+    UtilsFile.registerAdapter(ShopTypePermanent.class, ShopTypePermanent.INSTANCE);
+    UtilsFile.registerAdapter(ShopTypeDynamic.class, ShopTypeDynamic.INSTANCE);
+    UtilsFile.registerAdapter(ShopTypeWeekly.class, ShopTypeWeekly.INSTANCE);
+    UtilsFile.registerAdapter(ShopTypeDynamicWeekly.class, ShopTypeDynamicWeekly.INSTANCE);
+    UtilsFile.registerAdapter(ShopTypeCalendar.class, ShopTypeCalendar.INSTANCE);
+    UtilsFile.registerAdapter(ShopTypeDynamicCalendar.class, ShopTypeDynamicCalendar.INSTANCE);
     options = ShopOptionsApi.builder()
       .modId(MOD_ID)
       .path(PATH)
