@@ -1,6 +1,6 @@
 package com.kingpixel.ultrashop.migrate;
 
-import com.kingpixel.ultrashop.models.Product;
+import com.kingpixel.ultrashop.domain.model.Product;
 import lombok.*;
 import net.minecraft.item.ItemStack;
 
@@ -8,6 +8,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
+ * Legacy product format (v0). Kept for migration support.
+ *
  * @author Carlos Varas Alonso - 16/09/2024 18:43
  */
 @Getter
@@ -45,6 +47,7 @@ public class OldProduct {
   }
 
   public OldProduct(boolean optional) {
+    this();
     if (optional) {
       this.notCanBuyWithPermission = true;
       this.display = "minecraft:dirt";
@@ -54,44 +57,26 @@ public class OldProduct {
       this.CustomModelData = 0;
       this.permission = "cobbleutils.dirt";
       this.discount = 10;
-    } else {
-      this.notCanBuyWithPermission = null;
-      this.display = null;
-      this.color = null;
-      this.displayname = null;
-      this.lore = null;
-      this.CustomModelData = null;
-      this.permission = null;
-      this.discount = null;
     }
-    this.product = "minecraft:stone";
-    this.buy = BigDecimal.valueOf(500000);
-    this.sell = BigDecimal.ZERO;
   }
 
   public OldProduct(ItemStack defaultStack) {
-    this.notCanBuyWithPermission = null;
-    this.display = null;
-    this.color = null;
-    this.displayname = null;
-    this.lore = null;
-    this.CustomModelData = null;
-    this.permission = null;
-    this.discount = null;
+    this();
     this.product = defaultStack.getItem().getTranslationKey()
       .replace("item.", "")
       .replace("block.", "")
       .replace(".", ":");
-    this.buy = BigDecimal.valueOf(500000);
-    this.sell = BigDecimal.ZERO;
   }
 
+  /**
+   * Converts to the new v2 domain Product.
+   */
   public Product from() {
     Product product = new Product();
     product.setProduct(this.product);
     product.setBuy(this.buy);
     product.setSell(this.sell);
-    product.setDiscount((float) (this.discount == null ? 0 : this.discount));
+    product.setDiscount(this.discount == null ? 0f : this.discount.floatValue());
     product.setDisplay(this.display);
     product.setDisplayname(this.displayname);
     product.setLore(this.lore);

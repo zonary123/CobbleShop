@@ -1,0 +1,207 @@
+/* ═══════════════════════════════════════════════
+   UltraShop Dashboard — Minimal Custom CSS
+   Tailwind handles 90% of styling. This file covers
+   only what utility classes can't: animations,
+   pseudo-elements, and component patterns.
+   ═══════════════════════════════════════════════ */
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
+
+/* ── Ambient Background ── */
+.bg-orb { animation: orbFloat 22s ease-in-out infinite alternate; }
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 50% at 50% 30%, black 30%, transparent 100%);
+}
+@keyframes orbFloat {
+  0%   { transform: translate(0,0) scale(1); }
+  50%  { transform: translate(25px,-15px) scale(1.04); }
+  100% { transform: translate(-15px,10px) scale(0.97); }
+}
+
+/* ── Tabs ── */
+.tab-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 8px 18px;
+  border-radius: 10px;
+  font-size: 13px; font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: none; cursor: pointer;
+  font-family: 'Outfit', system-ui, sans-serif;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.tab-btn svg { opacity: 0.45; transition: opacity 0.2s; }
+.tab-btn:hover { color: #94a3b8; background: rgba(255,255,255,0.03); }
+.tab-btn:hover svg { opacity: 0.6; }
+.tab-btn:focus-visible { outline: 2px solid rgba(245,158,11,0.5); outline-offset: 2px; }
+.tab-btn.active { color: #f59e0b; background: rgba(245,158,11,0.08); box-shadow: inset 0 0 0 1px rgba(245,158,11,0.15); }
+.tab-btn.active svg { opacity: 1; stroke: #f59e0b; }
+
+.tab-content { display: none; }
+.tab-content.active { display: flex; flex-direction: column; gap: inherit; animation: fadeUp 0.3s ease-out; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── KPI Cards ── */
+.kpi-card {
+  background: #0f0f24;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 18px 16px;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: var(--kpi-color, #f59e0b);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.kpi-card::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 16px;
+  background: radial-gradient(ellipse at 50% 0%, var(--kpi-glow, rgba(245,158,11,0.04)), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.kpi-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+.kpi-card:hover::before, .kpi-card:hover::after { opacity: 1; }
+
+.kpi-label {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1px;
+  color: #64748b; margin-bottom: 8px;
+}
+.kpi-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px; font-weight: 700; line-height: 1.15;
+}
+.kpi-value small { font-size: 11px; font-weight: 500; opacity: 0.55; }
+
+@media (max-width: 640px) { .kpi-value { font-size: 18px; } }
+
+.kpi-skeleton {
+  background: #0f0f24;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 18px 16px;
+  min-height: 80px;
+  position: relative; overflow: hidden;
+}
+.kpi-skeleton::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.025) 50%, transparent 70%);
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+
+/* ── Data Tables ── */
+.data-table { border-collapse: separate; border-spacing: 0; }
+.data-table th {
+  text-align: left; padding: 9px 12px;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.7px;
+  color: #64748b;
+  background: #141432;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  position: sticky; top: 0;
+  white-space: nowrap;
+}
+.data-table th:first-child { border-radius: 8px 0 0 0; }
+.data-table th:last-child  { border-radius: 0 8px 0 0; }
+.data-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: #94a3b8;
+  white-space: nowrap;
+}
+.data-table tbody tr { transition: background 0.15s; }
+.data-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* ── Tags ── */
+.tag {
+  display: inline-flex; align-items: center;
+  padding: 2px 9px; border-radius: 6px;
+  font-size: 11px; font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+.tag-buy { background: rgba(52,211,153,0.08); color: #34d399; border: 1px solid rgba(52,211,153,0.1); }
+.tag-sell { background: rgba(251,113,133,0.08); color: #fb7185; border: 1px solid rgba(251,113,133,0.1); }
+
+/* ── Pagination (JS-rendered) ── */
+.pg-btn {
+  background: #141432;
+  color: #94a3b8;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px; font-weight: 500;
+  font-family: 'Outfit', sans-serif;
+  transition: all 0.2s;
+}
+.pg-btn:hover:not(:disabled) { border-color: rgba(245,158,11,0.25); color: #f59e0b; }
+.pg-btn:focus-visible { outline: 2px solid rgba(245,158,11,0.5); outline-offset: 2px; }
+.pg-btn:disabled { opacity: 0.2; cursor: default; }
+
+/* ── Toasts ── */
+.toast {
+  background: #0f0f24;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 13px; font-weight: 500;
+  color: #94a3b8;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  animation: toastIn 0.35s cubic-bezier(0.16,1,0.3,1), toastOut 0.3s ease 3.7s forwards;
+  backdrop-filter: blur(12px);
+}
+.toast.error { border-color: rgba(251,113,133,0.25); color: #fb7185; }
+.toast.success { border-color: rgba(52,211,153,0.25); color: #34d399; }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(30px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateX(30px); } }
+
+/* ── Login ── */
+@keyframes loginIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-loginIn { animation: loginIn 0.45s cubic-bezier(0.16,1,0.3,1); }
+
+/* ── Card entry animation (injected by JS) ── */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Color utilities for JS-rendered content ── */
+.c-green  { color: #34d399; }
+.c-red    { color: #fb7185; }
+.c-amber  { color: #f59e0b; }
+.c-blue   { color: #60a5fa; }
+.c-purple { color: #a78bfa; }
+.c-muted  { color: #64748b; }
+.c-white  { color: #f1f5f9; }
+.fw-bold  { font-weight: 700; }
+.fw-semi  { font-weight: 600; }

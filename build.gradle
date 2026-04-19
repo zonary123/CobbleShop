@@ -89,7 +89,7 @@ dependencies {
     modImplementation "dev.architectury:architectury-fabric:${project.architectury_version}"
     modImplementation("com.cobblemon:fabric:${property("cobblemon_version")}")
     api("net.objecthunter:exp4j:0.4.8")
-    modImplementation(files(fileTree(dir: 'libs', include: '*.jar')))
+    modImplementation(fileTree(dir: 'libs', include: '*.jar'))
     implementation("com.github.ben-manes.caffeine:caffeine:3.2.2")
     modImplementation("ca.landonjw.gooeylibs:fabric-api-repack:${property("gooeylibs_version")}")
 
@@ -105,6 +105,16 @@ dependencies {
     // Database
     modImplementation("com.zaxxer:HikariCP:5.0.1")
     implementation("org.mongodb:mongodb-driver-sync:${property("mongodb_version")}")
+
+    // Web
+    implementation(include("org.eclipse.jetty:jetty-server:11.0.17"))
+    implementation(include("org.eclipse.jetty:jetty-servlet:11.0.17"))
+    implementation(include("org.eclipse.jetty:jetty-http:11.0.17"))
+    implementation(include("org.eclipse.jetty:jetty-io:11.0.17"))
+    implementation(include("org.eclipse.jetty:jetty-util:11.0.17"))
+    implementation(include("org.eclipse.jetty:jetty-security:11.0.17"))
+    implementation(include("org.eclipse.jetty:jetty-servlets:11.0.17"))
+    implementation(include("jakarta.servlet:jakarta.servlet-api:5.0.0"))
 
     // Lombok
     annotationProcessor("org.projectlombok:lombok:${property("lombok_version")}")

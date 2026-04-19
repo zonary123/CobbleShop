@@ -1,133 +1,94 @@
 package com.kingpixel.ultrashop;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.kingpixel.cobbleutils.api.PermissionApi;
-import com.kingpixel.cobbleutils.util.Utils;
-import com.kingpixel.cobbleutils.util.UtilsFile;
-import com.kingpixel.ultrashop.adapters.*;
-import com.kingpixel.ultrashop.api.ShopApi;
+import org.apache.logging.log4j.Logger;
+
+import com.kingpixel.cobbleutils.util.UtilsLogger;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
-import com.kingpixel.ultrashop.config.Lang;
-import com.kingpixel.ultrashop.database.DataBaseFactory;
-import com.kingpixel.ultrashop.models.DataShop;
+import com.kingpixel.ultrashop.domain.service.TransactionService;
+import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonUserRepository;
+import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoUserRepository;
+import com.kingpixel.ultrashop.presentation.gui.edit.ChatInputManager;
+
 import dev.architectury.event.events.common.CommandRegistrationEvent;
 import dev.architectury.event.events.common.LifecycleEvent;
 import dev.architectury.event.events.common.PlayerEvent;
 import net.fabricmc.api.ModInitializer;
-import net.minecraft.server.MinecraftServer;
-
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
+import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 
 /**
- * @author Carlos Varas Alonso - 21/02/2025 5:05
+ * UltraShop v2 — Minimal bootstrap.
+ * All state lives in {@link ShopContext}, async in UtilsAsync, I/O in UtilsFile.
+ *
+ * @author Carlos Varas Alonso
  */
 public class UltraShop implements ModInitializer {
 
   public static final String MOD_ID = "ultrashop";
   public static final String MOD_NAME = "UltraShop";
-  public static final String PATH = "/config/ultrashop/";
-  public static final String PATH_SHOP = PATH + "shop/";
-  public static final String PATH_LANG = PATH + "lang/";
-  public static final String PATH_MIGRATION = PATH + "migration/";
-  public static final String PATH_BACKUP_MIGRATION = PATH + "backup_migration/";
-  public static final String PATH_DATA = PATH + "data/";
-  public static final String PATH_DATA_USERS = PATH_DATA + "users/";
-  public static MinecraftServer server;
-  public static ShopOptionsApi options;
-  public static Lang lang = new Lang();
-  public static Gson gson;
-  public static Gson gsonWithOutSpaces;
-  public static DataShop dataShop = new DataShop();
-  public static final ExecutorService SHOP_EXECUTOR = Executors.newFixedThreadPool(1, new ThreadFactoryBuilder()
-    .setDaemon(true)
-    .setNameFormat("CobbleShop-Executor-%d")
-    .build());
-
-
-  private static GsonBuilder addAdapters(GsonBuilder gsonBuilder) {
-    return gsonBuilder.registerTypeAdapter(ShopType.class, ShopTypeAdapter.INSTANCE)
-      .registerTypeAdapter(ShopTypePermanent.class, ShopTypePermanent.INSTANCE)
-      .registerTypeAdapter(ShopTypeDynamic.class, ShopTypeDynamic.INSTANCE)
-      .registerTypeAdapter(ShopTypeWeekly.class, ShopTypeWeekly.INSTANCE)
-      .registerTypeAdapter(ShopTypeDynamicWeekly.class, ShopTypeDynamicWeekly.INSTANCE)
-      .registerTypeAdapter(ShopTypeCalendar.class, ShopTypeCalendar.INSTANCE)
-      .registerTypeAdapter(ShopTypeDynamicCalendar.class, ShopTypeDynamicCalendar.INSTANCE);
-  }
+  public static final String PATH = "ultrashop/";
+  public static final Logger LOGGER = UtilsLogger.getLogger(MOD_ID);
 
   @Override
   public void onInitialize() {
-    gson = addAdapters(Utils.newGson().newBuilder()).create();
-    gsonWithOutSpaces = addAdapters(Utils.newWithoutSpacingGson().newBuilder()).create();
-    UtilsFile.registerAdapter(ShopType.class, ShopTypeAdapter.INSTANCE);
-    UtilsFile.registerAdapter(ShopTypePermanent.class, ShopTypePermanent.INSTANCE);
-    UtilsFile.registerAdapter(ShopTypeDynamic.class, ShopTypeDynamic.INSTANCE);
-    UtilsFile.registerAdapter(ShopTypeWeekly.class, ShopTypeWeekly.INSTANCE);
-    UtilsFile.registerAdapter(ShopTypeDynamicWeekly.class, ShopTypeDynamicWeekly.INSTANCE);
-    UtilsFile.registerAdapter(ShopTypeCalendar.class, ShopTypeCalendar.INSTANCE);
-    UtilsFile.registerAdapter(ShopTypeDynamicCalendar.class, ShopTypeDynamicCalendar.INSTANCE);
-    options = ShopOptionsApi.builder()
+
+    // Initialize context (async, data structures)
+    ShopContext.get().init();
+
+    // Register events
+    registerEvents();
+  }
+
+  private void registerEvents() {
+    ShopOptionsApi defaultOptions = ShopOptionsApi.builder()
       .modId(MOD_ID)
       .path(PATH)
       .build();
-    events();
-  }
 
-  public static void load(ShopOptionsApi options) {
-
-    ShopApi.register(options, server.getCommandManager().getDispatcher());
-    dataShop.init();
-    new DataBaseFactory(ShopApi.getMainConfig().getDataBase());
-  }
-
-  public static void events() {
+    // Server loaded — optionally setup server-specific config
     LifecycleEvent.SERVER_LEVEL_LOAD.register(level -> {
-      server = level.getServer();
-      var source = server.getCommandSource();
-      ShopApi.shops.forEach((modId, list) -> {
-        list.forEach(shop -> {
-          PermissionApi.hasPermission(source, shop.getPermission(ShopOptionsApi.builder()
-            .modId(modId).build()), 4);
-        });
+    });
+
+    // Server stopping — save data, shutdown async
+    LifecycleEvent.SERVER_STOPPING.register(event -> {
+      ShopContext.get().getDataShop().write();
+      ShopContext.get().shutdown();
+    });
+
+    // Command registration — load config + register commands
+    CommandRegistrationEvent.EVENT.register((dispatcher, commandRegistryAccess, registrationEnvironment) -> {
+      com.kingpixel.ultrashop.api.ShopApi.register(defaultOptions, dispatcher);
+    });
+
+    // Player join — load user data async
+    PlayerEvent.PLAYER_JOIN.register(player -> {
+      ShopContext.get().getAsyncContext().runAsync(() -> {
+        var repo = ShopContext.get().getRepositories();
+        if (repo != null) {
+          if (repo.getUserRepository() instanceof JsonUserRepository jsonRepo) {
+            jsonRepo.findByPlayer(player);
+          } else if (repo.getUserRepository() instanceof MongoUserRepository mongoRepo) {
+            mongoRepo.findByPlayer(player);
+          }
+        }
       });
     });
 
-    LifecycleEvent.SERVER_STOPPING.register(event -> {
-      dataShop.write();
-    });
-
-    CommandRegistrationEvent.EVENT.register((dispatcher, commandRegistryAccess, registrationEnvironment) -> {
-      ShopApi.register(options, dispatcher);
-      dataShop.init();
-      new DataBaseFactory(ShopApi.getMainConfig().getDataBase());
-    });
-
-    PlayerEvent.PLAYER_JOIN.register(player -> CompletableFuture.runAsync(() -> {
-      DataBaseFactory.INSTANCE.getUserInfo(player);
-    }, SHOP_EXECUTOR));
-
+    // Player quit — cleanup locks and cache
     PlayerEvent.PLAYER_QUIT.register(player -> {
-      DataBaseFactory.INSTANCE.removeIfNecessary(player);
-      ShopApi.sellLock.remove(player.getUuid());
+      TransactionService.removeSellLock(player.getUuid());
+      ChatInputManager.clear(player.getUuid());
+      var repo = ShopContext.get().getRepositories();
+      if (repo != null) {
+        repo.getUserRepository().remove(player.getUuid());
+      }
+    });
+
+    // Chat input — intercept messages for admin edit GUI
+    ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
+      if (ChatInputManager.hasPending(sender.getUuid())) {
+        return !ChatInputManager.handleChat(sender, message.getContent().getString());
+      }
+      return true;
     });
   }
-
-
-  public static void initSellProduct(ShopOptionsApi options) {
-    ShopApi.sellProducts = ShopApi.shops.values().stream()
-      .flatMap(List::stream)
-      .collect(Collectors.toMap(
-        shop -> shop,
-        shop -> shop.getType().getProducts(shop, options).stream()
-          .filter(product -> product.canSell(null, shop, options))
-          .collect(Collectors.toList())
-      ));
-  }
-
-
 }

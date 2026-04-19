@@ -3,27 +3,31 @@ package com.kingpixel.ultrashop.api;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * @author Carlos Varas Alonso - 21/02/2025 5:15
+ * Options that identify a mod's shop registration.
+ * Other mods pass this to {@link ShopApi#register} to set up their shops.
  */
 @Data
 @Builder
 public class ShopOptionsApi {
   private String modId;
   private String path;
-  private List<String> commands;
-
+  @Builder.Default
+  private List<String> commands = new ArrayList<>();
 
   public ShopOptionsApi(String modId, String path, List<String> commands) {
     this.modId = modId;
     this.path = path;
-    this.commands = commands;
+    this.commands = commands != null ? commands : new ArrayList<>();
   }
 
+  /**
+   * Returns the path to the shop directory.
+   */
   public String getPathShop() {
     return path + "shop/";
   }
-
 }
