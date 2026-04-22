@@ -5,21 +5,24 @@ import com.kingpixel.cobbleutils.Model.conditions.Condition;
 import com.kingpixel.cobbleutils.util.economys.providers.ImpactorEconomy;
 import com.kingpixel.ultrashop.UltraShop;
 import lombok.Data;
-
-import java.util.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
 
 /**
  * A shop definition — pure domain model.
  * No GUI logic, no I/O, no serialization.
  *
- * <p>The old ShopType hierarchy (Permanent, Weekly, Calendar, Dynamic, etc.)
- * is replaced by two orthogonal concepts:</p>
+ * <p>Behavior is selected by {@link #type}:</p>
  * <ul>
- *   <li>{@code dynamic} + {@code dynamicCooldown} + {@code productsRotation} — controls product rotation</li>
- *   <li>{@code openConditions} — controls when the shop is accessible (replaces Weekly/Calendar types)</li>
+ *   <li>{@link ShopType#NORMAL} — static catalog of {@code products}</li>
+ *   <li>{@link ShopType#CATEGORY} — menu of {@code subShops}</li>
+ *   <li>{@link ShopType#ROTATION} — dynamic catalog driven by {@link RotationSchedule}</li>
  * </ul>
+ *
+ * <p>{@link #openConditions} controls accessibility orthogonally to {@code type}
+ * (replaces the old Weekly/Calendar shop subclasses).</p>
  */
 @Data
 public class Shop {
@@ -28,6 +31,10 @@ public class Shop {
   // --- Transient (not serialized) ---
   private transient String filePath;
   private transient String id;
+
+  // --- Type ---
+  @NotNull
+  private ShopType type = ShopType.NORMAL;
 
   // --- Display & Layout ---
   private String name = "Shop";
@@ -49,19 +56,25 @@ public class Shop {
   private String soundClose;
 
   // --- Economy (Multi-Currency) ---
-  @NotNull private List<EconomyUse> economies;
+  @NotNull
+  private LinkedHashSet<EconomyUse> economies;
+
   private float globalDiscount;
-  @NotNull private Map<String, Float> discounts;
+  @NotNull
+  private Map<String, Float> discounts;
 
   // --- Behavior ---
-  @Nullable private String closeCommand;
+  @Nullable
+  private String closeCommand;
   private boolean announceRotation;
 
   // --- Dynamic Rotation Schedule ---
-  @Nullable private RotationSchedule rotationSchedule;
+  @Nullable
+  private RotationSchedule rotationSchedule;
 
   // --- Conditions ---
-  @NotNull private List<Condition> openConditions;
+  @NotNull
+  private List<Condition> openConditions;
 
   // --- Content ---
   private List<SubShop> subShops;
@@ -83,7 +96,7 @@ public class Shop {
     this.discounts = new HashMap<>();
     this.discounts.put("group.vip", 2.0f);
     this.rectangle = new Rectangle(1, 1, 4, 7);
-    this.economies = new ArrayList<>(List.of(new EconomyUse(ImpactorEconomy.IDENTIFY, "impactor:dollars")));
+    this.economies = new LinkedHashSet<>(List.of(new EconomyUse(ImpactorEconomy.IDENTIFY, "impactor:dollars")));
     this.display = new ItemModel("");
     this.itemInfoShop = new ItemModel("");
     this.itemInfoShop.setSlot(51);
@@ -103,29 +116,63 @@ public class Shop {
   }
 
   /**
-   * Creates a shop with a specific id and dynamic flag.
+   * Creates a shop with a specific id and explicit type.
    */
-  public Shop(String id, boolean hasRotation) {
+  public Shop(String id, ShopType type) {
     this();
     this.id = id;
-    if (hasRotation) {
-        this.rotationSchedule = new RotationSchedule("30m", 3);
+    this.type = type != null ? type : ShopType.NORMAL;
+    if (this.type == ShopType.ROTATION) {
+      this.rotationSchedule = new RotationSchedule("30m", 3);
     }
   }
 
   /**
+   * @deprecated Use {@link #Shop(String, ShopType)} instead.
+   */
+  @Deprecated
+  public Shop(String id, boolean hasRotation) {
+    this(id, hasRotation ? ShopType.ROTATION : ShopType.NORMAL);
+  }
+
+  /**
+   * Returns the primary (first unique) economy, or {@code null} if none is configured.
+   */
+  public EconomyUse getPrimaryEconomy() {
+    return economies.stream().findFirst().orElse(null);
+  }
+
+  /**
    * Validates and fills in defaults for missing fields.
+   * Also auto-promotes legacy shops (without explicit {@code type}) based on
+   * which fields are populated.
    */
   public void check() {
     if (subShops == null) subShops = new ArrayList<>();
-    if (economies == null || economies.isEmpty()) {
-      economies = new ArrayList<>();
+    if (economies.isEmpty()) {
+      economies = new LinkedHashSet<>();
       economies.add(new EconomyUse(ImpactorEconomy.IDENTIFY, "impactor:dollars"));
     }
     if (openConditions == null) openConditions = new ArrayList<>();
     if (discounts == null) discounts = new HashMap<>();
     if (products == null) products = new ArrayList<>();
     if (panels == null) panels = List.of(new PanelsConfig(new ItemModel("minecraft:gray_stained_glass_pane"), rows));
+
+    // Auto-promote legacy configs (no explicit type)
+    if (type == null) type = ShopType.NORMAL;
+    if (type == ShopType.NORMAL) {
+      if (rotationSchedule != null) {
+        type = ShopType.ROTATION;
+      } else if (!subShops.isEmpty()) {
+        type = ShopType.CATEGORY;
+      }
+    }
+
+    // Sanity: rotation requires a schedule
+    if (type == ShopType.ROTATION && rotationSchedule == null) {
+      UltraShop.LOGGER.warn("Shop '" + id + "' is ROTATION but has no rotationSchedule. Defaulting to 1h interval.");
+      rotationSchedule = new RotationSchedule("1h", 3);
+    }
 
     products.forEach(product -> product.check(this));
     validateUniqueProductUuids();
@@ -141,22 +188,31 @@ public class Shop {
 
   /**
    * Whether this shop has sub-shops (categories) instead of direct products.
+   * @deprecated Use {@code getType() == ShopType.CATEGORY} instead.
    */
+  @Deprecated
   public boolean hasCategories() {
-    return subShops != null && !subShops.isEmpty();
+    return type == ShopType.CATEGORY;
   }
+
+  /** Convenience: shop is a static product catalog. */
+  public boolean isNormal() { return type == ShopType.NORMAL; }
+
+  /** Convenience: shop is a category menu (uses {@code subShops}). */
+  public boolean isCategory() { return type == ShopType.CATEGORY; }
+
+  /** Convenience: shop has rotating dynamic products. */
+  public boolean isRotation() { return type == ShopType.ROTATION; }
 
   // --- Private helpers ---
 
   private void validateUniqueProductUuids() {
     Set<UUID> seen = new HashSet<>();
     for (Product product : products) {
-      if (product.getUuid() != null) {
-        if (!seen.add(product.getUuid())) {
-          UltraShop.LOGGER.warn("Duplicate product UUID: " + product.getUuid() + " in shop " + id + ". Regenerating.");
-          product.setUuid(UUID.randomUUID());
-          seen.add(product.getUuid());
-        }
+      if (product.getUuid() != null && !seen.add(product.getUuid())) {
+        UltraShop.LOGGER.warn("Duplicate product UUID: " + product.getUuid() + " in shop " + id + ". Regenerating.");
+        product.setUuid(UUID.randomUUID());
+        seen.add(product.getUuid());
       }
     }
   }

@@ -1,18 +1,28 @@
 package com.kingpixel.ultrashop.infrastructure.config;
 
 import com.kingpixel.cobbleutils.CobbleUtils;
+import com.kingpixel.cobbleutils.Model.EconomyUse;
+import com.kingpixel.cobbleutils.Model.conditions.Condition;
+import com.kingpixel.cobbleutils.Model.conditions.PermissionCondition;
 import com.kingpixel.cobbleutils.util.UtilsFile;
+import com.kingpixel.cobbleutils.util.economys.providers.ImpactorEconomy;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
+import com.kingpixel.ultrashop.domain.model.PriceEntry;
+import com.kingpixel.ultrashop.domain.model.Product;
+import com.kingpixel.ultrashop.domain.model.RotationSchedule;
 import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.ShopType;
 import com.kingpixel.ultrashop.domain.model.SubShop;
 import com.kingpixel.ultrashop.infrastructure.persistence.RepositoryFactory;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
@@ -164,31 +174,38 @@ public final class ConfigLoader {
 
   // --- Default shop generation ---
 
+  /**
+   * Creates a comprehensive set of example shops covering all {@link ShopType} values
+   * and the most common features. Each example targets a single concept so users can
+   * compare side-by-side and learn by editing real, working configs.
+   *
+   * <p>Generated shops:</p>
+   * <ul>
+   *   <li>{@code main_menu} (CATEGORY) — entry point linking to all examples</li>
+   *   <li>{@code starter_blocks} (NORMAL) — minimal buy-only shop</li>
+   *   <li>{@code farm_market} (NORMAL) — sell-only farming products</li>
+   *   <li>{@code tools_workshop} (NORMAL) — fixed-slot layout, no autoPlace</li>
+   *   <li>{@code vip_lounge} (NORMAL) — restricted by permission via openConditions</li>
+   *   <li>{@code limited_drops} (NORMAL) — per-player buy limits with cooldown</li>
+   *   <li>{@code multicurrency_bazaar} (NORMAL) — products priced in multiple economies</li>
+   *   <li>{@code hourly_rotation} (ROTATION, interval) — rotates every hour</li>
+   *   <li>{@code legendary_rotation} (ROTATION, cron weekly) — Friday 18:00</li>
+   *   <li>{@code daily_specials} (ROTATION, cron daily) — every midnight</li>
+   * </ul>
+   */
   private static void createDefaultShops(Path shopDir) {
     List<Shop> defaults = new ArrayList<>();
 
-    // Permanent shop (static)
-    Shop blocks = new Shop("blocks", false);
-    blocks.getDisplay().setDisplayname("§6Block Shop");
-    blocks.getDisplay().setLore(List.of("§7Buy your everyday building blocks here!"));
-    defaults.add(blocks);
-
-    // Dynamic shop (rotating products)
-    Shop legendary = new Shop("legendary_rotation", true);
-    legendary.getDisplay().setDisplayname("§eLegendary Rotation");
-    legendary.getDisplay().setLore(List.of("§cExclusive items matching a 12h rotation!"));
-    legendary.setRotationSchedule(new com.kingpixel.ultrashop.domain.model.RotationSchedule("12h", 2));
-    defaults.add(legendary);
-
-    // Category shop
-    Shop categories = new Shop("categories", false);
-    categories.getDisplay().setDisplayname("§bMain Menu");
-    categories.setSubShops(List.of(
-      new SubShop(10, "blocks"),
-      new SubShop(11, "legendary_rotation")
-    ));
-    categories.setProducts(new ArrayList<>());
-    defaults.add(categories);
+    defaults.add(buildStarterBlocks());
+    defaults.add(buildFarmMarket());
+    defaults.add(buildToolsWorkshop());
+    defaults.add(buildVipLounge());
+    defaults.add(buildLimitedDrops());
+    defaults.add(buildMulticurrencyBazaar());
+    defaults.add(buildHourlyRotation());
+    defaults.add(buildLegendaryRotation());
+    defaults.add(buildDailySpecials());
+    defaults.add(buildMainMenu()); // last so subShops references resolve in editor view
 
     int slot = 0;
     for (Shop shop : defaults) {
@@ -202,6 +219,282 @@ public final class ConfigLoader {
         UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error creating default shop: " + e.getMessage());
       }
     }
+  }
+
+  // --- Default shop builders ---
+
+  /** CATEGORY: top-level menu pointing to every example shop. */
+  private static Shop buildMainMenu() {
+    Shop shop = new Shop("main_menu", ShopType.CATEGORY);
+    shop.setName("Main Menu");
+    shop.getDisplay().setDisplayname("§b§lMain Menu");
+    shop.getDisplay().setLore(List.of(
+      "§7Browse all shops by category.",
+      "§7This is a §bCATEGORY§7 shop — it has no products,",
+      "§7only links to other shops via §fsubShops§7."
+    ));
+    shop.setSubShops(List.of(
+      new SubShop(10, "starter_blocks"),
+      new SubShop(11, "farm_market"),
+      new SubShop(12, "tools_workshop"),
+      new SubShop(13, "limited_drops"),
+      new SubShop(14, "multicurrency_bazaar"),
+      new SubShop(15, "vip_lounge"),
+      new SubShop(16, "hourly_rotation"),
+      new SubShop(20, "legendary_rotation"),
+      new SubShop(22, "daily_specials")
+    ));
+    shop.setProducts(new ArrayList<>());
+    return shop;
+  }
+
+  /** NORMAL: minimal buy-only shop — the simplest possible configuration. */
+  private static Shop buildStarterBlocks() {
+    Shop shop = new Shop("starter_blocks", ShopType.NORMAL);
+    shop.setName("Starter Blocks");
+    shop.getDisplay().setDisplayname("§a§lStarter Blocks");
+    shop.getDisplay().setLore(List.of(
+      "§7Cheap building blocks for new players.",
+      "§7§oNORMAL shop — every product is always visible."
+    ));
+    shop.setProducts(new ArrayList<>(List.of(
+      simpleProduct("minecraft:dirt", 5, 1),
+      simpleProduct("minecraft:cobblestone", 8, 2),
+      simpleProduct("minecraft:oak_planks", 10, 2),
+      simpleProduct("minecraft:stone", 12, 3),
+      simpleProduct("minecraft:glass", 15, 4),
+      simpleProduct("minecraft:torch", 5, 0)
+    )));
+    return shop;
+  }
+
+  /** NORMAL: sell-focused — buy=0 disables purchases, only selling is allowed. */
+  private static Shop buildFarmMarket() {
+    Shop shop = new Shop("farm_market", ShopType.NORMAL);
+    shop.setName("Farm Market");
+    shop.getDisplay().setDisplayname("§e§lFarm Market");
+    shop.getDisplay().setLore(List.of(
+      "§7Sell your harvest here for a fair price.",
+      "§7§oSet §fbuy=0§7 to make a product §fsell-only§7."
+    ));
+    shop.setProducts(new ArrayList<>(List.of(
+      simpleProduct("minecraft:wheat", 0, 4),
+      simpleProduct("minecraft:carrot", 0, 5),
+      simpleProduct("minecraft:potato", 0, 5),
+      simpleProduct("minecraft:beetroot", 0, 6),
+      simpleProduct("minecraft:pumpkin", 0, 10),
+      simpleProduct("minecraft:melon", 0, 8),
+      simpleProduct("minecraft:apple", 0, 12),
+      simpleProduct("minecraft:sweet_berries", 0, 7)
+    )));
+    return shop;
+  }
+
+  /** NORMAL: fixed-slot layout — autoPlace=false + slot per product. */
+  private static Shop buildToolsWorkshop() {
+    Shop shop = new Shop("tools_workshop", ShopType.NORMAL);
+    shop.setName("Tools Workshop");
+    shop.getDisplay().setDisplayname("§6§lTools Workshop");
+    shop.getDisplay().setLore(List.of(
+      "§7Buy tools at fixed positions in the GUI.",
+      "§7§oautoPlace=false §7lets you pin each product to a §fslot§7."
+    ));
+    shop.setAutoPlace(false);
+    shop.setProducts(new ArrayList<>(List.of(
+      slottedProduct("minecraft:wooden_pickaxe", 50, 0, 10),
+      slottedProduct("minecraft:stone_pickaxe", 150, 0, 11),
+      slottedProduct("minecraft:iron_pickaxe", 500, 0, 12),
+      slottedProduct("minecraft:diamond_pickaxe", 2500, 0, 13),
+      slottedProduct("minecraft:netherite_pickaxe", 10000, 0, 14),
+      slottedProduct("minecraft:wooden_axe", 50, 0, 19),
+      slottedProduct("minecraft:stone_axe", 150, 0, 20),
+      slottedProduct("minecraft:iron_axe", 500, 0, 21),
+      slottedProduct("minecraft:diamond_axe", 2500, 0, 22),
+      slottedProduct("minecraft:netherite_axe", 10000, 0, 23)
+    )));
+    return shop;
+  }
+
+  /** NORMAL: gated by openConditions — requires the permission node to even open the shop. */
+  private static Shop buildVipLounge() {
+    Shop shop = new Shop("vip_lounge", ShopType.NORMAL);
+    shop.setName("VIP Lounge");
+    shop.getDisplay().setDisplayname("§d§lVIP Lounge");
+    shop.getDisplay().setLore(List.of(
+      "§7Exclusive items for VIP players.",
+      "§7§oUses §fopenConditions §7to require a permission to open."
+    ));
+    List<Condition> openConditions = new ArrayList<>();
+    openConditions.add(PermissionCondition.builder().permission("ultrashop.vip").build());
+    shop.setOpenConditions(openConditions);
+    shop.setGlobalDiscount(15.0f); // 15% discount for VIPs
+    shop.setProducts(new ArrayList<>(List.of(
+      simpleProduct("minecraft:netherite_ingot", 8000, 4000),
+      simpleProduct("minecraft:elytra", 50000, 25000),
+      simpleProduct("minecraft:totem_of_undying", 12000, 6000),
+      simpleProduct("minecraft:enchanted_golden_apple", 5000, 2500),
+      simpleProduct("minecraft:beacon", 30000, 15000)
+    )));
+    return shop;
+  }
+
+  /** NORMAL: per-player buy limits via max + cooldown (auto-generates UUID). */
+  private static Shop buildLimitedDrops() {
+    Shop shop = new Shop("limited_drops", ShopType.NORMAL);
+    shop.setName("Limited Drops");
+    shop.getDisplay().setDisplayname("§c§lLimited Drops");
+    shop.getDisplay().setLore(List.of(
+      "§7Each player can buy a limited amount per cooldown.",
+      "§7§oSet §fmax §7and §fcooldown §7(minutes) on the product."
+    ));
+
+    Product dailyDiamond = simpleProduct("minecraft:diamond", 100, 50);
+    dailyDiamond.setMax(8);
+    dailyDiamond.setCooldown(1440); // 24h
+
+    Product hourlyEnderPearl = simpleProduct("minecraft:ender_pearl", 200, 100);
+    hourlyEnderPearl.setMax(4);
+    hourlyEnderPearl.setCooldown(60); // 1h
+
+    Product weeklyTotem = simpleProduct("minecraft:totem_of_undying", 5000, 2500);
+    weeklyTotem.setMax(1);
+    weeklyTotem.setCooldown(10080); // 7d
+
+    shop.setProducts(new ArrayList<>(List.of(dailyDiamond, hourlyEnderPearl, weeklyTotem)));
+    return shop;
+  }
+
+  /** NORMAL: products priced in multiple currencies via the {@code prices} array. */
+  private static Shop buildMulticurrencyBazaar() {
+    Shop shop = new Shop("multicurrency_bazaar", ShopType.NORMAL);
+    shop.setName("Bazaar");
+    shop.getDisplay().setDisplayname("§9§lMulti-Currency Bazaar");
+    shop.getDisplay().setLore(List.of(
+      "§7Pay with §fmultiple currencies §7at once.",
+      "§7§oWhen §fprices[] §7is set, simple §fbuy/sell §7are ignored."
+    ));
+
+    EconomyUse dollars = new EconomyUse(ImpactorEconomy.IDENTIFY, "impactor:dollars");
+    EconomyUse diamonds = new EconomyUse("item", "minecraft:diamond");
+    EconomyUse emeralds = new EconomyUse("item", "minecraft:emerald");
+
+    // Shop default economies (used by simple buy/sell products in this shop)
+    shop.setEconomies(new LinkedHashSet<>(List.of(dollars)));
+
+    Product netheriteSword = simpleProduct("minecraft:netherite_sword", 0, 0);
+    netheriteSword.setPrices(new ArrayList<>(List.of(
+      new PriceEntry(dollars, BigDecimal.valueOf(2000), BigDecimal.valueOf(1000)),
+      new PriceEntry(diamonds, BigDecimal.valueOf(8), BigDecimal.valueOf(4))
+    )));
+
+    Product enchantedBook = simpleProduct("minecraft:enchanted_book", 0, 0);
+    enchantedBook.setPrices(new ArrayList<>(List.of(
+      new PriceEntry(emeralds, BigDecimal.valueOf(16), BigDecimal.valueOf(8))
+    )));
+
+    Product shulkerBox = simpleProduct("minecraft:shulker_box", 0, 0);
+    shulkerBox.setPrices(new ArrayList<>(List.of(
+      new PriceEntry(dollars, BigDecimal.valueOf(5000), BigDecimal.ZERO),
+      new PriceEntry(diamonds, BigDecimal.valueOf(20), BigDecimal.ZERO),
+      new PriceEntry(emeralds, BigDecimal.valueOf(64), BigDecimal.ZERO)
+    )));
+
+    shop.setProducts(new ArrayList<>(List.of(netheriteSword, enchantedBook, shulkerBox)));
+    return shop;
+  }
+
+  /** ROTATION (interval): a small subset of the pool, refreshed every hour. */
+  private static Shop buildHourlyRotation() {
+    Shop shop = new Shop("hourly_rotation", ShopType.ROTATION);
+    shop.setName("Hourly Rotation");
+    shop.getDisplay().setDisplayname("§b§lHourly Rotation");
+    shop.getDisplay().setLore(List.of(
+      "§7Refreshes every hour.",
+      "§7§oROTATION + §finterval='1h'§7 — relative cooldown."
+    ));
+    shop.setRotationSchedule(new RotationSchedule("1h", 4));
+    shop.setAnnounceRotation(true);
+    shop.setProducts(new ArrayList<>(List.of(
+      weightedProduct("minecraft:redstone", 30, 15, 100),
+      weightedProduct("minecraft:lapis_lazuli", 25, 12, 100),
+      weightedProduct("minecraft:quartz", 35, 17, 80),
+      weightedProduct("minecraft:glowstone_dust", 40, 20, 80),
+      weightedProduct("minecraft:blaze_rod", 150, 75, 50),
+      weightedProduct("minecraft:ghast_tear", 500, 250, 20),
+      weightedProduct("minecraft:nether_star", 5000, 2500, 5)
+    )));
+    return shop;
+  }
+
+  /** ROTATION (cron): high-tier weekly drop — Fridays at 18:00 server time. */
+  private static Shop buildLegendaryRotation() {
+    Shop shop = new Shop("legendary_rotation", ShopType.ROTATION);
+    shop.setName("Legendary Rotation");
+    shop.getDisplay().setDisplayname("§6§lLegendary Rotation");
+    shop.getDisplay().setLore(List.of(
+      "§7High-tier items rotated §fevery Friday at 18:00§7.",
+      "§7§oROTATION + §fcron='0 18 * * 5'§7 — fixed schedule."
+    ));
+    RotationSchedule sched = new RotationSchedule("7d", 2);
+    sched.setCron("0 18 * * 5"); // Friday 18:00 — overrides interval
+    shop.setRotationSchedule(sched);
+    shop.setAnnounceRotation(true);
+    shop.setProducts(new ArrayList<>(List.of(
+      weightedProduct("minecraft:elytra", 25000, 10000, 30),
+      weightedProduct("minecraft:netherite_block", 15000, 7500, 50),
+      weightedProduct("minecraft:beacon", 20000, 10000, 40),
+      weightedProduct("minecraft:dragon_egg", 100000, 50000, 5),
+      weightedProduct("minecraft:trident", 8000, 4000, 60),
+      weightedProduct("minecraft:enchanted_golden_apple", 3000, 1500, 80)
+    )));
+    return shop;
+  }
+
+  /** ROTATION (cron): daily refresh at midnight — common "daily deals" pattern. */
+  private static Shop buildDailySpecials() {
+    Shop shop = new Shop("daily_specials", ShopType.ROTATION);
+    shop.setName("Daily Specials");
+    shop.getDisplay().setDisplayname("§e§lDaily Specials");
+    shop.getDisplay().setLore(List.of(
+      "§7New deals every day at midnight.",
+      "§7§oROTATION + §fcron='0 0 * * *'§7 — daily reset."
+    ));
+    RotationSchedule sched = new RotationSchedule("24h", 6);
+    sched.setCron("0 0 * * *");
+    shop.setRotationSchedule(sched);
+    shop.setProducts(new ArrayList<>(List.of(
+      weightedProduct("minecraft:iron_ingot", 50, 25, 100),
+      weightedProduct("minecraft:gold_ingot", 80, 40, 100),
+      weightedProduct("minecraft:copper_ingot", 30, 15, 100),
+      weightedProduct("minecraft:emerald", 200, 100, 80),
+      weightedProduct("minecraft:diamond", 300, 150, 60),
+      weightedProduct("minecraft:experience_bottle", 100, 0, 70),
+      weightedProduct("minecraft:saddle", 800, 400, 40),
+      weightedProduct("minecraft:name_tag", 600, 300, 50)
+    )));
+    return shop;
+  }
+
+  // --- Product factory helpers ---
+
+  private static Product simpleProduct(String id, double buy, double sell) {
+    Product p = new Product();
+    p.setProduct(id);
+    p.setBuy(BigDecimal.valueOf(buy));
+    p.setSell(BigDecimal.valueOf(sell));
+    return p;
+  }
+
+  private static Product slottedProduct(String id, double buy, double sell, int slot) {
+    Product p = simpleProduct(id, buy, sell);
+    p.setSlot(slot);
+    return p;
+  }
+
+  private static Product weightedProduct(String id, double buy, double sell, int chance) {
+    Product p = simpleProduct(id, buy, sell);
+    p.setChance(chance);
+    return p;
   }
 
   /**
@@ -344,12 +637,32 @@ public final class ConfigLoader {
         | `buy` | decimal | Buy price in this economy (0 = not charged) |
         | `sell` | decimal | Sell price in this economy (0 = not paid) |
 
+        ## Shop Types
+
+        Each shop has a `type` field with one of three values:
+
+        | Value | Behavior |
+        |-------|----------|
+        | `NORMAL` | Static catalog. All `products` are always visible. `rotationSchedule` and `subShops` are ignored. |
+        | `CATEGORY` | Menu shop. Shows the entries listed in `subShops` (which point to other shops by id). `products` and `rotationSchedule` are ignored. |
+        | `ROTATION` | Dynamic catalog. A subset of `products` is rotated based on `rotationSchedule`. |
+
+        ```json
+        { "type": "ROTATION", "rotationSchedule": { "interval": "12h", "amount": 3 } }
+        ```
+
+        > **Back-compat:** if `type` is missing, it defaults to `NORMAL`. On load, if
+        > `subShops` is non-empty it auto-promotes to `CATEGORY`; if `rotationSchedule`
+        > is present it auto-promotes to `ROTATION`. Old configs keep working without
+        > edits, but **adding `type` explicitly is strongly recommended**.
+
         ## Dynamic Rotations
 
-        Set `rotationSchedule` on a shop to enable rotating products:
+        Set `type: "ROTATION"` and a `rotationSchedule` on a shop to enable rotating products:
 
         ### Using interval (relative cooldown):
         ```json
+        "type": "ROTATION",
         "rotationSchedule": {
           "interval": "12h",
           "amount": 3
@@ -359,14 +672,24 @@ public final class ConfigLoader {
 
         ### Using cron (fixed schedule):
         ```json
+        "type": "ROTATION",
         "rotationSchedule": {
           "cron": "0 18 * * 5",
           "amount": 3
         }
         ```
 
-        When `cron` is set, it **overrides** `interval`. The cron expression follows standard format:
+        When `cron` is set, it **overrides** `interval`. The cron expression follows the standard 5-field format:
         `minute hour day-of-month month day-of-week`.
+
+        Supported syntax: `*`, `n`, `a-b`, `a,b,c`, `*/n` (step). Day-of-week uses 0=Sunday..6=Saturday (7 also accepted as Sunday).
+
+        Examples:
+        - `0 18 * * 5` — every Friday at 18:00
+        - `0 * * * *` — top of every hour
+        - `*/15 * * * *` — every 15 minutes
+        - `0 0,12 * * *` — at 00:00 and 12:00 every day
+        - `0 9 1 * *` — at 09:00 on the 1st of every month
 
         **Cron examples:**
         | Expression | Description |

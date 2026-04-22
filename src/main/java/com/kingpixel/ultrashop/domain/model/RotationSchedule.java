@@ -2,6 +2,7 @@ package com.kingpixel.ultrashop.domain.model;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Handles the schedule for when a shop's dynamic products should rotate.
@@ -14,12 +15,14 @@ public class RotationSchedule {
   /**
    * Evaluated if schedule is based on a relative cooldown (e.g. "4h", "30m").
    */
+  @Nullable
   private String interval;
 
   /**
    * Cron expression (e.g. "0 18 * * 5" for every Friday at 18:00).
    * Overrides `interval` if present.
    */
+  @Nullable
   private String cron;
 
   /**

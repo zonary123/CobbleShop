@@ -59,7 +59,7 @@ public final class SearchMenuBuilder {
 
           // Fetch active products (dynamically resolves rotational shops)
           List<Product> activeProducts;
-          if (shop.getRotationSchedule() != null) {
+          if (shop.isRotation()) {
             activeProducts = ctx.getDataShop().updateDynamicProducts(shop, modId, false);
           } else {
             activeProducts = shop.getProducts();

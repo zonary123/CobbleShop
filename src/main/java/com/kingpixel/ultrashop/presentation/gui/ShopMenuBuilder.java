@@ -88,7 +88,7 @@ public final class ShopMenuBuilder {
         int totalSlots = shop.getRectangle().getLength() * shop.getRectangle().getWidth();
         List<Button> buttons = new ArrayList<>();
 
-        if (!shop.hasCategories()) {
+        if (!shop.isCategory()) {
           // Products mode
           List<Product> products = getActiveProducts(shop, modId);
           boolean needsPagination = products.size() > totalSlots || shop.isAutoPlace();
@@ -203,7 +203,7 @@ public final class ShopMenuBuilder {
   // --- Private helpers ---
 
   private static List<Product> getActiveProducts(Shop shop, String modId) {
-    if (shop.getRotationSchedule() != null) {
+    if (shop.isRotation()) {
       return ShopContext.get().getDataShop().updateDynamicProducts(shop, modId, false);
     }
     return shop.getProducts();
@@ -235,7 +235,7 @@ public final class ShopMenuBuilder {
     if (!UIUtils.isInside(shop.getItemInfoShop().getSlot(), shop.getRows())) return;
 
     ShopContext ctx = ShopContext.get();
-    boolean isDynamic = shop.getRotationSchedule() != null;
+    boolean isDynamic = shop.isRotation();
     ItemModel infoItem = LangConfig.resolve(shop.getItemInfoShop(),
       isDynamic ? lang.getShopInfoDynamic() : lang.getShopInfoPermanent());
 

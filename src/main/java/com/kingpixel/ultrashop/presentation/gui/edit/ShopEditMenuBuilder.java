@@ -13,11 +13,10 @@ import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.Rectangle;
 import com.kingpixel.cobbleutils.Model.conditions.Condition;
 import com.kingpixel.cobbleutils.util.AdventureTranslator;
+import com.kingpixel.cobbleutils.util.PlayerUtils;
+import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.ultrashop.ShopContext;
-import com.kingpixel.ultrashop.domain.model.PriceEntry;
-import com.kingpixel.ultrashop.domain.model.Product;
-import com.kingpixel.ultrashop.domain.model.RotationSchedule;
-import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.*;
 import com.kingpixel.ultrashop.infrastructure.config.ConfigLoader;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
@@ -58,6 +57,7 @@ public final class ShopEditMenuBuilder {
       lore.add(SEP);
 
       // Layout
+      lore.add("§7Type: §f" + shop.getType());
       lore.add("§7Name: §f" + shop.getName());
       lore.add("§7Rows: §f" + shop.getRows() + "  §7AutoPlace: " + boolIcon(shop.isAutoPlace()));
       lore.add("§7Products: §f" + shop.getProducts().size()
@@ -77,14 +77,14 @@ public final class ShopEditMenuBuilder {
       }
 
       // Rotation
-      if (shop.getRotationSchedule() != null) {
+      if (shop.isRotation() && shop.getRotationSchedule() != null) {
         lore.add("");
         lore.add("§d⟳ Rotation");
+        if (shop.getRotationSchedule().getCron() != null) {
+          lore.add("  §7Cron: §f" + shop.getRotationSchedule().getCron() + " §8(priority)");
+        }
         lore.add("  §7Interval: §f" + shop.getRotationSchedule().getInterval());
         lore.add("  §7Amount: §f" + shop.getRotationSchedule().getAmount() + " products");
-        if (shop.getRotationSchedule().getCron() != null) {
-          lore.add("  §7Cron: §f" + shop.getRotationSchedule().getCron());
-        }
         lore.add("  §7Announce: " + boolIcon(shop.isAnnounceRotation()));
       }
 
@@ -1019,25 +1019,34 @@ public final class ShopEditMenuBuilder {
     {
       List<String> rotLore = new ArrayList<>();
       rotLore.add(SEP);
+      rotLore.add("§7Type: §f" + shop.getType());
       if (shop.getRotationSchedule() != null) {
-        rotLore.add("§7Interval: §f" + shop.getRotationSchedule().getInterval());
-        rotLore.add("§7Cron: §f" + (shop.getRotationSchedule().getCron() != null ? shop.getRotationSchedule().getCron() : "§8none"));
+        String cronStr = shop.getRotationSchedule().getCron();
+        rotLore.add("§7Cron: §f" + (cronStr != null && !cronStr.isBlank() ? cronStr + " §8(priority)" : "§8none"));
+        rotLore.add("§7Interval: §f" + shop.getRotationSchedule().getInterval()
+          + (cronStr != null && !cronStr.isBlank() ? " §8(ignored — cron set)" : ""));
         rotLore.add("§7Amount: §f" + shop.getRotationSchedule().getAmount() + " products per rotation");
+        if (shop.isRotation()) {
+          long next = ShopContext.get().getDataShop().getActualCooldown(shop, modId);
+          if (next > 0) {
+            rotLore.add("§7Next rotation: §f" + java.time.Instant.ofEpochMilli(next));
+          }
+        }
       } else {
-        rotLore.add("§7No rotation — permanent shop.");
-        rotLore.add("§7All products are always visible.");
+        rotLore.add("§7No rotation — type is " + shop.getType() + ".");
       }
       rotLore.add(SEP);
       rotLore.add("§a▶ Left §7→ Set interval (e.g. 30m, 1h, 7d)");
       rotLore.add("§e▶ Right §7→ Set amount");
-      rotLore.add("§d▶ Middle §7→ Set cron expression");
-      rotLore.add("§c▶ Shift §7→ Remove rotation");
+      rotLore.add("§d▶ Middle §7→ Set cron expression (overrides interval)");
+      rotLore.add("§c▶ Shift §7→ Remove rotation (back to NORMAL)");
 
       template.set(18, button(new ItemStack(Items.REPEATER), "§d⟳ Rotation Schedule", rotLore,
         a -> {
           switch (a.getClickType()) {
             case SHIFT_LEFT_CLICK, SHIFT_RIGHT_CLICK -> {
               shop.setRotationSchedule(null);
+              shop.setType(ShopType.NORMAL);
               ConfigLoader.saveShop(shop);
               openShopSettings(player, shop, config, modId);
             }
@@ -1046,21 +1055,30 @@ public final class ShopEditMenuBuilder {
                 int amt = Integer.parseInt(input);
                 if (shop.getRotationSchedule() == null) shop.setRotationSchedule(new RotationSchedule("1h", amt));
                 else shop.getRotationSchedule().setAmount(amt);
+                shop.setType(ShopType.ROTATION);
                 ConfigLoader.saveShop(shop);
                 ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
               } catch (NumberFormatException e) {
-                com.kingpixel.cobbleutils.util.PlayerUtils.sendMessage(player, "&cInvalid number", "", com.kingpixel.cobbleutils.util.TypeMessage.CHAT);
+                PlayerUtils.sendMessage(player, "&cInvalid number", "", TypeMessage.CHAT);
               }
             });
             case MIDDLE_CLICK -> ChatInputManager.requestInput(player, "Enter cron (e.g. 0 18 * * 5):", input -> {
+              try {
+                CronExpression.parse(input); // validate
+              } catch (Exception e) {
+                PlayerUtils.sendMessage(player, "&cInvalid cron: " + e.getMessage(), "", TypeMessage.CHAT);
+                return;
+              }
               if (shop.getRotationSchedule() == null) shop.setRotationSchedule(new RotationSchedule("1h", 3));
               shop.getRotationSchedule().setCron(input);
+              shop.setType(ShopType.ROTATION);
               ConfigLoader.saveShop(shop);
               ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
             });
             default -> ChatInputManager.requestInput(player, "Enter interval (e.g. 30m, 1h, 12h, 7d):", input -> {
               if (shop.getRotationSchedule() == null) shop.setRotationSchedule(new RotationSchedule(input, 3));
               else shop.getRotationSchedule().setInterval(input);
+              shop.setType(ShopType.ROTATION);
               ConfigLoader.saveShop(shop);
               ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
             });

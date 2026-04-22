@@ -84,7 +84,7 @@ public class SellProductIndex {
   }
 
   private List<Product> getActiveProducts(Shop shop, String modId) {
-    if (shop.getRotationSchedule() != null) {
+    if (shop.isRotation()) {
       ShopContext ctx = ShopContext.get();
       return ctx.getDataShop().updateDynamicProducts(shop, modId, false);
     }

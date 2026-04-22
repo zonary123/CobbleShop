@@ -140,8 +140,13 @@ public class DataShop {
 
   /**
    * Updates dynamic products for a shop, rotating if cooldown expired.
+   * Only operates on shops with {@link ShopType#ROTATION}.
    */
   public List<Product> updateDynamicProducts(Shop shop, String modId, boolean force) {
+    if (!shop.isRotation() || shop.getRotationSchedule() == null) {
+      return shop.getProducts();
+    }
+
     products.computeIfAbsent(modId, k -> new ConcurrentHashMap<>())
       .computeIfAbsent(shop.getId(), k -> new DynamicRotation());
 
@@ -150,6 +155,7 @@ public class DataShop {
     boolean needsUpdate = rotation.getTimeToUpdate() < System.currentTimeMillis()
       || rotation.getProducts().isEmpty()
       || rotation.getProducts().size() != shop.getRotationSchedule().getAmount()
+      || isScheduleStale(shop, rotation)
       || force;
 
     if (needsUpdate) {
@@ -164,8 +170,7 @@ public class DataShop {
           );
         }
 
-        long cooldownMs = DurationValue.parse(shop.getRotationSchedule().getInterval()).toMillis();
-        rotation.setTimeToUpdate(System.currentTimeMillis() + cooldownMs);
+        rotation.setTimeToUpdate(computeNextFireTime(shop));
 
         List<Product> shuffled = new ArrayList<>();
         List<Product> available = new ArrayList<>(shop.getProducts());
@@ -200,6 +205,84 @@ public class DataShop {
     }
 
     return rotation.getProducts();
+  }
+
+  /**
+   * Resolves the next rotation timestamp for a shop.
+   *
+   * <p>Priority order:</p>
+   * <ol>
+   *   <li>{@code rotationSchedule.cron} (if set and parses successfully)</li>
+   *   <li>{@code rotationSchedule.interval} (relative duration, e.g. "12h")</li>
+   *   <li>Fallback: 1 hour from now</li>
+   * </ol>
+   */
+  private long computeNextFireTime(Shop shop) {
+    RotationSchedule sched = shop.getRotationSchedule();
+    long now = System.currentTimeMillis();
+
+    String cron = sched.getCron();
+    if (cron != null && !cron.isBlank()) {
+      try {
+        long next = CronExpression.parse(cron).nextFireTime(now);
+        UltraShop.LOGGER.info("Shop '" + shop.getId() + "' next rotation (cron '" + cron + "'): "
+          + java.time.Instant.ofEpochMilli(next));
+        return next;
+      } catch (Exception e) {
+        UltraShop.LOGGER.warn("Invalid cron '" + cron + "' for shop '" + shop.getId()
+          + "': " + e.getMessage() + " — falling back to interval.");
+      }
+    }
+
+    String interval = sched.getInterval();
+    if (interval != null && !interval.isBlank()) {
+      try {
+        long ms = DurationValue.parse(interval).toMillis();
+        if (ms > 0) {
+          return now + ms;
+        }
+        UltraShop.LOGGER.warn("Interval '" + interval + "' for shop '" + shop.getId()
+          + "' parsed as 0ms — using 1h fallback.");
+      } catch (Exception e) {
+        UltraShop.LOGGER.warn("Invalid interval '" + interval + "' for shop '" + shop.getId()
+          + "': " + e.getMessage() + " — using 1h fallback.");
+      }
+    }
+
+    return now + 3_600_000L; // 1 hour
+  }
+
+  /**
+   * Detects when the persisted {@code timeToUpdate} no longer matches the current
+   * shop schedule. Catches the case where the user changed the shop config from
+   * {@code interval} to {@code cron} (or shortened the cron) but the old
+   * timestamp persisted on disk is still pointing far into the future.
+   *
+   * <p>If the persisted {@code timeToUpdate} is <b>after</b> the next valid cron
+   * fire-time, the schedule changed under our feet and we must recompute now.</p>
+   */
+  private boolean isScheduleStale(Shop shop, DynamicRotation rotation) {
+    RotationSchedule sched = shop.getRotationSchedule();
+    String cron = sched.getCron();
+    if (cron == null || cron.isBlank()) {
+      // No cron — only the interval path can produce stale state, but interval is
+      // always relative to the moment of computation, so it can't go stale on its own.
+      return false;
+    }
+    try {
+      long expectedNext = CronExpression.parse(cron).nextFireTime(System.currentTimeMillis());
+      // Tolerance of 60s to absorb clock drift between server restart and first call
+      if (rotation.getTimeToUpdate() > expectedNext + 60_000L) {
+        UltraShop.LOGGER.info("Shop '" + shop.getId() + "' has stale rotation timestamp ("
+          + java.time.Instant.ofEpochMilli(rotation.getTimeToUpdate())
+          + ") beyond next cron fire (" + java.time.Instant.ofEpochMilli(expectedNext)
+          + "). Forcing recompute.");
+        return true;
+      }
+    } catch (Exception ignored) {
+      // Bad cron — handled later by computeNextFireTime fallback.
+    }
+    return false;
   }
 
   /**

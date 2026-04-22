@@ -8,9 +8,7 @@ import lombok.Data;
 import net.minecraft.item.ItemStack;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -91,17 +89,29 @@ public class Product {
   }
 
   /**
-   * Returns the effective price entries for this product.
-   * If {@code prices} is set, returns it directly (multi-currency mode).
-   * Otherwise, builds a list from the simple {@code buy}/{@code sell} fields
-   * using each economy defined in the parent shop (simple mode).
+   * Returns the effective price entries for this product, deduplicated by economy.
+   *
+   * <ul>
+   *   <li><b>Multi-currency mode</b>: {@code prices} list is set — deduplicated by economy key,
+   *       last entry wins if the same economy appears twice in the JSON.</li>
+   *   <li><b>Simple mode</b>: only {@code buy}/{@code sell} are set — uses the shop's primary
+   *       economy (first unique entry). Duplicate economies in the shop are ignored, preventing
+   *       the x2 charge bug.</li>
+   * </ul>
    */
   public List<PriceEntry> getEffectivePrices(@NotNull Shop shop) {
     if (prices != null && !prices.isEmpty()) {
-      return prices;
+      // Deduplicate by economy — LinkedHashMap preserves insertion order
+      LinkedHashMap<EconomyUse, PriceEntry> deduped = new LinkedHashMap<>();
+      for (PriceEntry entry : prices) {
+        deduped.put(entry.getEconomy(), entry);
+      }
+      return new ArrayList<>(deduped.values());
     }
-    List<PriceEntry> result = new ArrayList<>();
-    for (EconomyUse eco : shop.getEconomies()) {
+
+    // Simple mode: one PriceEntry per unique economy in the shop (LinkedHashSet garantiza unicidad)
+    LinkedHashSet<EconomyUse> uniqueEconomies = shop.getEconomies();    List<PriceEntry> result = new ArrayList<>(uniqueEconomies.size());
+    for (EconomyUse eco : uniqueEconomies) {
       result.add(new PriceEntry(eco, buy, sell));
     }
     return result;

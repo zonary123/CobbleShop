@@ -7,7 +7,9 @@ import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import com.kingpixel.ultrashop.infrastructure.index.SellProductIndex;
 import com.kingpixel.ultrashop.infrastructure.persistence.RepositoryFactory;
 import com.kingpixel.ultrashop.infrastructure.web.DashboardHttpServer;
+import lombok.Data;
 import lombok.Getter;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Central context for UltraShop — replaces all static mutable state.
  * Single source of truth for server, async, config, lang, shops, repositories.
  */
+@Data
 public final class ShopContext {
 
   private static final ShopContext INSTANCE = new ShopContext();
@@ -67,19 +70,7 @@ public final class ShopContext {
     this.lang = new LangConfig();
   }
 
-
-  public void setLang(LangConfig lang) {
-    this.lang = lang;
-  }
-
-  public void setDataShop(com.kingpixel.ultrashop.domain.model.DataShop dataShop) {
-    this.dataShop = dataShop;
-  }
-
-  public void setRepositories(RepositoryFactory repositories) {
-    this.repositories = repositories;
-  }
-
+  
   /**
    * Run a task on the server main thread. Safe for inventory modifications.
    */

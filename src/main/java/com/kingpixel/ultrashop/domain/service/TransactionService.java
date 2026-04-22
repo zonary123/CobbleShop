@@ -58,9 +58,8 @@ public final class TransactionService {
 
       Map<EconomyUse, BigDecimal> buyPrices = PriceCalculator.getBuyPrices(product, player, amount, shop, config);
 
-      // Check funds in ALL economies
       for (Map.Entry<EconomyUse, BigDecimal> entry : buyPrices.entrySet()) {
-        if (!EconomyApi.hasEnoughMoney(player.getUuid(), entry.getValue(), entry.getKey(), true)) {
+        if (!EconomyApi.hasEnoughMoney(player.getUuid(), entry.getValue(), entry.getKey(), false)) {
           PlayerUtils.sendMessage(player,
             ctx.getLang().getMessageNotEnoughMoney()
               .replace("%product%", itemChance.getTitle())
@@ -72,15 +71,12 @@ public final class TransactionService {
         }
       }
 
-      // Charge ALL economies
       for (Map.Entry<EconomyUse, BigDecimal> entry : buyPrices.entrySet()) {
         EconomyApi.removeMoney(player.getUuid(), entry.getValue(), entry.getKey());
       }
 
-      // Give items on server thread
       ctx.runOnServer(() -> ItemChance.giveReward(player, itemChance, amount));
 
-      // Track limits
       if (product.getUuid() != null) {
         UserInfo userInfo = ctx.getRepositories().getUserRepository().findByUuid(player.getUuid());
         if (userInfo != null) {
@@ -89,7 +85,6 @@ public final class TransactionService {
         }
       }
 
-      // Record transactions
       if (config.isSaveTransactions()) {
         for (Map.Entry<EconomyUse, BigDecimal> entry : buyPrices.entrySet()) {
           ctx.getRepositories().getTransactionRepository().save(Transaction.builder()
@@ -276,7 +271,7 @@ public final class TransactionService {
   }
 
   private record SellAction(ItemStack itemStack, Shop shop, Product product, int amount,
-                             Map<EconomyUse, BigDecimal> totals) {
+                            Map<EconomyUse, BigDecimal> totals) {
   }
 }
 

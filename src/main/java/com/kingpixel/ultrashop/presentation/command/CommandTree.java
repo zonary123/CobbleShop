@@ -135,7 +135,7 @@ public final class CommandTree {
         .then(CommandManager.argument("shop", StringArgumentType.string())
           .suggests((ctx, builder) -> {
             ShopContext.get().getShops(options.getModId()).stream()
-              .filter(s -> s.getRotationSchedule() != null)
+              .filter(Shop::isRotation)
               .forEach(s -> builder.suggest(s.getId()));
             return builder.buildFuture();
           })
@@ -144,7 +144,7 @@ public final class CommandTree {
             Shop shop = ShopContext.get().getShops(options.getModId()).stream()
               .filter(s -> s.getId().equals(shopId))
               .findFirst().orElse(null);
-            if (shop != null && shop.getRotationSchedule() != null) {
+            if (shop != null && shop.isRotation()) {
               ShopContext.get().getDataShop().updateDynamicProducts(shop, options.getModId(), true);
               ctx.getSource().sendMessage(Text.literal("Restarted dynamic shop: " + shopId));
             } else {
