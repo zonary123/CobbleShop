@@ -1,6 +1,7 @@
 package com.kingpixel.ultrashop.domain.model.shop;
 
 import com.kingpixel.ultrashop.domain.model.Product;
+import com.kingpixel.ultrashop.domain.model.ShopType;
 import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
 import com.kingpixel.ultrashop.domain.scheduler.CronScheduler;
 import com.kingpixel.ultrashop.domain.scheduler.Scheduler;

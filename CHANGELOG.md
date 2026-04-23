@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **JSON shop file format**: New format uses a `displayConfig` sub-object and an explicit
   `type` discriminator. Old flat format is still readable on first load and gets rewritten
   on save.
+- **`ConfigLoader` now reads/writes shops via the typed hierarchy** (`GsonProvider` +
+  `ShopTypeAdapterFactory`) instead of the legacy `Shop` class. On boot, every shop
+  file is parsed as typed (with auto-bridge for legacy JSON) and rewritten in the
+  canonical typed format. The legacy in-memory mirror is kept in sync via
+  `ShopBridge.toLegacy` exclusively to keep the in-game editor functional until its
+  dedicated migration sub-phase lands.
 
 ### ⚠️ Breaking (planned for next release)
 

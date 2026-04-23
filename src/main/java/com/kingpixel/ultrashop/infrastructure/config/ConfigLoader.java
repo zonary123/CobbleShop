@@ -17,6 +17,7 @@ import com.kingpixel.ultrashop.domain.model.ShopType;
 import com.kingpixel.ultrashop.domain.model.SubShop;
 import com.kingpixel.ultrashop.domain.model.shop.ShopBridge;
 import com.kingpixel.ultrashop.infrastructure.persistence.RepositoryFactory;
+import com.kingpixel.ultrashop.infrastructure.serialization.GsonProvider;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -25,6 +26,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Loads and saves all configuration and shop files using UtilsFile.
@@ -104,6 +106,16 @@ public final class ConfigLoader {
 
   /**
    * Loads all shop files recursively from the shop directory.
+   *
+   * <p>Reads each file via {@link GsonProvider} which transparently handles both
+   * the new {@code type}-discriminated format AND the legacy flat format (auto-bridged).
+   * After load, every shop is rewritten in the canonical typed format, so legacy
+   * configs migrate to the new shape on first boot without manual intervention.</p>
+   *
+   * <p>The legacy {@code ctx.getShops()} mirror is kept in sync via
+   * {@link ShopBridge#toLegacy(com.kingpixel.ultrashop.domain.model.shop.Shop)}
+   * to keep the editor (which still mutates the legacy view) functional until
+   * its dedicated migration sub-phase lands.</p>
    */
   public static void loadShops(ShopOptionsApi options) {
     ShopContext ctx = ShopContext.get();
@@ -115,30 +127,40 @@ public final class ConfigLoader {
         createDefaultShops(shopDir);
       }
 
-      List<Shop> shops = new ArrayList<>();
+      List<com.kingpixel.ultrashop.domain.model.shop.Shop> typedShops = new ArrayList<>();
+      List<Shop> legacyShops = new ArrayList<>();
       List<Path> jsonFiles = UtilsFile.getAllJsonFiles(shopDir);
 
       for (Path file : jsonFiles) {
         try {
-          Shop shop = UtilsFile.read(file, Shop.class);
-          if (shop == null) continue;
+          String json = Files.readString(file);
+          com.kingpixel.ultrashop.domain.model.shop.Shop typed = GsonProvider.gson()
+            .fromJson(json, com.kingpixel.ultrashop.domain.model.shop.Shop.class);
+          if (typed == null) continue;
 
-          shop.setId(file.getFileName().toString().replace(".json", ""));
-          shop.check();
+          String shopId = file.getFileName().toString().replace(".json", "");
+          if (typed instanceof com.kingpixel.ultrashop.domain.model.shop.AbstractShop a) {
+            a.setId(shopId);
+          }
 
-          // Write back (fills in new fields with defaults)
-          shop.setFilePath(null); // Don't serialize file path
-          UtilsFile.write(file, shop);
-          shop.setFilePath(file.toString());
+          // Rewrite in canonical typed format (migrates legacy files in-place).
+          Files.writeString(file, GsonProvider.gson()
+            .toJson(typed, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
 
-          shops.add(shop);
+          // Mirror to legacy view for the editor and check() side-effects.
+          Shop legacy = ShopBridge.toLegacy(typed);
+          legacy.setFilePath(file.toString());
+          legacy.check();
+
+          typedShops.add(typed);
+          legacyShops.add(legacy);
         } catch (Exception e) {
           UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error loading shop " + file + ": " + e.getMessage());
         }
       }
 
-      ctx.getShops().put(options.getModId(), shops);
-      ctx.getTypedShops().put(options.getModId(), bridgeAll(shops));
+      ctx.getShops().put(options.getModId(), legacyShops);
+      ctx.getTypedShops().put(options.getModId(), typedShops);
     } catch (IOException e) {
       UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error loading shops: " + e.getMessage());
       ctx.getShops().put(options.getModId(), new ArrayList<>());
@@ -147,46 +169,50 @@ public final class ConfigLoader {
   }
 
   /**
-   * Bridges every legacy shop into the new sealed hierarchy. Errors on individual
-   * shops are logged and skipped — the typed list remains in sync with the
-   * legacy list as much as possible to prevent silent data drift between the two
-   * parallel storage paths.
-   */
-  private static List<com.kingpixel.ultrashop.domain.model.shop.Shop> bridgeAll(List<Shop> legacyShops) {
-    List<com.kingpixel.ultrashop.domain.model.shop.Shop> typed = new ArrayList<>(legacyShops.size());
-    for (Shop legacy : legacyShops) {
-      try {
-        typed.add(ShopBridge.fromLegacy(legacy));
-      } catch (Exception e) {
-        UltraShop.LOGGER.error("Failed to bridge shop {} to typed hierarchy: {} — typed map will skip it.",
-          legacy.getId(), e.getMessage());
-      }
-    }
-    return typed;
-  }
-
-  /**
-   * Saves a single shop to disk.
+   * Saves a single shop to disk in the canonical typed JSON format.
+   *
+   * <p>Accepts the legacy {@link Shop} type because the editor still operates on
+   * the legacy view. Internally bridges to the typed hierarchy before writing,
+   * guaranteeing the on-disk format stays in the new shape regardless of caller.</p>
    */
   public static void saveShop(Shop shop) {
     if (shop.getFilePath() == null) return;
     Path path = Path.of(shop.getFilePath());
-    UtilsFile.writeAsync(path, shop)
-      .exceptionally(e -> {
-        UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error saving shop " + shop.getId() + ": " + e.getMessage());
-        return null;
-      });
+    com.kingpixel.ultrashop.domain.model.shop.Shop typed;
+    try {
+      typed = ShopBridge.fromLegacy(shop);
+    } catch (Exception e) {
+      UltraShop.LOGGER.error(UltraShop.MOD_ID,
+        "Error bridging shop " + shop.getId() + " before save: " + e.getMessage());
+      return;
+    }
+
+    CompletableFuture.runAsync(() -> {
+      try {
+        Files.writeString(path, GsonProvider.gson()
+          .toJson(typed, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
+      } catch (IOException e) {
+        UltraShop.LOGGER.error(UltraShop.MOD_ID,
+          "Error saving shop " + shop.getId() + ": " + e.getMessage());
+      }
+    });
   }
 
   /**
    * Creates a shop and adds it to the registry.
+   *
+   * <p>Persists in the canonical typed JSON format via {@link ShopBridge} +
+   * {@link GsonProvider}.</p>
    */
   public static void createShop(ShopOptionsApi options, Shop shop) {
     shop.check();
     Path shopDir = CobbleUtils.getPath().resolve(options.getPath()).resolve("shop");
     Path filePath = shopDir.resolve(shop.getId() + ".json");
     try {
-      UtilsFile.write(filePath, shop);
+      Files.createDirectories(shopDir);
+      com.kingpixel.ultrashop.domain.model.shop.Shop typed = ShopBridge.fromLegacy(shop);
+      Files.writeString(filePath, GsonProvider.gson()
+        .toJson(typed, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
       shop.setFilePath(filePath.toString());
       load(options); // Reload everything
     } catch (IOException e) {
