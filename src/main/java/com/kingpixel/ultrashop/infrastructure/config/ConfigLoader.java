@@ -2,6 +2,7 @@ package com.kingpixel.ultrashop.infrastructure.config;
 
 import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.Model.EconomyUse;
+import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.conditions.Condition;
 import com.kingpixel.cobbleutils.Model.conditions.PermissionCondition;
 import com.kingpixel.cobbleutils.util.UtilsFile;
@@ -11,11 +12,17 @@ import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
 import com.kingpixel.ultrashop.domain.model.PriceEntry;
 import com.kingpixel.ultrashop.domain.model.Product;
-import com.kingpixel.ultrashop.domain.model.RotationSchedule;
 import com.kingpixel.ultrashop.domain.model.Shop;
-import com.kingpixel.ultrashop.domain.model.ShopType;
 import com.kingpixel.ultrashop.domain.model.SubShop;
+import com.kingpixel.ultrashop.domain.model.shop.AbstractShop;
+import com.kingpixel.ultrashop.domain.model.shop.CategoryShop;
+import com.kingpixel.ultrashop.domain.model.shop.NormalShop;
+import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
 import com.kingpixel.ultrashop.domain.model.shop.ShopBridge;
+import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.EconomyConfig;
+import com.kingpixel.ultrashop.domain.scheduler.SchedulerFactory;
 import com.kingpixel.ultrashop.infrastructure.persistence.RepositoryFactory;
 import com.kingpixel.ultrashop.infrastructure.serialization.GsonProvider;
 
@@ -223,27 +230,17 @@ public final class ConfigLoader {
   // --- Default shop generation ---
 
   /**
-   * Creates a comprehensive set of example shops covering all {@link ShopType} values
-   * and the most common features. Each example targets a single concept so users can
-   * compare side-by-side and learn by editing real, working configs.
+   * Creates a comprehensive set of example shops covering every {@code ShopType}.
+   * Each example targets a single concept so users can compare side-by-side and
+   * learn by editing real, working configs.
    *
-   * <p>Generated shops:</p>
-   * <ul>
-   *   <li>{@code main_menu} (CATEGORY) — entry point linking to all examples</li>
-   *   <li>{@code starter_blocks} (NORMAL) — minimal buy-only shop</li>
-   *   <li>{@code farm_market} (NORMAL) — sell-only farming products</li>
-   *   <li>{@code tools_workshop} (NORMAL) — fixed-slot layout, no autoPlace</li>
-   *   <li>{@code vip_lounge} (NORMAL) — restricted by permission via openConditions</li>
-   *   <li>{@code limited_drops} (NORMAL) — per-player buy limits with cooldown</li>
-   *   <li>{@code multicurrency_bazaar} (NORMAL) — products priced in multiple economies</li>
-   *   <li>{@code hourly_rotation} (ROTATION, interval) — rotates every hour</li>
-   *   <li>{@code legendary_rotation} (ROTATION, cron weekly) — Friday 18:00</li>
-   *   <li>{@code daily_specials} (ROTATION, cron daily) — every midnight</li>
-   * </ul>
+   * <p>All defaults are built directly with the typed sealed hierarchy
+   * ({@link NormalShop}, {@link CategoryShop}, {@link RotationShop}) and serialized
+   * via {@link GsonProvider}. The on-disk JSON is canonical from the first boot —
+   * no legacy → typed migration cycle on first load.</p>
    */
   private static void createDefaultShops(Path shopDir) {
-    List<Shop> defaults = new ArrayList<>();
-
+    List<com.kingpixel.ultrashop.domain.model.shop.Shop> defaults = new ArrayList<>();
     defaults.add(buildStarterBlocks());
     defaults.add(buildFarmMarket());
     defaults.add(buildToolsWorkshop());
@@ -253,35 +250,43 @@ public final class ConfigLoader {
     defaults.add(buildHourlyRotation());
     defaults.add(buildLegendaryRotation());
     defaults.add(buildDailySpecials());
-    defaults.add(buildMainMenu()); // last so subShops references resolve in editor view
+    defaults.add(buildMainMenu());
 
     int slot = 0;
-    for (Shop shop : defaults) {
-      if (shop.getDisplay().getSlot() == 0) {
-        shop.getDisplay().setSlot(slot++);
-      }
+    for (com.kingpixel.ultrashop.domain.model.shop.Shop shop : defaults) {
+      assignDisplaySlotIfMissing((AbstractShop) shop, slot++);
       shop.check();
+      Path file = shopDir.resolve(((AbstractShop) shop).getId() + ".json");
       try {
-        UtilsFile.write(shopDir.resolve(shop.getId() + ".json"), shop);
+        Files.writeString(file, GsonProvider.gson()
+          .toJson(shop, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
       } catch (IOException e) {
         UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error creating default shop: " + e.getMessage());
       }
     }
   }
 
-  // --- Default shop builders ---
+  private static void assignDisplaySlotIfMissing(AbstractShop shop, int fallbackSlot) {
+    DisplayConfig dc = shop.getDisplayConfig();
+    if (dc == null || dc.getDisplayItem() == null) return;
+    ItemModel display = dc.getDisplayItem();
+    if (display.getSlot() == null || display.getSlot() == 0) {
+      display.setSlot(fallbackSlot);
+    }
+  }
+
+  // --- Default shop builders (typed) ---
 
   /** CATEGORY: top-level menu pointing to every example shop. */
-  private static Shop buildMainMenu() {
-    Shop shop = new Shop("main_menu", ShopType.CATEGORY);
-    shop.setName("Main Menu");
-    shop.getDisplay().setDisplayname("§b§lMain Menu");
-    shop.getDisplay().setLore(List.of(
+  private static CategoryShop buildMainMenu() {
+    CategoryShop shop = new CategoryShop();
+    shop.setId("main_menu");
+    shop.setDisplayConfig(simpleDisplay("Main Menu", "§b§lMain Menu", List.of(
       "§7Browse all shops by category.",
       "§7This is a §bCATEGORY§7 shop — it has no products,",
       "§7only links to other shops via §fsubShops§7."
-    ));
-    shop.setSubShops(List.of(
+    )));
+    shop.setSubShops(new ArrayList<>(List.of(
       new SubShop(10, "starter_blocks"),
       new SubShop(11, "farm_market"),
       new SubShop(12, "tools_workshop"),
@@ -291,20 +296,18 @@ public final class ConfigLoader {
       new SubShop(16, "hourly_rotation"),
       new SubShop(20, "legendary_rotation"),
       new SubShop(22, "daily_specials")
-    ));
-    shop.setProducts(new ArrayList<>());
+    )));
     return shop;
   }
 
   /** NORMAL: minimal buy-only shop — the simplest possible configuration. */
-  private static Shop buildStarterBlocks() {
-    Shop shop = new Shop("starter_blocks", ShopType.NORMAL);
-    shop.setName("Starter Blocks");
-    shop.getDisplay().setDisplayname("§a§lStarter Blocks");
-    shop.getDisplay().setLore(List.of(
+  private static NormalShop buildStarterBlocks() {
+    NormalShop shop = new NormalShop();
+    shop.setId("starter_blocks");
+    shop.setDisplayConfig(simpleDisplay("Starter Blocks", "§a§lStarter Blocks", List.of(
       "§7Cheap building blocks for new players.",
       "§7§oNORMAL shop — every product is always visible."
-    ));
+    )));
     shop.setProducts(new ArrayList<>(List.of(
       simpleProduct("minecraft:dirt", 5, 1),
       simpleProduct("minecraft:cobblestone", 8, 2),
@@ -317,14 +320,13 @@ public final class ConfigLoader {
   }
 
   /** NORMAL: sell-focused — buy=0 disables purchases, only selling is allowed. */
-  private static Shop buildFarmMarket() {
-    Shop shop = new Shop("farm_market", ShopType.NORMAL);
-    shop.setName("Farm Market");
-    shop.getDisplay().setDisplayname("§e§lFarm Market");
-    shop.getDisplay().setLore(List.of(
+  private static NormalShop buildFarmMarket() {
+    NormalShop shop = new NormalShop();
+    shop.setId("farm_market");
+    shop.setDisplayConfig(simpleDisplay("Farm Market", "§e§lFarm Market", List.of(
       "§7Sell your harvest here for a fair price.",
       "§7§oSet §fbuy=0§7 to make a product §fsell-only§7."
-    ));
+    )));
     shop.setProducts(new ArrayList<>(List.of(
       simpleProduct("minecraft:wheat", 0, 4),
       simpleProduct("minecraft:carrot", 0, 5),
@@ -339,15 +341,18 @@ public final class ConfigLoader {
   }
 
   /** NORMAL: fixed-slot layout — autoPlace=false + slot per product. */
-  private static Shop buildToolsWorkshop() {
-    Shop shop = new Shop("tools_workshop", ShopType.NORMAL);
-    shop.setName("Tools Workshop");
-    shop.getDisplay().setDisplayname("§6§lTools Workshop");
-    shop.getDisplay().setLore(List.of(
-      "§7Buy tools at fixed positions in the GUI.",
-      "§7§oautoPlace=false §7lets you pin each product to a §fslot§7."
-    ));
-    shop.setAutoPlace(false);
+  private static NormalShop buildToolsWorkshop() {
+    NormalShop shop = new NormalShop();
+    shop.setId("tools_workshop");
+    shop.setDisplayConfig(DisplayConfig.builder()
+      .name("Tools Workshop")
+      .autoPlace(false)
+      .rows(6)
+      .displayItem(displayIcon("§6§lTools Workshop", List.of(
+        "§7Buy tools at fixed positions in the GUI.",
+        "§7§oautoPlace=false §7lets you pin each product to a §fslot§7."
+      )))
+      .build());
     shop.setProducts(new ArrayList<>(List.of(
       slottedProduct("minecraft:wooden_pickaxe", 50, 0, 10),
       slottedProduct("minecraft:stone_pickaxe", 150, 0, 11),
@@ -363,19 +368,22 @@ public final class ConfigLoader {
     return shop;
   }
 
-  /** NORMAL: gated by openConditions — requires the permission node to even open the shop. */
-  private static Shop buildVipLounge() {
-    Shop shop = new Shop("vip_lounge", ShopType.NORMAL);
-    shop.setName("VIP Lounge");
-    shop.getDisplay().setDisplayname("§d§lVIP Lounge");
-    shop.getDisplay().setLore(List.of(
+  /** NORMAL: gated by openConditions — requires the permission node to open. */
+  private static NormalShop buildVipLounge() {
+    NormalShop shop = new NormalShop();
+    shop.setId("vip_lounge");
+    shop.setDisplayConfig(simpleDisplay("VIP Lounge", "§d§lVIP Lounge", List.of(
       "§7Exclusive items for VIP players.",
       "§7§oUses §fopenConditions §7to require a permission to open."
-    ));
+    )));
     List<Condition> openConditions = new ArrayList<>();
     openConditions.add(PermissionCondition.builder().permission("ultrashop.vip").build());
-    shop.setOpenConditions(openConditions);
-    shop.setGlobalDiscount(15.0f); // 15% discount for VIPs
+    shop.setConditionsConfig(ConditionsConfig.builder()
+      .openConditions(openConditions)
+      .build());
+    shop.setEconomyConfig(EconomyConfig.builder()
+      .globalDiscount(15.0f)
+      .build());
     shop.setProducts(new ArrayList<>(List.of(
       simpleProduct("minecraft:netherite_ingot", 8000, 4000),
       simpleProduct("minecraft:elytra", 50000, 25000),
@@ -387,47 +395,46 @@ public final class ConfigLoader {
   }
 
   /** NORMAL: per-player buy limits via max + cooldown (auto-generates UUID). */
-  private static Shop buildLimitedDrops() {
-    Shop shop = new Shop("limited_drops", ShopType.NORMAL);
-    shop.setName("Limited Drops");
-    shop.getDisplay().setDisplayname("§c§lLimited Drops");
-    shop.getDisplay().setLore(List.of(
+  private static NormalShop buildLimitedDrops() {
+    NormalShop shop = new NormalShop();
+    shop.setId("limited_drops");
+    shop.setDisplayConfig(simpleDisplay("Limited Drops", "§c§lLimited Drops", List.of(
       "§7Each player can buy a limited amount per cooldown.",
       "§7§oSet §fmax §7and §fcooldown §7(minutes) on the product."
-    ));
+    )));
 
     Product dailyDiamond = simpleProduct("minecraft:diamond", 100, 50);
     dailyDiamond.setMax(8);
-    dailyDiamond.setCooldown(1440); // 24h
+    dailyDiamond.setCooldown(1440);
 
     Product hourlyEnderPearl = simpleProduct("minecraft:ender_pearl", 200, 100);
     hourlyEnderPearl.setMax(4);
-    hourlyEnderPearl.setCooldown(60); // 1h
+    hourlyEnderPearl.setCooldown(60);
 
     Product weeklyTotem = simpleProduct("minecraft:totem_of_undying", 5000, 2500);
     weeklyTotem.setMax(1);
-    weeklyTotem.setCooldown(10080); // 7d
+    weeklyTotem.setCooldown(10080);
 
     shop.setProducts(new ArrayList<>(List.of(dailyDiamond, hourlyEnderPearl, weeklyTotem)));
     return shop;
   }
 
   /** NORMAL: products priced in multiple currencies via the {@code prices} array. */
-  private static Shop buildMulticurrencyBazaar() {
-    Shop shop = new Shop("multicurrency_bazaar", ShopType.NORMAL);
-    shop.setName("Bazaar");
-    shop.getDisplay().setDisplayname("§9§lMulti-Currency Bazaar");
-    shop.getDisplay().setLore(List.of(
+  private static NormalShop buildMulticurrencyBazaar() {
+    NormalShop shop = new NormalShop();
+    shop.setId("multicurrency_bazaar");
+    shop.setDisplayConfig(simpleDisplay("Bazaar", "§9§lMulti-Currency Bazaar", List.of(
       "§7Pay with §fmultiple currencies §7at once.",
       "§7§oWhen §fprices[] §7is set, simple §fbuy/sell §7are ignored."
-    ));
+    )));
 
     EconomyUse dollars = new EconomyUse(ImpactorEconomy.IDENTIFY, "impactor:dollars");
     EconomyUse diamonds = new EconomyUse("item", "minecraft:diamond");
     EconomyUse emeralds = new EconomyUse("item", "minecraft:emerald");
 
-    // Shop default economies (used by simple buy/sell products in this shop)
-    shop.setEconomies(new LinkedHashSet<>(List.of(dollars)));
+    shop.setEconomyConfig(EconomyConfig.builder()
+      .economies(new LinkedHashSet<>(List.of(dollars)))
+      .build());
 
     Product netheriteSword = simpleProduct("minecraft:netherite_sword", 0, 0);
     netheriteSword.setPrices(new ArrayList<>(List.of(
@@ -452,17 +459,17 @@ public final class ConfigLoader {
   }
 
   /** ROTATION (interval): a small subset of the pool, refreshed every hour. */
-  private static Shop buildHourlyRotation() {
-    Shop shop = new Shop("hourly_rotation", ShopType.ROTATION);
-    shop.setName("Hourly Rotation");
-    shop.getDisplay().setDisplayname("§b§lHourly Rotation");
-    shop.getDisplay().setLore(List.of(
+  private static RotationShop buildHourlyRotation() {
+    RotationShop shop = new RotationShop();
+    shop.setId("hourly_rotation");
+    shop.setDisplayConfig(simpleDisplay("Hourly Rotation", "§b§lHourly Rotation", List.of(
       "§7Refreshes every hour.",
       "§7§oROTATION + §finterval='1h'§7 — relative cooldown."
-    ));
-    shop.setRotationSchedule(new RotationSchedule("1h", 4));
-    shop.setAnnounceRotation(true);
-    shop.setProducts(new ArrayList<>(List.of(
+    )));
+    shop.setConditionsConfig(ConditionsConfig.builder().announceRotation(true).build());
+    shop.setScheduler(SchedulerFactory.fromInterval("1h"));
+    shop.setRotationAmount(4);
+    shop.setProductPool(new ArrayList<>(List.of(
       weightedProduct("minecraft:redstone", 30, 15, 100),
       weightedProduct("minecraft:lapis_lazuli", 25, 12, 100),
       weightedProduct("minecraft:quartz", 35, 17, 80),
@@ -475,19 +482,17 @@ public final class ConfigLoader {
   }
 
   /** ROTATION (cron): high-tier weekly drop — Fridays at 18:00 server time. */
-  private static Shop buildLegendaryRotation() {
-    Shop shop = new Shop("legendary_rotation", ShopType.ROTATION);
-    shop.setName("Legendary Rotation");
-    shop.getDisplay().setDisplayname("§6§lLegendary Rotation");
-    shop.getDisplay().setLore(List.of(
+  private static RotationShop buildLegendaryRotation() {
+    RotationShop shop = new RotationShop();
+    shop.setId("legendary_rotation");
+    shop.setDisplayConfig(simpleDisplay("Legendary Rotation", "§6§lLegendary Rotation", List.of(
       "§7High-tier items rotated §fevery Friday at 18:00§7.",
       "§7§oROTATION + §fcron='0 18 * * 5'§7 — fixed schedule."
-    ));
-    RotationSchedule sched = new RotationSchedule("7d", 2);
-    sched.setCron("0 18 * * 5"); // Friday 18:00 — overrides interval
-    shop.setRotationSchedule(sched);
-    shop.setAnnounceRotation(true);
-    shop.setProducts(new ArrayList<>(List.of(
+    )));
+    shop.setConditionsConfig(ConditionsConfig.builder().announceRotation(true).build());
+    shop.setScheduler(SchedulerFactory.fromCron("0 18 * * 5"));
+    shop.setRotationAmount(2);
+    shop.setProductPool(new ArrayList<>(List.of(
       weightedProduct("minecraft:elytra", 25000, 10000, 30),
       weightedProduct("minecraft:netherite_block", 15000, 7500, 50),
       weightedProduct("minecraft:beacon", 20000, 10000, 40),
@@ -499,18 +504,16 @@ public final class ConfigLoader {
   }
 
   /** ROTATION (cron): daily refresh at midnight — common "daily deals" pattern. */
-  private static Shop buildDailySpecials() {
-    Shop shop = new Shop("daily_specials", ShopType.ROTATION);
-    shop.setName("Daily Specials");
-    shop.getDisplay().setDisplayname("§e§lDaily Specials");
-    shop.getDisplay().setLore(List.of(
+  private static RotationShop buildDailySpecials() {
+    RotationShop shop = new RotationShop();
+    shop.setId("daily_specials");
+    shop.setDisplayConfig(simpleDisplay("Daily Specials", "§e§lDaily Specials", List.of(
       "§7New deals every day at midnight.",
       "§7§oROTATION + §fcron='0 0 * * *'§7 — daily reset."
-    ));
-    RotationSchedule sched = new RotationSchedule("24h", 6);
-    sched.setCron("0 0 * * *");
-    shop.setRotationSchedule(sched);
-    shop.setProducts(new ArrayList<>(List.of(
+    )));
+    shop.setScheduler(SchedulerFactory.fromCron("0 0 * * *"));
+    shop.setRotationAmount(6);
+    shop.setProductPool(new ArrayList<>(List.of(
       weightedProduct("minecraft:iron_ingot", 50, 25, 100),
       weightedProduct("minecraft:gold_ingot", 80, 40, 100),
       weightedProduct("minecraft:copper_ingot", 30, 15, 100),
@@ -521,6 +524,21 @@ public final class ConfigLoader {
       weightedProduct("minecraft:name_tag", 600, 300, 50)
     )));
     return shop;
+  }
+
+  // --- VO factory helpers ---
+
+  private static DisplayConfig simpleDisplay(String name, String displayname, List<String> lore) {
+    return DisplayConfig.builder()
+      .name(name)
+      .autoPlace(true)
+      .rows(6)
+      .displayItem(displayIcon(displayname, lore))
+      .build();
+  }
+
+  private static ItemModel displayIcon(String displayname, List<String> lore) {
+    return new ItemModel("", displayname, lore);
   }
 
   // --- Product factory helpers ---
