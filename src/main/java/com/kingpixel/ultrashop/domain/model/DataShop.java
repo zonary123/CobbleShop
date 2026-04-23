@@ -1,25 +1,38 @@
 package com.kingpixel.ultrashop.domain.model;
 
 import com.kingpixel.cobbleutils.CobbleUtils;
-import com.kingpixel.cobbleutils.Model.DurationValue;
 import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.cobbleutils.util.UtilsFile;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
+import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
+import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
+import com.kingpixel.ultrashop.domain.scheduler.Scheduler;
 import lombok.Data;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
  * Stores the state of dynamic product rotations across all shops.
  * Each modId/shopId pair is stored in its own file under data/rotations/{modId}/{shopId}.json.
+ *
+ * <p><b>Lote 2 refactor:</b> this class now consumes the typed
+ * {@link RotationShop} hierarchy directly. Schedule decisions are delegated to
+ * {@link Scheduler#nextFireTime(long)} — the legacy {@code computeNextFireTime}
+ * and {@code isScheduleStale} branches were removed because the {@code Scheduler}
+ * abstraction is self-describing (each subtype knows how to compute its own
+ * next fire moment, and stale detection collapses to a single "is the persisted
+ * timestamp later than what the scheduler would now produce" check).</p>
  */
 @Data
 public class DataShop {
@@ -32,6 +45,9 @@ public class DataShop {
   private static final Path ROTATIONS_DIR = BASE_PATH.resolve("rotations");
 
   private static final Path LEGACY_FILE = BASE_PATH.resolve("dataShop.json");
+
+  /** Tolerance when comparing persisted vs recomputed schedule timestamps. */
+  private static final long SCHEDULE_DRIFT_TOLERANCE_MS = 60_000L;
 
   public void init() {
     try {
@@ -52,17 +68,15 @@ public class DataShop {
     try {
       DataShop legacy = UtilsFile.read(LEGACY_FILE, DataShop.class);
       if (legacy != null && legacy.products != null) {
-        legacy.products.forEach((modId, shopMap) -> {
-          shopMap.forEach((shopId, rotation) -> {
-            Path file = ROTATIONS_DIR.resolve(modId).resolve(shopId + ".json");
-            try {
-              Files.createDirectories(file.getParent());
-              UtilsFile.write(file, rotation);
-            } catch (IOException e) {
-              UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error migrating rotation " + modId + "/" + shopId + ": " + e.getMessage());
-            }
-          });
-        });
+        legacy.products.forEach((modId, shopMap) -> shopMap.forEach((shopId, rotation) -> {
+          Path file = ROTATIONS_DIR.resolve(modId).resolve(shopId + ".json");
+          try {
+            Files.createDirectories(file.getParent());
+            UtilsFile.write(file, rotation);
+          } catch (IOException e) {
+            UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error migrating rotation " + modId + "/" + shopId + ": " + e.getMessage());
+          }
+        }));
         UltraShop.LOGGER.info("Migrated dataShop.json to per-shop rotation files.");
       }
 
@@ -115,9 +129,8 @@ public class DataShop {
    * Writes all rotation data to per-shop files.
    */
   public void write() {
-    products.forEach((modId, shopMap) -> {
-      shopMap.forEach((shopId, rotation) -> writeShopRotation(modId, shopId, rotation));
-    });
+    products.forEach((modId, shopMap) ->
+      shopMap.forEach((shopId, rotation) -> writeShopRotation(modId, shopId, rotation)));
   }
 
   /**
@@ -139,12 +152,18 @@ public class DataShop {
   }
 
   /**
-   * Updates dynamic products for a shop, rotating if cooldown expired.
-   * Only operates on shops with {@link ShopType#ROTATION}.
+   * Updates dynamic products for a {@link RotationShop}, rotating if the cooldown
+   * expired or the persisted schedule drifted past the next fire moment.
+   *
+   * @param shop  rotation shop being inspected
+   * @param modId owning mod id (used as rotation namespace on disk)
+   * @param force if {@code true}, rotate immediately regardless of schedule
+   * @return the (possibly newly rotated) products visible right now
    */
-  public List<Product> updateDynamicProducts(Shop shop, String modId, boolean force) {
-    if (!shop.isRotation() || shop.getRotationSchedule() == null) {
-      return shop.getProducts();
+  public List<Product> updateDynamicProducts(RotationShop shop, String modId, boolean force) {
+    Scheduler scheduler = shop.getScheduler();
+    if (scheduler == null) {
+      return shop.activeProducts();
     }
 
     products.computeIfAbsent(modId, k -> new ConcurrentHashMap<>())
@@ -152,55 +171,25 @@ public class DataShop {
 
     DynamicRotation rotation = products.get(modId).get(shop.getId());
 
-    boolean needsUpdate = rotation.getTimeToUpdate() < System.currentTimeMillis()
+    long now = System.currentTimeMillis();
+    boolean needsUpdate = force
+      || rotation.getTimeToUpdate() < now
       || rotation.getProducts().isEmpty()
-      || rotation.getProducts().size() != shop.getRotationSchedule().getAmount()
-      || isScheduleStale(shop, rotation)
-      || force;
+      || rotation.getProducts().size() != shop.getRotationAmount()
+      || isScheduleStale(scheduler, rotation, now);
 
     if (needsUpdate) {
       ShopContext ctx = ShopContext.get();
       ctx.getAsyncContext().runAsync(() -> {
-        if (shop.isAnnounceRotation()) {
-          PlayerUtils.sendMessage(
-            (net.minecraft.server.network.ServerPlayerEntity) null,
-            ctx.getLang().getMessageShopRotated().replace("%shop%", shop.getName()),
-            ctx.getLang().getPrefix(),
-            TypeMessage.BROADCAST
-          );
-        }
+        announceRotationIfEnabled(shop, ctx);
 
-        rotation.setTimeToUpdate(computeNextFireTime(shop));
-
-        List<Product> shuffled = new ArrayList<>();
-        List<Product> available = new ArrayList<>(shop.getProducts());
-        java.util.Random rand = new java.util.Random();
-        int amountNeeded = Math.min(shop.getRotationSchedule().getAmount(), available.size());
-
-        for (int i = 0; i < amountNeeded && !available.isEmpty(); i++) {
-          int totalWeight = available.stream().mapToInt(Product::getEffectiveChance).sum();
-          if (totalWeight <= 0) break;
-          int r = rand.nextInt(totalWeight);
-          int current = 0;
-          Product picked = null;
-          for (Product p : available) {
-            current += p.getEffectiveChance();
-            if (current > r) {
-              picked = p;
-              break;
-            }
-          }
-          if (picked != null) {
-            shuffled.add(picked);
-            available.remove(picked);
-          }
-        }
-        rotation.setProducts(shuffled);
+        rotation.setTimeToUpdate(scheduler.nextFireTime(now));
+        rotation.setProducts(pickWeighted(shop.getProductPool(), shop.getRotationAmount()));
 
         writeShopRotation(modId, shop.getId(), rotation);
 
         // Rebuild sell index after rotation
-        ctx.getSellIndex().rebuild(ctx.getShops());
+        ctx.getSellIndex().rebuild(ctx.getTypedShops());
       });
     }
 
@@ -208,91 +197,78 @@ public class DataShop {
   }
 
   /**
-   * Resolves the next rotation timestamp for a shop.
-   *
-   * <p>Priority order:</p>
-   * <ol>
-   *   <li>{@code rotationSchedule.cron} (if set and parses successfully)</li>
-   *   <li>{@code rotationSchedule.interval} (relative duration, e.g. "12h")</li>
-   *   <li>Fallback: 1 hour from now</li>
-   * </ol>
+   * Returns the cooldown expiration timestamp for a shop's rotation. Identified
+   * by ids only — DataShop never needs the full shop instance to read state.
    */
-  private long computeNextFireTime(Shop shop) {
-    RotationSchedule sched = shop.getRotationSchedule();
-    long now = System.currentTimeMillis();
-
-    String cron = sched.getCron();
-    if (cron != null && !cron.isBlank()) {
-      try {
-        long next = CronExpression.parse(cron).nextFireTime(now);
-        UltraShop.LOGGER.info("Shop '" + shop.getId() + "' next rotation (cron '" + cron + "'): "
-          + java.time.Instant.ofEpochMilli(next));
-        return next;
-      } catch (Exception e) {
-        UltraShop.LOGGER.warn("Invalid cron '" + cron + "' for shop '" + shop.getId()
-          + "': " + e.getMessage() + " — falling back to interval.");
-      }
-    }
-
-    String interval = sched.getInterval();
-    if (interval != null && !interval.isBlank()) {
-      try {
-        long ms = DurationValue.parse(interval).toMillis();
-        if (ms > 0) {
-          return now + ms;
-        }
-        UltraShop.LOGGER.warn("Interval '" + interval + "' for shop '" + shop.getId()
-          + "' parsed as 0ms — using 1h fallback.");
-      } catch (Exception e) {
-        UltraShop.LOGGER.warn("Invalid interval '" + interval + "' for shop '" + shop.getId()
-          + "': " + e.getMessage() + " — using 1h fallback.");
-      }
-    }
-
-    return now + 3_600_000L; // 1 hour
-  }
-
-  /**
-   * Detects when the persisted {@code timeToUpdate} no longer matches the current
-   * shop schedule. Catches the case where the user changed the shop config from
-   * {@code interval} to {@code cron} (or shortened the cron) but the old
-   * timestamp persisted on disk is still pointing far into the future.
-   *
-   * <p>If the persisted {@code timeToUpdate} is <b>after</b> the next valid cron
-   * fire-time, the schedule changed under our feet and we must recompute now.</p>
-   */
-  private boolean isScheduleStale(Shop shop, DynamicRotation rotation) {
-    RotationSchedule sched = shop.getRotationSchedule();
-    String cron = sched.getCron();
-    if (cron == null || cron.isBlank()) {
-      // No cron — only the interval path can produce stale state, but interval is
-      // always relative to the moment of computation, so it can't go stale on its own.
-      return false;
-    }
-    try {
-      long expectedNext = CronExpression.parse(cron).nextFireTime(System.currentTimeMillis());
-      // Tolerance of 60s to absorb clock drift between server restart and first call
-      if (rotation.getTimeToUpdate() > expectedNext + 60_000L) {
-        UltraShop.LOGGER.info("Shop '" + shop.getId() + "' has stale rotation timestamp ("
-          + java.time.Instant.ofEpochMilli(rotation.getTimeToUpdate())
-          + ") beyond next cron fire (" + java.time.Instant.ofEpochMilli(expectedNext)
-          + "). Forcing recompute.");
-        return true;
-      }
-    } catch (Exception ignored) {
-      // Bad cron — handled later by computeNextFireTime fallback.
-    }
-    return false;
-  }
-
-  /**
-   * Returns the cooldown expiration timestamp for a shop's rotation.
-   */
-  public long getActualCooldown(Shop shop, String modId) {
+  public long getActualCooldown(String modId, String shopId) {
     return products
       .computeIfAbsent(modId, k -> new ConcurrentHashMap<>())
-      .computeIfAbsent(shop.getId(), k -> new DynamicRotation())
+      .computeIfAbsent(shopId, k -> new DynamicRotation())
       .getTimeToUpdate();
   }
-}
 
+  // --- private helpers ---
+
+  /**
+   * Stale = the persisted {@code timeToUpdate} is later than what the scheduler
+   * would now produce. Catches admin edits to the schedule (e.g. switching from
+   * a long interval to a short cron) without forcing a restart.
+   */
+  private static boolean isScheduleStale(Scheduler scheduler, DynamicRotation rotation, long now) {
+    try {
+      long expectedNext = scheduler.nextFireTime(now);
+      return rotation.getTimeToUpdate() > expectedNext + SCHEDULE_DRIFT_TOLERANCE_MS;
+    } catch (Exception ignored) {
+      return false;
+    }
+  }
+
+  private static void announceRotationIfEnabled(RotationShop shop, ShopContext ctx) {
+    ConditionsConfig cond = shop.getConditionsConfig();
+    if (cond == null || !cond.isAnnounceRotation()) return;
+
+    DisplayConfig display = shop.getDisplayConfig();
+    String shopName = display != null && display.getName() != null ? display.getName() : shop.getId();
+
+    PlayerUtils.sendMessage(
+      (ServerPlayerEntity) null,
+      ctx.getLang().getMessageShopRotated().replace("%shop%", shopName),
+      ctx.getLang().getPrefix(),
+      TypeMessage.BROADCAST
+    );
+  }
+
+  /**
+   * Picks {@code amount} products from {@code pool} using each product's
+   * {@link Product#getEffectiveChance() effective chance} as a weight, without
+   * replacement. Returns at most {@code min(amount, pool.size())} entries.
+   */
+  private static List<Product> pickWeighted(List<Product> pool, int amount) {
+    List<Product> picked = new ArrayList<>();
+    if (pool == null || pool.isEmpty() || amount <= 0) return picked;
+
+    List<Product> available = new ArrayList<>(pool);
+    Random rand = new Random();
+    int target = Math.min(amount, available.size());
+
+    for (int i = 0; i < target && !available.isEmpty(); i++) {
+      int totalWeight = available.stream().mapToInt(Product::getEffectiveChance).sum();
+      if (totalWeight <= 0) break;
+      int r = rand.nextInt(totalWeight);
+      int current = 0;
+      Product chosen = null;
+      for (Product p : available) {
+        current += p.getEffectiveChance();
+        if (current > r) {
+          chosen = p;
+          break;
+        }
+      }
+      if (chosen != null) {
+        picked.add(chosen);
+        available.remove(chosen);
+      }
+    }
+    return picked;
+  }
+}
