@@ -39,3 +39,8 @@ forge*changelog.txt
 */generated/resources/*
 /fabric/src/generated/resources/cobblemon-common.accesswidener
 /actual_versions/
+# AI agent local config (not part of the project)
+.agents/
+.claude/
+CLAUDE.md
+skills-lock.json
