@@ -1,0 +1,60 @@
+package com.kingpixel.ultrashop.infrastructure.serialization.shop;
+
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.reflect.TypeToken;
+import com.kingpixel.ultrashop.domain.model.Product;
+import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
+import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.EconomyConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.SoundConfig;
+import com.kingpixel.ultrashop.domain.scheduler.Scheduler;
+
+import java.lang.reflect.Type;
+import java.util.List;
+
+/**
+ * Gson adapter for {@link RotationShop}. Writes the four config VOs, the
+ * polymorphic {@link Scheduler}, the rotation amount, and the product pool.
+ */
+public final class RotationShopAdapter implements ShopJsonAdapter<RotationShop> {
+
+  private static final Type PRODUCT_LIST = new TypeToken<List<Product>>() {}.getType();
+
+  @Override
+  public JsonObject serialize(RotationShop shop, JsonSerializationContext ctx) {
+    JsonObject obj = new JsonObject();
+    obj.addProperty("id", shop.getId());
+    obj.add("displayConfig", ctx.serialize(shop.getDisplayConfig(), DisplayConfig.class));
+    obj.add("economyConfig", ctx.serialize(shop.getEconomyConfig(), EconomyConfig.class));
+    obj.add("conditionsConfig", ctx.serialize(shop.getConditionsConfig(), ConditionsConfig.class));
+    obj.add("soundConfig", ctx.serialize(shop.getSoundConfig(), SoundConfig.class));
+    obj.add("scheduler", ctx.serialize(shop.getScheduler(), Scheduler.class));
+    obj.addProperty("rotationAmount", shop.getRotationAmount());
+    obj.add("productPool", ctx.serialize(shop.getProductPool(), PRODUCT_LIST));
+    return obj;
+  }
+
+  @Override
+  public RotationShop deserialize(JsonObject json, JsonDeserializationContext ctx) {
+    RotationShop shop = new RotationShop();
+    if (json.has("id") && !json.get("id").isJsonNull()) {
+      shop.setId(json.get("id").getAsString());
+    }
+    shop.setDisplayConfig(ctx.deserialize(json.get("displayConfig"), DisplayConfig.class));
+    shop.setEconomyConfig(ctx.deserialize(json.get("economyConfig"), EconomyConfig.class));
+    shop.setConditionsConfig(ctx.deserialize(json.get("conditionsConfig"), ConditionsConfig.class));
+    shop.setSoundConfig(ctx.deserialize(json.get("soundConfig"), SoundConfig.class));
+    shop.setScheduler(ctx.deserialize(json.get("scheduler"), Scheduler.class));
+    if (json.has("rotationAmount") && !json.get("rotationAmount").isJsonNull()) {
+      shop.setRotationAmount(json.get("rotationAmount").getAsInt());
+    }
+    if (json.has("productPool")) {
+      shop.setProductPool(ctx.deserialize(json.get("productPool"), PRODUCT_LIST));
+    }
+    return shop;
+  }
+}
+

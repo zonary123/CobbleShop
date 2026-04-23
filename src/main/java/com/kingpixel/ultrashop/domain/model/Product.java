@@ -4,6 +4,7 @@ import com.kingpixel.cobbleutils.Model.EconomyUse;
 import com.kingpixel.cobbleutils.Model.ItemChance;
 import com.kingpixel.cobbleutils.Model.conditions.Condition;
 import com.kingpixel.ultrashop.UltraShop;
+import com.kingpixel.ultrashop.domain.model.shop.ShopReference;
 import lombok.Data;
 import net.minecraft.item.ItemStack;
 
@@ -99,7 +100,7 @@ public class Product {
    *       the x2 charge bug.</li>
    * </ul>
    */
-  public List<PriceEntry> getEffectivePrices(@NotNull Shop shop) {
+  public List<PriceEntry> getEffectivePrices(@NotNull ShopReference shop) {
     if (prices != null && !prices.isEmpty()) {
       // Deduplicate by economy — LinkedHashMap preserves insertion order
       LinkedHashMap<EconomyUse, PriceEntry> deduped = new LinkedHashMap<>();
@@ -141,7 +142,7 @@ public class Product {
    * Validates required fields only. Does NOT assign defaults to optional fields
    * so that the JSON stays clean — only user-set fields appear in the file.
    */
-  public void check(@NotNull Shop shop) {
+  public void check(@NotNull ShopReference shop) {
     if (product == null) product = "minecraft:stone";
     if (!shop.isAutoPlace() && slot == null) slot = 0;
 

@@ -33,6 +33,18 @@ public final class ShopContext {
   @Getter
   private final Map<String, List<com.kingpixel.ultrashop.domain.model.Shop>> shops = new ConcurrentHashMap<>();
 
+  /**
+   * Parallel storage of shops in the new sealed {@link com.kingpixel.ultrashop.domain.model.shop.Shop}
+   * hierarchy. Populated by {@code ConfigLoader.loadShops} alongside the legacy
+   * {@link #shops} map via {@link com.kingpixel.ultrashop.domain.model.shop.ShopBridge}.
+   *
+   * <p>New consumers (visitor-based GUI builders, future cross-server services)
+   * read from this map. Legacy consumers keep using {@link #shops}. Both maps
+   * stay in sync until every callsite migrates and the legacy map is removed.</p>
+   */
+  @Getter
+  private final Map<String, List<com.kingpixel.ultrashop.domain.model.shop.Shop>> typedShops = new ConcurrentHashMap<>();
+
   @Getter
   private volatile LangConfig lang;
 
@@ -70,7 +82,7 @@ public final class ShopContext {
     this.lang = new LangConfig();
   }
 
-  
+
   /**
    * Run a task on the server main thread. Safe for inventory modifications.
    */
@@ -124,6 +136,78 @@ public final class ShopContext {
    */
   public List<com.kingpixel.ultrashop.domain.model.Shop> getShops(String modId) {
     return shops.getOrDefault(modId, List.of());
+  }
+
+  /**
+   * Get shops for a specific mod in the new sealed hierarchy.
+   * Use this when consuming shops via {@link com.kingpixel.ultrashop.domain.model.shop.ShopVisitor}.
+   */
+  public List<com.kingpixel.ultrashop.domain.model.shop.Shop> getTypedShops(String modId) {
+    return typedShops.getOrDefault(modId, List.of());
+  }
+
+  // --- Typed shop mutators ------------------------------------------------
+  // Keep both maps (legacy + typed) in lock-step. When a caller mutates the
+  // typed view we also rewrite the legacy mirror via ShopBridge so the legacy
+  // call-sites that haven't migrated yet still see the change. Removed in
+  // Lote 4 once the legacy map is gone.
+
+  /**
+   * Replace an existing typed shop in-place (matched by id). Mirrors the
+   * change into the legacy map so unmigrated callers stay consistent.
+   *
+   * @return {@code true} if a shop with that id existed and was replaced
+   */
+  public boolean replaceShop(String modId, com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
+    List<com.kingpixel.ultrashop.domain.model.shop.Shop> typedList =
+      typedShops.computeIfAbsent(modId, k -> new java.util.concurrent.CopyOnWriteArrayList<>());
+    boolean replacedTyped = replaceById(typedList, shop, com.kingpixel.ultrashop.domain.model.shop.Shop::getId);
+
+    var legacyList = shops.computeIfAbsent(modId, k -> new java.util.concurrent.CopyOnWriteArrayList<>());
+    var legacyShop = com.kingpixel.ultrashop.domain.model.shop.ShopBridge.toLegacy(shop);
+    replaceById(legacyList, legacyShop, com.kingpixel.ultrashop.domain.model.Shop::getId);
+
+    return replacedTyped;
+  }
+
+  /**
+   * Append a new typed shop. Also bridges into the legacy map so the legacy
+   * call-sites still observe it.
+   */
+  public void addTypedShop(String modId, com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
+    typedShops.computeIfAbsent(modId, k -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(shop);
+    shops.computeIfAbsent(modId, k -> new java.util.concurrent.CopyOnWriteArrayList<>())
+      .add(com.kingpixel.ultrashop.domain.model.shop.ShopBridge.toLegacy(shop));
+  }
+
+  /**
+   * Remove a typed shop by id. Mirrors the removal into the legacy map.
+   *
+   * @return {@code true} if a shop with that id was found and removed
+   */
+  public boolean removeTypedShop(String modId, String shopId) {
+    boolean removed = false;
+    var typedList = typedShops.get(modId);
+    if (typedList != null) {
+      removed = typedList.removeIf(s -> shopId.equals(s.getId()));
+    }
+    var legacyList = shops.get(modId);
+    if (legacyList != null) {
+      legacyList.removeIf(s -> shopId.equals(s.getId()));
+    }
+    return removed;
+  }
+
+  private static <T> boolean replaceById(List<T> list, T incoming, java.util.function.Function<T, String> idFn) {
+    String id = idFn.apply(incoming);
+    for (int i = 0; i < list.size(); i++) {
+      if (id.equals(idFn.apply(list.get(i)))) {
+        list.set(i, incoming);
+        return true;
+      }
+    }
+    list.add(incoming);
+    return false;
   }
 }
 

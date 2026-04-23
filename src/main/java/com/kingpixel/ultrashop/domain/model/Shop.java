@@ -4,6 +4,10 @@ import com.kingpixel.cobbleutils.Model.*;
 import com.kingpixel.cobbleutils.Model.conditions.Condition;
 import com.kingpixel.cobbleutils.util.economys.providers.ImpactorEconomy;
 import com.kingpixel.ultrashop.UltraShop;
+import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.EconomyConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.SoundConfig;
 import lombok.Data;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,7 +29,7 @@ import java.util.*;
  * (replaces the old Weekly/Calendar shop subclasses).</p>
  */
 @Data
-public class Shop {
+public class Shop implements com.kingpixel.ultrashop.domain.model.shop.ShopReference {
 
 
   // --- Transient (not serialized) ---
@@ -203,6 +207,67 @@ public class Shop {
 
   /** Convenience: shop has rotating dynamic products. */
   public boolean isRotation() { return type == ShopType.ROTATION; }
+
+  // --- Phase 1 refactor: Value Object snapshots ---
+  // These accessors return immutable views composed from the legacy flat fields.
+  // The Shop class remains the canonical data store; the on-disk JSON shape is
+  // unchanged. Downstream code (Phase 3 adapters, GUI builders) can start
+  // consuming these VOs without breaking existing configs.
+
+  /**
+   * Returns an immutable snapshot of the visual / layout configuration.
+   * Built read-through from the legacy {@code Shop} fields — mutations to the
+   * Shop after this call are NOT reflected in the returned snapshot.
+   */
+  public DisplayConfig toDisplayConfig() {
+    return DisplayConfig.builder()
+      .name(name)
+      .title(title)
+      .autoPlace(autoPlace)
+      .rows(rows)
+      .colorProduct(colorProduct)
+      .rectangle(rectangle)
+      .displayItem(display)
+      .itemInfoShop(itemInfoShop)
+      .itemBalance(itemBalance)
+      .itemPrevious(itemPrevious)
+      .itemClose(itemClose)
+      .itemNext(itemNext)
+      .panels(panels)
+      .build();
+  }
+
+  /**
+   * Returns an immutable snapshot of the economy configuration.
+   */
+  public EconomyConfig toEconomyConfig() {
+    return EconomyConfig.builder()
+      .economies(economies)
+      .globalDiscount(globalDiscount)
+      .discounts(discounts)
+      .build();
+  }
+
+  /**
+   * Returns an immutable snapshot of the conditions / behavior configuration.
+   */
+  public ConditionsConfig toConditionsConfig() {
+    return ConditionsConfig.builder()
+      .openConditions(openConditions)
+      .closeCommand(closeCommand)
+      .announceRotation(announceRotation)
+      .build();
+  }
+
+  /**
+   * Returns an immutable snapshot of the sound configuration.
+   */
+  public SoundConfig toSoundConfig() {
+    return SoundConfig.builder()
+      .soundOpen(soundOpen)
+      .soundClose(soundClose)
+      .build();
+  }
 
   // --- Private helpers ---
 
