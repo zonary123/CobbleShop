@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Sealed Shop hierarchy**: `Shop` is now a sealed interface with three concrete subtypes
+  (`NormalShop`, `CategoryShop`, `RotationShop`) under `domain.model.shop`. Replaces the legacy
+  god-class. Polymorphic dispatch via `ShopVisitor` pattern.
+- **Sealed Scheduler hierarchy**: `Scheduler` sealed interface with `CronScheduler` and
+  `DurationScheduler` implementations. CRON is the new default (deterministic across restarts).
+- **Per-shop config Value Objects**: `DisplayConfig`, `EconomyConfig`, `ConditionsConfig`,
+  `SoundConfig` — each focused on a single concern, builder-friendly via Lombok.
+- **Transparent JSON migration**: `ShopTypeAdapterFactory` auto-detects legacy shop JSON and
+  bridges to the new typed hierarchy at load time. No manual migration needed.
+
+### Changed
+
+- **JSON shop file format**: New format uses a `displayConfig` sub-object and an explicit
+  `type` discriminator. Old flat format is still readable on first load and gets rewritten
+  on save.
+
+### ⚠️ Breaking (planned for next release)
+
+> **Heads-up to server admins**: The legacy `com.kingpixel.ultrashop.domain.model.Shop`
+> god-class will be removed in the upcoming release. The new sealed hierarchy under
+> `domain.model.shop` is the only supported model from there onward.
+>
+> **What you must do BEFORE updating**:
+> 1. **Backup your `shop/` folder** (the entire `ultrashop/shop/*.json` tree).
+> 2. After update, the mod auto-rewrites every shop JSON to the new format on first load.
+> If a file fails to convert, the mod logs the offending shop id and skips it — your other
+> shops keep working.
+> 3. **Recommended sanity check**: open each shop in-game with `/shop edit <id>` and confirm
+> that products, rotation schedules, and sub-shop links survived the conversion.
+>
+> **What stays the same**: in-game GUIs, commands, permissions, economies, transaction
+> history, web dashboard. Only the on-disk JSON shape changes — and only on the way out.
+
+### Migration plan
+
+Tracked in `docs/refactor/LEGACY_SHOP_REMOVAL_PLAN.md`. Eight atomic, mergeable steps:
+read-only consumers → `DataShop` → editor → `ConfigLoader` → delete legacy.
+
 ## [1.5.0] - 2026-04-19
 
 ### Added
