@@ -6,7 +6,7 @@ import com.kingpixel.cobbleutils.Model.conditions.Condition;
 import com.kingpixel.cobbleutils.Model.conditions.util.ConditionUtils;
 import com.kingpixel.ultrashop.domain.model.PriceEntry;
 import com.kingpixel.ultrashop.domain.model.Product;
-import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.ShopReference;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -32,7 +32,7 @@ public final class PriceCalculator {
    * Calculates total buy prices per economy for a product (multi-currency aware).
    */
   public static Map<EconomyUse, BigDecimal> getBuyPrices(Product product, ServerPlayerEntity player,
-                                                          int amount, Shop shop, ShopConfig config) {
+                                                          int amount, ShopReference shop, ShopConfig config) {
     Map<EconomyUse, BigDecimal> result = new LinkedHashMap<>();
     float discountPercent = getDiscount(product, player, shop, config);
     List<PriceEntry> entries = product.getEffectivePrices(shop);
@@ -52,7 +52,7 @@ public final class PriceCalculator {
   /**
    * Calculates total sell prices per economy for a product (multi-currency aware).
    */
-  public static Map<EconomyUse, BigDecimal> getSellPrices(Product product, int amount, Shop shop) {
+  public static Map<EconomyUse, BigDecimal> getSellPrices(Product product, int amount, ShopReference shop) {
     Map<EconomyUse, BigDecimal> result = new LinkedHashMap<>();
     List<PriceEntry> entries = product.getEffectivePrices(shop);
 
@@ -67,7 +67,7 @@ public final class PriceCalculator {
   /**
    * Calculates sell price per unit per economy, accounting for pack sizes.
    */
-  public static Map<EconomyUse, BigDecimal> getSellPricesPerUnit(Product product, Shop shop) {
+  public static Map<EconomyUse, BigDecimal> getSellPricesPerUnit(Product product, ShopReference shop) {
     Map<EconomyUse, BigDecimal> result = new LinkedHashMap<>();
     int packSize = product.getItemStack().getCount();
     List<PriceEntry> entries = product.getEffectivePrices(shop);
@@ -88,7 +88,7 @@ public final class PriceCalculator {
    * Calculates the total buy price (first economy only — simple mode).
    */
   public static BigDecimal getBuyPrice(Product product, ServerPlayerEntity player, int amount,
-                                       Shop shop, ShopConfig config) {
+                                       ShopReference shop, ShopConfig config) {
     Map<EconomyUse, BigDecimal> prices = getBuyPrices(product, player, amount, shop, config);
     return prices.values().stream().findFirst().orElse(BigDecimal.ZERO);
   }
@@ -96,7 +96,7 @@ public final class PriceCalculator {
   /**
    * Calculates the total sell price (first economy only — simple mode).
    */
-  public static BigDecimal getSellPrice(Product product, int amount, Shop shop) {
+  public static BigDecimal getSellPrice(Product product, int amount, ShopReference shop) {
     Map<EconomyUse, BigDecimal> prices = getSellPrices(product, amount, shop);
     return prices.values().stream().findFirst().orElse(BigDecimal.ZERO);
   }
@@ -104,7 +104,7 @@ public final class PriceCalculator {
   /**
    * Calculates the sell price per unit (first economy only — simple mode).
    */
-  public static BigDecimal getSellPricePerUnit(Product product, Shop shop) {
+  public static BigDecimal getSellPricePerUnit(Product product, ShopReference shop) {
     Map<EconomyUse, BigDecimal> prices = getSellPricesPerUnit(product, shop);
     return prices.values().stream().findFirst().orElse(BigDecimal.ZERO);
   }
@@ -112,7 +112,7 @@ public final class PriceCalculator {
   /**
    * Calculates the best applicable discount for a player.
    */
-  public static float getDiscount(Product product, ServerPlayerEntity player, Shop shop, ShopConfig config) {
+  public static float getDiscount(Product product, ServerPlayerEntity player, ShopReference shop, ShopConfig config) {
     float result = 0.0f;
     result = findBestPermissionDiscount(shop.getDiscounts(), player, result);
     if (config != null) {
@@ -130,7 +130,7 @@ public final class PriceCalculator {
   /**
    * Whether a product can be sold by a player in a specific shop context.
    */
-  public static boolean canSell(Product product, ServerPlayerEntity player, Shop shop, ShopConfig config) {
+  public static boolean canSell(Product product, ServerPlayerEntity player, ShopReference shop, ShopConfig config) {
     if (!product.canBeSold()) return false;
     if (player != null) {
       BigDecimal buyPrice = getBuyPrice(product, player, 1, shop, config);

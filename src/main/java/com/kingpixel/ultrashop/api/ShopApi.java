@@ -1,7 +1,7 @@
 package com.kingpixel.ultrashop.api;
 
 import com.kingpixel.ultrashop.ShopContext;
-import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
 import com.kingpixel.ultrashop.domain.service.TransactionService;
 import com.kingpixel.ultrashop.infrastructure.config.ConfigLoader;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
@@ -68,14 +68,14 @@ public final class ShopApi {
    * Get all shops for a mod.
    */
   public static List<Shop> getShops(String modId) {
-    return ShopContext.get().getShops(modId);
+    return ShopContext.get().getTypedShops(modId);
   }
 
   /**
    * Find a shop by id.
    */
   public static Shop getShop(String modId, String shopId) {
-    return ShopContext.get().getShops(modId).stream()
+    return ShopContext.get().getTypedShops(modId).stream()
       .filter(s -> s.getId().equals(shopId))
       .findFirst().orElse(null);
   }

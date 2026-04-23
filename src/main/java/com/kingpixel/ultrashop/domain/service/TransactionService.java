@@ -8,6 +8,8 @@ import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.domain.model.*;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.ShopReference;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import com.kingpixel.ultrashop.infrastructure.index.SellProductIndex;
 import net.minecraft.item.ItemStack;
@@ -33,7 +35,7 @@ public final class TransactionService {
   /**
    * Buy a product for a player. Charges ALL economies in the product's effective prices.
    */
-  public static boolean buy(ServerPlayerEntity player, Product product, Shop shop, int amount,
+  public static boolean buy(ServerPlayerEntity player, Product product, ShopReference shop, int amount,
                             ShopConfig config) {
     ShopContext ctx = ShopContext.get();
     synchronized (ctx.getTransactionLock(player.getUuid())) {
@@ -108,7 +110,7 @@ public final class TransactionService {
   /**
    * Sell a specific product from a player's inventory.
    */
-  public static void sell(ServerPlayerEntity player, Product product, Shop shop, int amount,
+  public static void sell(ServerPlayerEntity player, Product product, ShopReference shop, int amount,
                           ShopConfig config) {
     ShopContext ctx = ShopContext.get();
     synchronized (ctx.getTransactionLock(player.getUuid())) {

@@ -17,7 +17,8 @@ import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.domain.model.Product;
-import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import net.minecraft.item.ItemStack;
@@ -46,24 +47,22 @@ public final class SearchMenuBuilder {
         String queryLower = query.toLowerCase();
 
         // Collect matching products from all shops
-        List<Shop> shops = ctx.getShops(modId);
+        List<Shop> shops = ctx.getTypedShops(modId);
         for (Shop shop : shops) {
           // Check permissions
           if (!PermissionApi.hasPermission(player, shop.getPermission(modId), 4)) {
             continue;
           }
           // Check open conditions
-          if (!shop.getOpenConditions().isEmpty() && !ConditionUtils.check(shop.getOpenConditions(), player)) {
+          ConditionsConfig conditionsCfg = shop.getConditionsConfig();
+          var openConditions = conditionsCfg != null ? conditionsCfg.getOpenConditions() : null;
+          if (openConditions != null && !openConditions.isEmpty()
+              && !ConditionUtils.check(openConditions, player)) {
             continue;
           }
 
           // Fetch active products (dynamically resolves rotational shops)
-          List<Product> activeProducts;
-          if (shop.isRotation()) {
-            activeProducts = ctx.getDataShop().updateDynamicProducts(shop, modId, false);
-          } else {
-            activeProducts = shop.getProducts();
-          }
+          List<Product> activeProducts = ShopProducts.activeProducts(shop, modId);
 
           for (Product product : activeProducts) {
             if (product.hasErrors()) continue;

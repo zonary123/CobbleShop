@@ -1027,7 +1027,7 @@ public final class ShopEditMenuBuilder {
           + (cronStr != null && !cronStr.isBlank() ? " §8(ignored — cron set)" : ""));
         rotLore.add("§7Amount: §f" + shop.getRotationSchedule().getAmount() + " products per rotation");
         if (shop.isRotation()) {
-          long next = ShopContext.get().getDataShop().getActualCooldown(shop, modId);
+          long next = ShopContext.get().getDataShop().getActualCooldown(modId, shop.getId());
           if (next > 0) {
             rotLore.add("§7Next rotation: §f" + java.time.Instant.ofEpochMilli(next));
           }

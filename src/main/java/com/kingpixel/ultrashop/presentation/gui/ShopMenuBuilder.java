@@ -17,8 +17,13 @@ import com.kingpixel.cobbleutils.util.*;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.domain.model.Product;
-import com.kingpixel.ultrashop.domain.model.Shop;
 import com.kingpixel.ultrashop.domain.model.SubShop;
+import com.kingpixel.ultrashop.domain.model.shop.CategoryShop;
+import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.SoundConfig;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -63,18 +68,24 @@ public final class ShopMenuBuilder {
           .map(java.util.Map.Entry::getKey)
           .findFirst().orElse(UltraShop.MOD_ID);
 
+        DisplayConfig displayCfg = shop.getDisplayConfig();
+        ConditionsConfig conditionsCfg = shop.getConditionsConfig();
+        SoundConfig soundCfg = shop.getSoundConfig();
+
         // Check permission
         if (!PermissionApi.hasPermission(player, shop.getPermission(modId), 4)) {
           PlayerUtils.sendMessage(player,
             ctx.getLang().getMessageNotHavePermission()
-              .replace("%shop%", shop.getTitle())
+              .replace("%shop%", titleOf(displayCfg))
               .replace("%permission%", shop.getPermission(modId)),
             ctx.getLang().getPrefix(), TypeMessage.CHAT);
           return;
         }
 
         // Check open conditions
-        if (!shop.getOpenConditions().isEmpty() && !ConditionUtils.check(shop.getOpenConditions(), player)) {
+        var openConditions = conditionsCfg != null ? conditionsCfg.getOpenConditions() : null;
+        if (openConditions != null && !openConditions.isEmpty()
+            && !ConditionUtils.check(openConditions, player)) {
           PlayerUtils.sendMessage(player,
             ctx.getLang().getMessageShopNotOpen().replace("%shop%", shop.getId()),
             ctx.getLang().getPrefix(), TypeMessage.CHAT);
@@ -82,16 +93,22 @@ public final class ShopMenuBuilder {
         }
 
         LangConfig lang = ctx.getLang();
-        ChestTemplate template = ChestTemplate.builder(shop.getRows()).build();
-        PanelsConfig.applyConfig(template, shop.getPanels(), shop.getRows());
+        int rows = displayCfg != null ? displayCfg.getRows() : 6;
+        ChestTemplate template = ChestTemplate.builder(rows).build();
+        if (displayCfg != null && displayCfg.getPanels() != null) {
+          PanelsConfig.applyConfig(template, displayCfg.getPanels(), rows);
+        }
 
-        int totalSlots = shop.getRectangle().getLength() * shop.getRectangle().getWidth();
+        com.kingpixel.cobbleutils.Model.Rectangle rectangle =
+          displayCfg != null ? displayCfg.getRectangle() : null;
+        int totalSlots = rectangle != null ? rectangle.getLength() * rectangle.getWidth() : rows * 9;
         List<Button> buttons = new ArrayList<>();
 
-        if (!shop.isCategory()) {
+        if (!(shop instanceof CategoryShop categoryShop)) {
           // Products mode
-          List<Product> products = getActiveProducts(shop, modId);
-          boolean needsPagination = products.size() > totalSlots || shop.isAutoPlace();
+          List<Product> products = ShopProducts.activeProducts(shop, modId);
+          boolean autoPlace = displayCfg != null && displayCfg.isAutoPlace();
+          boolean needsPagination = products.size() > totalSlots || autoPlace;
 
           if (needsPagination) {
             for (Product product : products) {
@@ -104,7 +121,7 @@ public final class ShopMenuBuilder {
             for (Product product : products) {
               Integer slot = product.getSlot();
               if (slot == null) continue;
-              if (UIUtils.isInside(slot, shop.getRows())) {
+              if (UIUtils.isInside(slot, rows)) {
                 String bal = PlaceholderReplacer.buildBalanceString(product, shop, player);
                 template.set(slot, ProductRenderer.createButton(product, player, shop, null, 1, config, nav, withClose, bal));
               }
@@ -112,12 +129,13 @@ public final class ShopMenuBuilder {
           }
         } else {
           // Categories mode
-          for (SubShop subShop : shop.getSubShops()) {
-            GooeyButton btn = createCategoryButton(subShop, player, shop, nav, config, withClose, modId);
+          boolean autoPlace = displayCfg != null && displayCfg.isAutoPlace();
+          for (SubShop subShop : categoryShop.getSubShops()) {
+            GooeyButton btn = createCategoryButton(subShop, player, nav, config, withClose, modId);
             if (btn != null) {
-              if (shop.isAutoPlace()) {
+              if (autoPlace) {
                 buttons.add(btn);
-              } else if (UIUtils.isInside(subShop.getSlot(), shop.getRows())) {
+              } else if (UIUtils.isInside(subShop.getSlot(), rows)) {
                 template.set(subShop.getSlot(), btn);
               }
             }
@@ -125,17 +143,19 @@ public final class ShopMenuBuilder {
         }
 
         // Shop info button
-        applyInfoButton(template, shop, lang, modId);
+        applyInfoButton(template, shop, displayCfg, lang, modId, rows);
 
         // Balance button
-        applyBalanceButton(template, shop, lang, player);
+        applyBalanceButton(template, shop, displayCfg, lang, player, rows);
 
         // Close button
-        if (UIUtils.isInside(shop.getItemClose().getSlot(), shop.getRows()) && withClose) {
-          ItemModel closeItem = LangConfig.resolve(shop.getItemClose(), lang.getGlobalItemClose());
-          template.set(shop.getItemClose().getSlot(), closeItem.getButton(1, action -> {
-            if (shop.getCloseCommand() != null && !shop.getCloseCommand().isEmpty()) {
-              PlayerUtils.executeCommand(shop.getCloseCommand(), player);
+        ItemModel itemCloseRaw = displayCfg != null ? displayCfg.getItemClose() : null;
+        if (itemCloseRaw != null && UIUtils.isInside(itemCloseRaw.getSlot(), rows) && withClose) {
+          ItemModel closeItem = LangConfig.resolve(itemCloseRaw, lang.getGlobalItemClose());
+          String closeCommand = conditionsCfg != null ? conditionsCfg.getCloseCommand() : null;
+          template.set(itemCloseRaw.getSlot(), closeItem.getButton(1, action -> {
+            if (closeCommand != null && !closeCommand.isEmpty()) {
+              PlayerUtils.executeCommand(closeCommand, player);
               return;
             }
             // Go back
@@ -153,32 +173,35 @@ public final class ShopMenuBuilder {
 
         if (hasPagination) {
           // Pagination navigation
-          if (UIUtils.isInside(shop.getItemPrevious().getSlot(), shop.getRows())) {
-            ItemModel prev = LangConfig.resolve(shop.getItemPrevious(), lang.getGlobalItemPrevious());
-            template.set(shop.getItemPrevious().getSlot(), LinkedPageButton.builder()
+          ItemModel itemPrevRaw = displayCfg != null ? displayCfg.getItemPrevious() : null;
+          if (itemPrevRaw != null && UIUtils.isInside(itemPrevRaw.getSlot(), rows)) {
+            ItemModel prev = LangConfig.resolve(itemPrevRaw, lang.getGlobalItemPrevious());
+            template.set(itemPrevRaw.getSlot(), LinkedPageButton.builder()
               .display(prev.getItemStack()).linkType(LinkType.Previous).build());
           }
-          if (UIUtils.isInside(shop.getItemNext().getSlot(), shop.getRows())) {
-            ItemModel next = LangConfig.resolve(shop.getItemNext(), lang.getGlobalItemNext());
-            template.set(shop.getItemNext().getSlot(), LinkedPageButton.builder()
+          ItemModel itemNextRaw = displayCfg != null ? displayCfg.getItemNext() : null;
+          if (itemNextRaw != null && UIUtils.isInside(itemNextRaw.getSlot(), rows)) {
+            ItemModel next = LangConfig.resolve(itemNextRaw, lang.getGlobalItemNext());
+            template.set(itemNextRaw.getSlot(), LinkedPageButton.builder()
               .display(next.getItemStack()).linkType(LinkType.Next).build());
           }
         }
 
-        String title = shop.getTitle().replace("%shop%", shop.getId());
+        String title = titleOf(displayCfg).replace("%shop%", shop.getId());
+        String soundOpen = soundCfg != null ? soundCfg.getSoundOpen() : null;
         GooeyPage page;
 
         if (hasPagination) {
-          shop.getRectangle().apply(template);
+          if (rectangle != null) rectangle.apply(template);
           LinkedPage.Builder linkedPage = LinkedPage.builder()
             .template(template)
-            .onOpen(a -> new Sound(shop.getSoundOpen()).playSoundPlayer(a.getPlayer()))
+            .onOpen(a -> new Sound(soundOpen).playSoundPlayer(a.getPlayer()))
             .title(AdventureTranslator.toNative(title));
           page = PaginationHelper.createPagesFromPlaceholders(template, buttons, linkedPage);
         } else {
           page = GooeyPage.builder()
             .template(template)
-            .onOpen(a -> new Sound(shop.getSoundOpen()).playSoundPlayer(player))
+            .onOpen(a -> new Sound(soundOpen).playSoundPlayer(player))
             .build();
           page.setTitle(AdventureTranslator.toNative(title));
         }
@@ -202,18 +225,17 @@ public final class ShopMenuBuilder {
 
   // --- Private helpers ---
 
-  private static List<Product> getActiveProducts(Shop shop, String modId) {
-    if (shop.isRotation()) {
-      return ShopContext.get().getDataShop().updateDynamicProducts(shop, modId, false);
-    }
-    return shop.getProducts();
+  private static String titleOf(DisplayConfig displayCfg) {
+    if (displayCfg == null) return "";
+    String t = displayCfg.getTitle();
+    return t != null ? t : "";
   }
 
   private static GooeyButton createCategoryButton(SubShop subShop, ServerPlayerEntity player,
-                                                  Shop parentShop, NavigationContext nav,
+                                                  NavigationContext nav,
                                                   ShopConfig config, boolean withClose, String modId) {
     ShopContext ctx = ShopContext.get();
-    List<Shop> shops = ctx.getShops(modId);
+    List<Shop> shops = ctx.getTypedShops(modId);
     Shop category = shops.stream()
       .filter(s -> s.getId().equals(subShop.getIdShop()))
       .findFirst().orElse(null);
@@ -223,7 +245,10 @@ public final class ShopMenuBuilder {
       return null;
     }
 
-    ItemModel display = LangConfig.resolve(category.getDisplay(), ctx.getLang().getGlobalDisplay());
+    DisplayConfig categoryDisplay = category.getDisplayConfig();
+    ItemModel raw = categoryDisplay != null ? categoryDisplay.getDisplayItem() : null;
+    if (raw == null) return null;
+    ItemModel display = LangConfig.resolve(raw, ctx.getLang().getGlobalDisplay());
     List<String> lore = new ArrayList<>(display.getLore());
     return display.getButton(1,
       display.getDisplayname().replace("%shop%", category.getId()),
@@ -231,38 +256,44 @@ public final class ShopMenuBuilder {
       action -> navigateTo(player, category, nav, config, withClose));
   }
 
-  private static void applyInfoButton(ChestTemplate template, Shop shop, LangConfig lang, String modId) {
-    if (!UIUtils.isInside(shop.getItemInfoShop().getSlot(), shop.getRows())) return;
+  private static void applyInfoButton(ChestTemplate template, Shop shop, DisplayConfig displayCfg,
+                                      LangConfig lang, String modId, int rows) {
+    ItemModel infoRaw = displayCfg != null ? displayCfg.getItemInfoShop() : null;
+    if (infoRaw == null || !UIUtils.isInside(infoRaw.getSlot(), rows)) return;
 
     ShopContext ctx = ShopContext.get();
-    boolean isDynamic = shop.isRotation();
-    ItemModel infoItem = LangConfig.resolve(shop.getItemInfoShop(),
+    boolean isDynamic = shop instanceof RotationShop;
+    ItemModel infoItem = LangConfig.resolve(infoRaw,
       isDynamic ? lang.getShopInfoDynamic() : lang.getShopInfoPermanent());
 
     List<String> lore = new ArrayList<>(infoItem.getLore());
 
     if (isDynamic) {
-      long cooldownTimestamp = ctx.getDataShop().getActualCooldown(shop, modId);
+      RotationShop rotShop = (RotationShop) shop;
+      long cooldownTimestamp = ctx.getDataShop().getActualCooldown(modId, rotShop.getId());
       String cooldownStr = cooldownTimestamp > System.currentTimeMillis()
         ? PlayerUtils.getCooldown(cooldownTimestamp)
         : "Rotating...";
-      int amount = shop.getRotationSchedule().getAmount();
+      int amount = rotShop.getRotationAmount();
+      int totalProducts = rotShop.getProductPool() != null ? rotShop.getProductPool().size() : 0;
 
       lore.replaceAll(s -> s
         .replace("%cooldown%", cooldownStr)
         .replace("%number%", String.valueOf(amount))
         .replace("%amountProducts%", String.valueOf(amount))
-        .replace("%totalProducts%", String.valueOf(shop.getProducts().size()))
+        .replace("%totalProducts%", String.valueOf(totalProducts))
       );
     }
 
     String name = infoItem.getDisplayname().replace("%shop%", shop.getId());
-    template.set(shop.getItemInfoShop().getSlot(), infoItem.getButton(1, name, lore, a -> {}));
+    template.set(infoRaw.getSlot(), infoItem.getButton(1, name, lore, a -> {}));
   }
 
-  private static void applyBalanceButton(ChestTemplate template, Shop shop, LangConfig lang, ServerPlayerEntity player) {
-    if (!UIUtils.isInside(shop.getItemBalance().getSlot(), shop.getRows())) return;
-    ItemModel balanceItem = LangConfig.resolve(shop.getItemBalance(), lang.getGlobalItemBalance());
+  private static void applyBalanceButton(ChestTemplate template, Shop shop, DisplayConfig displayCfg,
+                                         LangConfig lang, ServerPlayerEntity player, int rows) {
+    ItemModel balanceRaw = displayCfg != null ? displayCfg.getItemBalance() : null;
+    if (balanceRaw == null || !UIUtils.isInside(balanceRaw.getSlot(), rows)) return;
+    ItemModel balanceItem = LangConfig.resolve(balanceRaw, lang.getGlobalItemBalance());
     StringBuilder formatSb = new StringBuilder();
     StringBuilder currencySb = new StringBuilder();
     for (com.kingpixel.cobbleutils.Model.EconomyUse eco : shop.getEconomies()) {
@@ -281,7 +312,7 @@ public final class ShopMenuBuilder {
     lore.replaceAll(s -> s.replace("%balance%", format)
       .replace("%currency%", currency)
       .replace("%amount%", format));
-    template.set(shop.getItemBalance().getSlot(), balanceItem.getButton(1, name, lore, a -> {
+    template.set(balanceRaw.getSlot(), balanceItem.getButton(1, name, lore, a -> {
     }));
   }
 }

@@ -6,8 +6,10 @@ import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
 import com.kingpixel.ultrashop.domain.model.Product;
-import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
 import com.kingpixel.ultrashop.presentation.gui.SearchMenuBuilder;
+import com.kingpixel.ultrashop.presentation.gui.ShopProducts;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
@@ -72,14 +74,17 @@ public final class SearchCommand {
    */
   private static Set<String> collectItemNames(String modId, ServerPlayerEntity player) {
     Set<String> names = new LinkedHashSet<>();
-    List<Shop> shops = ShopContext.get().getShops(modId);
+    List<Shop> shops = ShopContext.get().getTypedShops(modId);
     for (Shop shop : shops) {
       // Skip shops the player can't access
       if (player != null) {
         if (!PermissionApi.hasPermission(player, shop.getPermission(modId), 4)) continue;
-        if (!shop.getOpenConditions().isEmpty() && !ConditionUtils.check(shop.getOpenConditions(), player)) continue;
+        ConditionsConfig conditionsCfg = shop.getConditionsConfig();
+        var openConditions = conditionsCfg != null ? conditionsCfg.getOpenConditions() : null;
+        if (openConditions != null && !openConditions.isEmpty()
+            && !ConditionUtils.check(openConditions, player)) continue;
       }
-      for (Product product : shop.getProducts()) {
+      for (Product product : ShopProducts.allConfiguredProducts(shop)) {
         // Skip products with visibility conditions the player doesn't meet
         if (player != null && product.getVisibilityConditions() != null
           && !product.getVisibilityConditions().isEmpty()

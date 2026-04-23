@@ -9,7 +9,9 @@ import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.domain.model.ActionShop;
 import com.kingpixel.ultrashop.domain.model.Product;
-import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.SoundConfig;
 import com.kingpixel.ultrashop.domain.service.PriceCalculator;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
@@ -68,7 +70,7 @@ public final class ProductRenderer {
 
     return GooeyButton.builder()
       .display(itemStack)
-      .with(DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(shop.getColorProduct() + title))
+      .with(DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(colorProduct(shop) + title))
       .with(DataComponentTypes.LORE, new LoreComponent(AdventureTranslator.toNativeL(lore)))
       .with(DataComponentTypes.HIDE_ADDITIONAL_TOOLTIP, Unit.INSTANCE)
       .onClick(action -> handleClick(action, product, player, shop, amount, config, nav, withClose))
@@ -111,11 +113,22 @@ public final class ProductRenderer {
         return;
       }
 
-      new Sound(shop.getSoundOpen()).playSoundPlayer(player);
+      new Sound(soundOpen(shop)).playSoundPlayer(player);
       BuyAndSellMenuBuilder.open(player, nav, product, amount, shopAction, config, withClose);
     } catch (Exception e) {
       e.printStackTrace();
     }
+  }
+
+  private static String colorProduct(Shop shop) {
+    DisplayConfig display = shop.getDisplayConfig();
+    String color = display != null ? display.getColorProduct() : null;
+    return color != null ? color : "";
+  }
+
+  private static String soundOpen(Shop shop) {
+    SoundConfig sound = shop.getSoundConfig();
+    return sound != null ? sound.getSoundOpen() : null;
   }
 
   private static void injectCustomLore(List<String> lore, Product product) {

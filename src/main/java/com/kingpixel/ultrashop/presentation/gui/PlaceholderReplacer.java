@@ -7,8 +7,8 @@ import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.domain.model.PriceEntry;
 import com.kingpixel.ultrashop.domain.model.Product;
 import com.kingpixel.ultrashop.domain.model.ActionShop;
-import com.kingpixel.ultrashop.domain.model.Shop;
 import com.kingpixel.ultrashop.domain.model.UserInfo;
+import com.kingpixel.ultrashop.domain.model.shop.ShopReference;
 import com.kingpixel.ultrashop.domain.service.PriceCalculator;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -30,7 +30,7 @@ public final class PlaceholderReplacer {
    * Replaces all product-related placeholders in a string.
    */
   public static String replace(String text, Product product, ServerPlayerEntity player,
-                               Shop shop, int amount, ShopConfig config, String playerBalance) {
+                               ShopReference shop, int amount, ShopConfig config, String playerBalance) {
     if (text == null || text.isEmpty()) return "";
 
     if (text.contains("%buy%")) {
@@ -99,7 +99,7 @@ public final class PlaceholderReplacer {
    * Filters lore lines based on product capabilities and action context.
    */
   public static List<String> filterLore(List<String> loreTemplate, Product product,
-                                        ServerPlayerEntity player, Shop shop,
+                                        ServerPlayerEntity player, ShopReference shop,
                                         ShopConfig config, ActionShop actionShop) {
     List<String> filtered = new ArrayList<>();
     boolean hasLimit = product.getUuid() != null && product.getMax() != null;
@@ -136,7 +136,7 @@ public final class PlaceholderReplacer {
   /**
    * Builds a balance string from a product's effective prices.
    */
-  public static String buildBalanceString(Product product, Shop shop, ServerPlayerEntity player) {
+  public static String buildBalanceString(Product product, ShopReference shop, ServerPlayerEntity player) {
     StringBuilder sb = new StringBuilder();
     List<PriceEntry> entries = product.getEffectivePrices(shop);
     java.util.Set<String> seen = new java.util.LinkedHashSet<>();

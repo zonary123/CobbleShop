@@ -11,7 +11,7 @@ import com.kingpixel.cobbleutils.util.AdventureTranslator;
 import com.kingpixel.cobbleutils.util.UIUtils;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
-import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -45,18 +45,22 @@ public final class MainMenuBuilder {
     ChestTemplate template = ChestTemplate.builder(config.getRows()).build();
     PanelsConfig.applyConfig(template, config.getPanels(), config.getRows());
 
-    List<Shop> shops = ctx.getShops(modId);
+    List<Shop> shops = ctx.getTypedShops(modId);
     NavigationContext nav = new NavigationContext();
 
     for (Shop shop : shops) {
-      if (UIUtils.isInside(shop.getDisplay().getSlot(), config.getRows())) {
-        ItemModel display = LangConfig.resolve(shop.getDisplay(), lang.getGlobalDisplay());
+      ItemModel displayItem = shop.getDisplayConfig() != null
+        ? shop.getDisplayConfig().getDisplayItem()
+        : null;
+      if (displayItem == null) continue;
+      if (UIUtils.isInside(displayItem.getSlot(), config.getRows())) {
+        ItemModel display = LangConfig.resolve(displayItem, lang.getGlobalDisplay());
         List<String> lore = new ArrayList<>(display.getLore());
         GooeyButton button = display.getButton(1,
           display.getDisplayname().replace("%shop%", shop.getId()),
           lore,
           action -> ShopMenuBuilder.navigateTo(player, shop, nav, config, true));
-        template.set(shop.getDisplay().getSlot(), button);
+        template.set(displayItem.getSlot(), button);
       }
     }
 

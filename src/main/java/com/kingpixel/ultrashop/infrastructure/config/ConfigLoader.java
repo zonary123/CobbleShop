@@ -15,6 +15,7 @@ import com.kingpixel.ultrashop.domain.model.RotationSchedule;
 import com.kingpixel.ultrashop.domain.model.Shop;
 import com.kingpixel.ultrashop.domain.model.ShopType;
 import com.kingpixel.ultrashop.domain.model.SubShop;
+import com.kingpixel.ultrashop.domain.model.shop.ShopBridge;
 import com.kingpixel.ultrashop.infrastructure.persistence.RepositoryFactory;
 
 import java.io.IOException;
@@ -61,7 +62,7 @@ public final class ConfigLoader {
     ctx.getDataShop().init();
 
     // 6. Rebuild sell index
-    ctx.getSellIndex().rebuild(ctx.getShops());
+    ctx.getSellIndex().rebuild(ctx.getTypedShops());
 
     // 7. Always regenerate README
     generateReadme(CobbleUtils.getPath().resolve(options.getPath()));
@@ -137,10 +138,31 @@ public final class ConfigLoader {
       }
 
       ctx.getShops().put(options.getModId(), shops);
+      ctx.getTypedShops().put(options.getModId(), bridgeAll(shops));
     } catch (IOException e) {
       UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error loading shops: " + e.getMessage());
       ctx.getShops().put(options.getModId(), new ArrayList<>());
+      ctx.getTypedShops().put(options.getModId(), new ArrayList<>());
     }
+  }
+
+  /**
+   * Bridges every legacy shop into the new sealed hierarchy. Errors on individual
+   * shops are logged and skipped — the typed list remains in sync with the
+   * legacy list as much as possible to prevent silent data drift between the two
+   * parallel storage paths.
+   */
+  private static List<com.kingpixel.ultrashop.domain.model.shop.Shop> bridgeAll(List<Shop> legacyShops) {
+    List<com.kingpixel.ultrashop.domain.model.shop.Shop> typed = new ArrayList<>(legacyShops.size());
+    for (Shop legacy : legacyShops) {
+      try {
+        typed.add(ShopBridge.fromLegacy(legacy));
+      } catch (Exception e) {
+        UltraShop.LOGGER.error("Failed to bridge shop {} to typed hierarchy: {} — typed map will skip it.",
+          legacy.getId(), e.getMessage());
+      }
+    }
+    return typed;
   }
 
   /**

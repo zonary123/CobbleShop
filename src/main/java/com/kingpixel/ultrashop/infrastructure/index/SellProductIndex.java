@@ -2,9 +2,10 @@ package com.kingpixel.ultrashop.infrastructure.index;
 
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.domain.model.Product;
-import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
 import com.kingpixel.ultrashop.domain.service.PriceCalculator;
 import com.kingpixel.ultrashop.domain.service.ProductMatcher;
+import com.kingpixel.ultrashop.presentation.gui.ShopProducts;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -84,11 +85,7 @@ public class SellProductIndex {
   }
 
   private List<Product> getActiveProducts(Shop shop, String modId) {
-    if (shop.isRotation()) {
-      ShopContext ctx = ShopContext.get();
-      return ctx.getDataShop().updateDynamicProducts(shop, modId, false);
-    }
-    return shop.getProducts();
+    return ShopProducts.activeProducts(shop, modId);
   }
 
   /**

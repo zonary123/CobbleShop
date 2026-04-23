@@ -1,6 +1,6 @@
 package com.kingpixel.ultrashop.presentation.gui;
 
-import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
 import lombok.Data;
 
 import java.util.ArrayDeque;

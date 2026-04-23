@@ -4,7 +4,8 @@ import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
-import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
 import com.kingpixel.ultrashop.domain.model.Transaction;
 import com.kingpixel.ultrashop.domain.model.ActionShop;
 import com.kingpixel.ultrashop.domain.service.StatsService;
@@ -102,7 +103,7 @@ public final class CommandTree {
           })
           .then(CommandManager.argument("IdShop", StringArgumentType.string())
             .suggests((ctx, builder) -> {
-              ShopContext.get().getShops(options.getModId()).forEach(s -> builder.suggest(s.getId()));
+              ShopContext.get().getTypedShops(options.getModId()).forEach(s -> builder.suggest(s.getId()));
               return builder.buildFuture();
             })
             .executes(ctx -> openShopForPlayers(ctx, options, true))
@@ -116,14 +117,15 @@ public final class CommandTree {
           .then(CommandManager.argument("dynamic", BoolArgumentType.bool())
             .executes(ctx -> {
               String id = StringArgumentType.getString(ctx, "shop");
-              boolean exists = ShopContext.get().getShops(options.getModId()).stream()
+              boolean exists = ShopContext.get().getTypedShops(options.getModId()).stream()
                 .anyMatch(s -> s.getId().equals(id));
               if (exists) {
                 ctx.getSource().sendMessage(Text.literal("Shop already exists: " + id));
                 return 0;
               }
               boolean dynamic = BoolArgumentType.getBool(ctx, "dynamic");
-              Shop shop = new Shop(id, dynamic);
+              com.kingpixel.ultrashop.domain.model.Shop shop =
+                new com.kingpixel.ultrashop.domain.model.Shop(id, dynamic);
               ConfigLoader.createShop(options, shop);
               ctx.getSource().sendMessage(Text.literal("Created shop: " + id));
               return 1;
@@ -134,18 +136,18 @@ public final class CommandTree {
         .requires(src -> PermissionApi.hasPermission(src, modId + ".restart.shop", 2))
         .then(CommandManager.argument("shop", StringArgumentType.string())
           .suggests((ctx, builder) -> {
-            ShopContext.get().getShops(options.getModId()).stream()
-              .filter(Shop::isRotation)
+            ShopContext.get().getTypedShops(options.getModId()).stream()
+              .filter(s -> s instanceof RotationShop)
               .forEach(s -> builder.suggest(s.getId()));
             return builder.buildFuture();
           })
           .executes(ctx -> {
             String shopId = StringArgumentType.getString(ctx, "shop");
-            Shop shop = ShopContext.get().getShops(options.getModId()).stream()
+            Shop shop = ShopContext.get().getTypedShops(options.getModId()).stream()
               .filter(s -> s.getId().equals(shopId))
               .findFirst().orElse(null);
-            if (shop != null && shop.isRotation()) {
-              ShopContext.get().getDataShop().updateDynamicProducts(shop, options.getModId(), true);
+            if (shop instanceof RotationShop rotShop) {
+              ShopContext.get().getDataShop().updateDynamicProducts(rotShop, options.getModId(), true);
               ctx.getSource().sendMessage(Text.literal("Restarted dynamic shop: " + shopId));
             } else {
               ctx.getSource().sendMessage(Text.literal("Shop is not dynamic or not found: " + shopId));
@@ -186,24 +188,27 @@ public final class CommandTree {
         .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".admin"), 2))
         .then(CommandManager.argument("shop", StringArgumentType.string())
           .suggests((ctx, builder) -> {
-            ShopContext.get().getShops(options.getModId()).forEach(s -> builder.suggest(s.getId()));
+            ShopContext.get().getTypedShops(options.getModId()).forEach(s -> builder.suggest(s.getId()));
             return builder.buildFuture();
           })
           .executes(ctx -> {
             String shopId = StringArgumentType.getString(ctx, "shop");
-            Shop shop = ShopContext.get().getShops(options.getModId()).stream()
-              .filter(s -> s.getId().equals(shopId))
-              .findFirst().orElse(null);
-            if (shop == null) {
+            // Path resolution still goes through the legacy mirror because
+            // typed Shop has no filePath field yet (removed in Lote 4 cleanup).
+            com.kingpixel.ultrashop.domain.model.Shop legacyShop =
+              ShopContext.get().getShops(options.getModId()).stream()
+                .filter(s -> s.getId().equals(shopId))
+                .findFirst().orElse(null);
+            if (legacyShop == null) {
               ctx.getSource().sendMessage(Text.literal("§cShop not found: " + shopId));
               return 0;
             }
             try {
-              if (shop.getFilePath() != null) {
-                Files.deleteIfExists(Path.of(shop.getFilePath()));
+              if (legacyShop.getFilePath() != null) {
+                Files.deleteIfExists(Path.of(legacyShop.getFilePath()));
               }
-              ShopContext.get().getShops(options.getModId()).remove(shop);
-              ShopContext.get().getSellIndex().rebuild(ShopContext.get().getShops());
+              ShopContext.get().removeTypedShop(options.getModId(), shopId);
+              ShopContext.get().getSellIndex().rebuild(ShopContext.get().getTypedShops());
               ctx.getSource().sendMessage(Text.literal("§aDeleted shop: " + shopId));
             } catch (Exception e) {
               ctx.getSource().sendMessage(Text.literal("§cError deleting shop: " + e.getMessage()));
@@ -285,7 +290,7 @@ public final class CommandTree {
       var players = EntityArgumentType.getPlayers(ctx, "player");
       String shopId = StringArgumentType.getString(ctx, "IdShop");
       ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
-      Shop shop = ShopContext.get().getShops(options.getModId()).stream()
+      Shop shop = ShopContext.get().getTypedShops(options.getModId()).stream()
         .filter(s -> s.getId().equals(shopId))
         .findFirst().orElse(null);
 

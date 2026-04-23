@@ -1,46 +1,50 @@
 package com.kingpixel.ultrashop.infrastructure.persistence;
 
 import com.kingpixel.cobbleutils.Model.DataBaseConfig;
+import com.kingpixel.cobbleutils.util.mongodb.MongoDBManager;
+import com.kingpixel.cobbleutils.util.mongodb.MongoDBService;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonTransactionRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonUserRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoTransactionRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoUserRepository;
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
 import lombok.Getter;
 
 /**
  * Factory that creates the appropriate repository implementations based on config.
+ *
+ * <p>Connection lifecycle is delegated to CobbleUtils' shared pool
+ * ({@link MongoDBService}). UltraShop borrows a {@link MongoDBManager} reference
+ * but NEVER closes it — the pool is shared across all mods that use the same
+ * {@link DataBaseConfig} fingerprint (host + database + credentials).</p>
  */
 @Getter
 public class RepositoryFactory {
 
+  private static final String DEFAULT_DATABASE = "ultrashop";
+
   private final UserRepository userRepository;
   private final TransactionRepository transactionRepository;
-  private MongoClient mongoClient;
 
   public RepositoryFactory(DataBaseConfig config) {
     switch (config.getType()) {
       case MONGODB -> {
-        String url = config.getUrl();
-        if (url == null || url.isEmpty()) {
-          url = "mongodb://localhost:27017";
-        }
         UserRepository userRepo;
         TransactionRepository txRepo;
         try {
-          mongoClient = MongoClients.create(url);
-          MongoDatabase database = mongoClient.getDatabase(
-            config.getDatabase() != null ? config.getDatabase() : "ultrashop"
-          );
+          MongoDBManager manager = MongoDBService.getOrCreateManager(config);
+          String dbName = (config.getDatabase() != null && !config.getDatabase().isBlank())
+            ? config.getDatabase()
+            : DEFAULT_DATABASE;
+          MongoDatabase database = manager.getDatabase(dbName);
+
           userRepo = new MongoUserRepository(database);
           txRepo = new MongoTransactionRepository(database);
-          UltraShop.LOGGER.info("Connected to MongoDB: {}", url);
+          UltraShop.LOGGER.info("Connected to MongoDB '{}' via CobbleUtils shared pool (active pools: {})",
+            dbName, MongoDBService.getActiveConnections());
         } catch (Exception e) {
-          UltraShop.LOGGER.error("Failed to connect to MongoDB: {}. Falling back to JSON.", e.getMessage());
-          mongoClient = null;
+          UltraShop.LOGGER.error("Failed to acquire MongoDB manager: {}. Falling back to JSON.", e.getMessage());
           userRepo = new JsonUserRepository();
           txRepo = new JsonTransactionRepository();
         }
@@ -48,7 +52,7 @@ public class RepositoryFactory {
         this.transactionRepository = txRepo;
       }
       default -> {
-        // JSON fallback for all other types until implemented
+        // JSON fallback for all other types until SQL backend is implemented
         this.userRepository = new JsonUserRepository();
         this.transactionRepository = new JsonTransactionRepository();
       }
@@ -56,13 +60,12 @@ public class RepositoryFactory {
   }
 
   /**
-   * Closes external connections (e.g. MongoDB client).
+   * No-op: connections are owned by CobbleUtils' shared pool.
+   * UltraShop must NOT close the underlying {@link com.mongodb.client.MongoClient}
+   * because other mods may still be using it.
    */
   public void close() {
-    if (mongoClient != null) {
-      mongoClient.close();
-      UltraShop.LOGGER.info("MongoDB connection closed");
-    }
+    // intentionally empty — see class-level Javadoc.
   }
 }
 

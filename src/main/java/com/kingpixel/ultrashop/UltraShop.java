@@ -1,19 +1,17 @@
 package com.kingpixel.ultrashop;
 
-import org.apache.logging.log4j.Logger;
-
 import com.kingpixel.cobbleutils.util.UtilsLogger;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
 import com.kingpixel.ultrashop.domain.service.TransactionService;
 import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonUserRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoUserRepository;
 import com.kingpixel.ultrashop.presentation.gui.edit.ChatInputManager;
-
 import dev.architectury.event.events.common.CommandRegistrationEvent;
 import dev.architectury.event.events.common.LifecycleEvent;
 import dev.architectury.event.events.common.PlayerEvent;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
+import org.apache.logging.log4j.Logger;
 
 /**
  * UltraShop v2 — Minimal bootstrap.
@@ -30,7 +28,6 @@ public class UltraShop implements ModInitializer {
 
   @Override
   public void onInitialize() {
-
     // Initialize context (async, data structures)
     ShopContext.get().init();
 
