@@ -90,5 +90,35 @@ public final class SchedulerFactory {
       return null;
     }
   }
+
+  /**
+   * Builds a {@link CronScheduler} from a user-supplied cron expression.
+   * Used by the admin editor when the player types a new schedule via chat.
+   *
+   * @param cron non-blank cron expression (5-field standard syntax)
+   * @return a validated {@link CronScheduler}
+   * @throws IllegalArgumentException if {@code cron} is null/blank or fails to parse
+   */
+  public static Scheduler fromCron(String cron) {
+    if (cron == null || cron.isBlank()) {
+      throw new IllegalArgumentException("Cron expression must be non-blank");
+    }
+    return new CronScheduler(cron);
+  }
+
+  /**
+   * Builds a {@link DurationScheduler} from a user-supplied interval expression
+   * (e.g. {@code "30m"}, {@code "1h"}, {@code "7d"}).
+   *
+   * @param interval non-blank duration expression
+   * @return a validated {@link DurationScheduler}
+   * @throws IllegalArgumentException if {@code interval} is null/blank or fails to parse
+   */
+  public static Scheduler fromInterval(String interval) {
+    if (interval == null || interval.isBlank()) {
+      throw new IllegalArgumentException("Interval expression must be non-blank");
+    }
+    return new DurationScheduler(interval);
+  }
 }
 
