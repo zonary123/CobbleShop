@@ -13,6 +13,7 @@ import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.Rectangle;
 import com.kingpixel.cobbleutils.util.AdventureTranslator;
 import com.kingpixel.ultrashop.ShopContext;
+import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.domain.model.ActionShop;
 import com.kingpixel.ultrashop.domain.model.Transaction;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
@@ -53,35 +54,14 @@ public final class TransactionMenuBuilder {
 
         List<Button> buttons = new ArrayList<>();
         for (Transaction tx : transactions) {
-          boolean isBuy = tx.getAction() == ActionShop.BUY;
-          String item = isBuy ? "minecraft:lime_stained_glass_pane" : "minecraft:red_stained_glass_pane";
-          String actionLabel = isBuy ? "§aBUY" : "§cSELL";
-          String date = DATE_FMT.format(Instant.ofEpochMilli(tx.getTimestamp()));
-
-          List<String> lore = List.of(
-            "§7Date: §f" + date,
-            "§7Shop: §f" + tx.getShopId(),
-            "§7Product: §f" + tx.getProductId(),
-            "§7Amount: §f" + tx.getAmount(),
-            "§7Price: §e" + tx.getValue().toPlainString() + " " + tx.getCurrency()
-          );
-
-          GooeyButton button = GooeyButton.builder()
-            .display(new ItemModel(item).getItemStack())
-            .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME,
-              AdventureTranslator.toNative(actionLabel + " §7- " + tx.getProductId()))
-            .with(net.minecraft.component.DataComponentTypes.LORE,
-              new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(lore)))
-            .build();
-
-          buttons.add(button);
+          buttons.add(buildTransactionButton(tx, lang));
         }
 
         ChestTemplate template = ChestTemplate.builder(6).build();
 
         // Close button
         ItemModel closeItem = lang.getGlobalItemClose();
-        template.set(49, closeItem.getButton(1, action -> {
+        template.set(49, getButton(closeItem, action -> {
           if (config != null) {
             MainMenuBuilder.open(viewer, config, modId);
           } else {
@@ -100,7 +80,7 @@ public final class TransactionMenuBuilder {
 
         new Rectangle(0, 0, 5, 9).apply(template);
 
-        String title = lang.getPrefix() + " Transactions: " + targetName;
+        String title = applyTemplate(lang.getTransactionMenuTitle(), targetName);
         LinkedPage.Builder linkedPage = LinkedPage.builder()
           .template(template)
           .title(AdventureTranslator.toNative(title));
@@ -111,9 +91,46 @@ public final class TransactionMenuBuilder {
 
         ctx.runOnServer(() -> UIManager.openUIForcefully(viewer, page));
       } catch (Exception e) {
-        e.printStackTrace();
+        UltraShop.LOGGER.error("Error opening transaction menu: " + e.getMessage());
       }
     });
+  }
+
+  private static GooeyButton buildTransactionButton(Transaction transaction, LangConfig lang) {
+    boolean isBuy = transaction.getAction() == ActionShop.BUY;
+    String item = isBuy ? "minecraft:lime_stained_glass_pane" : "minecraft:red_stained_glass_pane";
+    String actionLabel = isBuy ? lang.getTransactionBuyLabel() : lang.getTransactionSellLabel();
+    String date = DATE_FMT.format(Instant.ofEpochMilli(transaction.getTimestamp()));
+    List<String> lore = List.of(
+      formatValue(lang.getTransactionDateLabel(), date),
+      formatValue(lang.getTransactionShopLabel(), transaction.getShopId()),
+      formatValue(lang.getTransactionProductLabel(), transaction.getProductId()),
+      formatValue(lang.getTransactionAmountLabel(), String.valueOf(transaction.getAmount())),
+      formatValue(lang.getTransactionPriceLabel(), transaction.getValue().toPlainString() + " " + transaction.getCurrency())
+    );
+
+    return GooeyButton.builder()
+      .display(new ItemModel(item).getItemStack())
+      .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME,
+        AdventureTranslator.toNative(actionLabel + " §7- " + transaction.getProductId()))
+      .with(net.minecraft.component.DataComponentTypes.LORE,
+        new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(lore)))
+      .build();
+  }
+
+  private static String applyTemplate(String template, String value) {
+    return template.replace("%player%", value);
+  }
+
+  private static String formatValue(String template, String value) {
+    return template.replace("%value%", value);
+  }
+
+  private static GooeyButton getButton(ItemModel model, java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+    return GooeyButton.builder()
+      .display(model.getItemStack())
+      .onClick(onClick::accept)
+      .build();
   }
 }
 

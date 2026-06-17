@@ -4,6 +4,7 @@ import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.PanelsConfig;
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -33,5 +34,27 @@ public class BuyAndSellConfig {
       new PanelsConfig(new ItemModel("minecraft:gray_stained_glass_pane"), rows)
     );
   }
+
+  public void check() {
+    if (rows <= 0) rows = 6;
+    if (titleBuy == null || titleBuy.isEmpty()) titleBuy = "&aBuy %amount%";
+    if (titleSell == null || titleSell.isEmpty()) titleSell = "&cSell %amount%";
+    if (productSlot <= 0) productSlot = 22;
+    if (itemConfirm == null) {
+      itemConfirm = new ItemModel(39, "minecraft:lime_stained_glass_pane", "&aConfirm", new ArrayList<>(), 0);
+    }
+    if (itemClose == null) {
+      itemClose = new ItemModel(49, "minecraft:barrier", "&cClose", new ArrayList<>(), 0);
+    }
+    if (itemCancel == null) {
+      itemCancel = new ItemModel(41, "minecraft:red_stained_glass_pane", "&cCancel", new ArrayList<>(), 0);
+    }
+    if (panels == null || panels.isEmpty()) {
+      panels = List.of(
+        new PanelsConfig(new ItemModel("minecraft:gray_stained_glass_pane"), rows)
+      );
+    }
+  }
 }
+
 

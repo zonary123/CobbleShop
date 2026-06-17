@@ -13,6 +13,7 @@ import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.Rectangle;
 import com.kingpixel.cobbleutils.util.AdventureTranslator;
 import com.kingpixel.ultrashop.ShopContext;
+import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.domain.model.ProductStats;
 import com.kingpixel.ultrashop.domain.service.StatsService;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
@@ -52,15 +53,15 @@ public final class StatsMenuBuilder {
         template.set(4, GooeyButton.builder()
           .display(new ItemModel("minecraft:nether_star").getItemStack())
           .with(DataComponentTypes.CUSTOM_NAME,
-            AdventureTranslator.toNative("§6⚡ Server Overview §7(30d)"))
+            AdventureTranslator.toNative(lang.getStatsServerOverviewTitle()))
           .with(DataComponentTypes.LORE, new LoreComponent(AdventureTranslator.toNativeL(List.of(
             "§8─────────────────────",
-            "§7Total Transactions: §f" + totals.totalTransactions,
-            "§7Unique Players: §f" + totals.uniquePlayers.size(),
+            formatValue(lang.getStatsTotalTransactionsLabel(), String.valueOf(totals.totalTransactions)),
+            formatValue(lang.getStatsUniquePlayersLabel(), String.valueOf(totals.uniquePlayers.size())),
             "§8─────────────────────",
-            "§7Revenue (buys): §a$" + totals.totalRevenue.toPlainString(),
-            "§7Payouts (sells): §c$" + totals.totalPayout.toPlainString(),
-            "§7Net Profit: §e$" + totals.getNetProfit().toPlainString(),
+            formatValue(lang.getStatsRevenueLabel(), totals.totalRevenue.toPlainString()),
+            formatValue(lang.getStatsPayoutLabel(), totals.totalPayout.toPlainString()),
+            formatValue(lang.getStatsNetProfitLabel(), totals.getNetProfit().toPlainString()),
             "§8─────────────────────"
           ))))
           .build());
@@ -70,13 +71,13 @@ public final class StatsMenuBuilder {
         template.set(0, GooeyButton.builder()
           .display(new ItemModel("minecraft:player_head").getItemStack())
           .with(DataComponentTypes.CUSTOM_NAME,
-            AdventureTranslator.toNative("§b👤 Your Stats §7(30d)"))
+            AdventureTranslator.toNative(lang.getStatsPlayerOverviewTitle()))
           .with(DataComponentTypes.LORE, new LoreComponent(AdventureTranslator.toNativeL(List.of(
             "§8─────────────────────",
-            "§7Items Bought: §f" + playerStats.totalBought,
-            "§7Items Sold: §f" + playerStats.totalSold,
-            "§7Total Spent: §c$" + playerStats.totalSpent.toPlainString(),
-            "§7Total Earned: §a$" + playerStats.totalEarned.toPlainString(),
+            formatValue(lang.getStatsItemsBoughtLabel(), String.valueOf(playerStats.totalBought)),
+            formatValue(lang.getStatsItemsSoldLabel(), String.valueOf(playerStats.totalSold)),
+            formatValue(lang.getStatsTotalSpentLabel(), playerStats.totalSpent.toPlainString()),
+            formatValue(lang.getStatsTotalEarnedLabel(), playerStats.totalEarned.toPlainString()),
             "§8─────────────────────"
           ))))
           .build());
@@ -85,19 +86,21 @@ public final class StatsMenuBuilder {
         Map<String, StatsService.ShopAggregate> shopStats = StatsService.getShopStats(MAX_DAYS);
         List<String> shopLore = new ArrayList<>();
         shopLore.add("§8─────────────────────");
-        for (var entry : shopStats.entrySet()) {
-          var s = entry.getValue();
-          shopLore.add("§e" + entry.getKey() + "§7: §a$" + s.revenue.toPlainString()
-            + " §7/ §c$" + s.payout.toPlainString()
-            + " §7(" + s.totalTransactions + " tx)");
+        for (Map.Entry<String, StatsService.ShopAggregate> entry : shopStats.entrySet()) {
+          StatsService.ShopAggregate aggregate = entry.getValue();
+          shopLore.add(lang.getStatsShopBreakdownEntry()
+            .replace("%shop%", entry.getKey())
+            .replace("%revenue%", aggregate.revenue.toPlainString())
+            .replace("%payout%", aggregate.payout.toPlainString())
+            .replace("%transactions%", String.valueOf(aggregate.totalTransactions)));
         }
-        if (shopLore.size() == 1) shopLore.add("§7No data yet");
+        if (shopLore.size() == 1) shopLore.add(lang.getStatsNoData());
         shopLore.add("§8─────────────────────");
 
         template.set(8, GooeyButton.builder()
           .display(new ItemModel("minecraft:chest").getItemStack())
           .with(DataComponentTypes.CUSTOM_NAME,
-            AdventureTranslator.toNative("§6🏪 Shop Breakdown §7(30d)"))
+            AdventureTranslator.toNative(lang.getStatsShopBreakdownTitle()))
           .with(DataComponentTypes.LORE, new LoreComponent(AdventureTranslator.toNativeL(shopLore)))
           .build());
 
@@ -113,30 +116,36 @@ public final class StatsMenuBuilder {
 
           List<String> lore = List.of(
             "§8─────────────────────",
-            "§7Shop: §f" + ps.getShopId(),
-            "§7Rank: §e#" + rank,
+            formatValue(lang.getStatsTopProductShopLabel(), ps.getShopId()),
+            formatValue(lang.getStatsTopProductRankLabel(), String.valueOf(rank)),
             "§8─────────────────────",
-            "§7Bought: §f" + ps.getTotalBought() + "x §7by §f" + ps.getUniqueBuyers().size() + " players",
-            "§7Sold: §f" + ps.getTotalSold() + "x §7by §f" + ps.getUniqueSellers().size() + " players",
+            lang.getStatsTopProductBoughtLabel()
+              .replace("%amount%", String.valueOf(ps.getTotalBought()))
+              .replace("%players%", String.valueOf(ps.getUniqueBuyers().size())),
+            lang.getStatsTopProductSoldLabel()
+              .replace("%amount%", String.valueOf(ps.getTotalSold()))
+              .replace("%players%", String.valueOf(ps.getUniqueSellers().size())),
             "§8─────────────────────",
-            "§7Revenue: §a$" + ps.getTotalRevenue().toPlainString(),
-            "§7Payouts: §c$" + ps.getTotalPayout().toPlainString(),
-            "§7Net: §e$" + ps.getNetProfit().toPlainString(),
+            formatValue(lang.getStatsRevenueLabel(), ps.getTotalRevenue().toPlainString()),
+            formatValue(lang.getStatsPayoutLabel(), ps.getTotalPayout().toPlainString()),
+            formatValue(lang.getStatsNetProfitLabel(), ps.getNetProfit().toPlainString()),
             "§8─────────────────────",
-            "§7Unique Players: §f" + ps.getUniquePlayers()
+            formatValue(lang.getStatsTopProductUniquePlayersLabel(), String.valueOf(ps.getUniquePlayers()))
           );
 
           buttons.add(GooeyButton.builder()
             .display(new ItemModel(item).getItemStack())
             .with(DataComponentTypes.CUSTOM_NAME,
-              AdventureTranslator.toNative("§e#" + rank + " §f" + ps.getProductId()))
+              AdventureTranslator.toNative(lang.getStatsTopProductTitle()
+                .replace("%rank%", String.valueOf(rank))
+                .replace("%product%", ps.getProductId())))
             .with(DataComponentTypes.LORE, new LoreComponent(AdventureTranslator.toNativeL(lore)))
             .build());
         }
 
         // Close button
         ItemModel closeItem = lang.getGlobalItemClose();
-        template.set(49, closeItem.getButton(1, action -> UIManager.closeUI(player)));
+        template.set(49, getButton(closeItem, action -> UIManager.closeUI(player)));
 
         // Pagination
         ItemModel prev = lang.getGlobalItemPrevious();
@@ -148,7 +157,7 @@ public final class StatsMenuBuilder {
 
         new Rectangle(1, 0, 4, 9).apply(template);
 
-        String title = "§6UltraShop Stats §7(30 days)";
+        String title = lang.getStatsMenuTitle();
         LinkedPage.Builder linkedPage = LinkedPage.builder()
           .template(template)
           .title(AdventureTranslator.toNative(title));
@@ -159,9 +168,20 @@ public final class StatsMenuBuilder {
 
         ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
       } catch (Exception e) {
-        e.printStackTrace();
+        UltraShop.LOGGER.error("Error opening stats menu: " + e.getMessage());
       }
     });
+  }
+
+  private static String formatValue(String template, String value) {
+    return template.replace("%value%", value);
+  }
+
+  private static GooeyButton getButton(ItemModel model, java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+    return GooeyButton.builder()
+      .display(model.getItemStack())
+      .onClick(onClick::accept)
+      .build();
   }
 }
 

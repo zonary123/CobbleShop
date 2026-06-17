@@ -124,20 +124,14 @@ dependencies {
     implementation("com.github.NuVotifier.NuVotifier:nuvotifier-api:2.7.2")
     implementation("com.github.DrexHD:NuVotifier-Fabric:1.0.0-1.20.5")
 
-    // Testing (JUnit 5)
-    testImplementation(platform("org.junit:junit-bom:5.10.2"))
+    testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testCompileOnly("org.projectlombok:lombok:${property("lombok_version")}")
-    testAnnotationProcessor("org.projectlombok:lombok:${property("lombok_version")}")
 }
 
-test {
+tasks.withType(Test).configureEach {
     useJUnitPlatform()
-    testLogging {
-        events "passed", "skipped", "failed"
-    }
 }
+
 processResources {
     inputs.property "version", project.version
     inputs.property "minecraft_version", project.minecraft_version

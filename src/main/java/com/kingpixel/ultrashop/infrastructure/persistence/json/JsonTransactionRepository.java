@@ -16,6 +16,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -30,6 +33,7 @@ public class JsonTransactionRepository implements TransactionRepository {
 
   private static final Gson GSON = new Gson();
   private static final Type TRANSACTION_LIST_TYPE = new TypeToken<List<Transaction>>() {}.getType();
+  private static final ConcurrentMap<Path, Object> FILE_LOCKS = new ConcurrentHashMap<>();
 
   private final Path basePath;
 
@@ -44,20 +48,25 @@ public class JsonTransactionRepository implements TransactionRepository {
 
     try {
       Files.createDirectories(basePath);
-      List<Transaction> daily;
-      if (Files.exists(filePath)) {
-        String content = Files.readString(filePath);
-        daily = GSON.fromJson(content, TRANSACTION_LIST_TYPE);
-        if (daily == null) daily = new ArrayList<>();
-      } else {
-        daily = new ArrayList<>();
-      }
-      daily.add(transaction);
-      UtilsFile.writeAsync(filePath, daily)
-        .exceptionally(e -> {
-          UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error writing transaction: " + e.getMessage());
-          return null;
-        });
+      Object lock = FILE_LOCKS.computeIfAbsent(filePath, p -> new Object());
+      CompletableFuture.runAsync(() -> {
+        synchronized (lock) {
+          try {
+            List<Transaction> daily;
+            if (Files.exists(filePath)) {
+              String content = Files.readString(filePath);
+              daily = GSON.fromJson(content, TRANSACTION_LIST_TYPE);
+              if (daily == null) daily = new ArrayList<>();
+            } else {
+              daily = new ArrayList<>();
+            }
+            daily.add(transaction);
+            UtilsFile.write(filePath, daily);
+          } catch (Exception e) {
+            UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error writing transaction: " + e.getMessage());
+          }
+        }
+      });
     } catch (IOException e) {
       UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error saving transaction: " + e.getMessage());
     }
@@ -77,16 +86,19 @@ public class JsonTransactionRepository implements TransactionRepository {
 
       for (Path file : sorted) {
         if (result.size() >= limit) break;
-        try {
-          String content = Files.readString(file);
-          List<Transaction> daily = GSON.fromJson(content, TRANSACTION_LIST_TYPE);
-          if (daily != null) {
-            daily.stream()
-              .filter(t -> t.getPlayerUuid().equals(playerUuid))
-              .forEach(result::add);
+        Object lock = FILE_LOCKS.computeIfAbsent(file, p -> new Object());
+        synchronized (lock) {
+          try {
+            String content = Files.readString(file);
+            List<Transaction> daily = GSON.fromJson(content, TRANSACTION_LIST_TYPE);
+            if (daily != null) {
+              daily.stream()
+                .filter(t -> t.getPlayerUuid().equals(playerUuid))
+                .forEach(result::add);
+            }
+          } catch (Exception e) {
+            UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error reading transaction file " + file + ": " + e.getMessage());
           }
-        } catch (Exception e) {
-          UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error reading transaction file " + file + ": " + e.getMessage());
         }
       }
     } catch (IOException e) {
@@ -115,20 +127,23 @@ public class JsonTransactionRepository implements TransactionRepository {
         .collect(Collectors.toList());
 
       for (Path file : sorted) {
-        try {
-          String content = Files.readString(file);
-          List<Transaction> daily = GSON.fromJson(content, TRANSACTION_LIST_TYPE);
-          if (daily != null) {
-            for (Transaction t : daily) {
-              if (t.getTimestamp() >= cutoff) {
-                result.add(t);
+        Object lock = FILE_LOCKS.computeIfAbsent(file, p -> new Object());
+        synchronized (lock) {
+          try {
+            String content = Files.readString(file);
+            List<Transaction> daily = GSON.fromJson(content, TRANSACTION_LIST_TYPE);
+            if (daily != null) {
+              for (Transaction t : daily) {
+                if (t.getTimestamp() >= cutoff) {
+                  result.add(t);
+                }
               }
+              // If the oldest in this file is before cutoff, no need to read older files
+              if (!daily.isEmpty() && daily.get(0).getTimestamp() < cutoff) break;
             }
-            // If the oldest in this file is before cutoff, no need to read older files
-            if (!daily.isEmpty() && daily.get(0).getTimestamp() < cutoff) break;
+          } catch (Exception e) {
+            UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error reading transaction file " + file + ": " + e.getMessage());
           }
-        } catch (Exception e) {
-          UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error reading transaction file " + file + ": " + e.getMessage());
         }
       }
     } catch (IOException e) {

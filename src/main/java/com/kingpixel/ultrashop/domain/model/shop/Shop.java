@@ -39,12 +39,26 @@ public sealed interface Shop extends ShopReference
   ShopType getType();
 
   DisplayConfig getDisplayConfig();
+  void setDisplayConfig(DisplayConfig displayConfig);
 
   EconomyConfig getEconomyConfig();
+  void setEconomyConfig(EconomyConfig economyConfig);
 
   ConditionsConfig getConditionsConfig();
+  void setConditionsConfig(ConditionsConfig conditionsConfig);
 
   SoundConfig getSoundConfig();
+  void setSoundConfig(SoundConfig soundConfig);
+
+  boolean isMaintenance();
+
+  void setMaintenance(boolean maintenance);
+
+  String getWebhookUrl();
+  void setWebhookUrl(String webhookUrl);
+
+  String getFilePath();
+  void setFilePath(String filePath);
 
   /** Validates and fills in defaults. Idempotent — safe to call multiple times. */
   void check();

@@ -4,12 +4,14 @@ import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.cobbleutils.util.UtilsFile;
+import com.kingpixel.cobbleutils.Model.ItemChance;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
 import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
 import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
 import com.kingpixel.ultrashop.domain.scheduler.Scheduler;
+import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import lombok.Data;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -18,7 +20,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -171,26 +172,63 @@ public class DataShop {
 
     DynamicRotation rotation = products.get(modId).get(shop.getId());
 
-    long now = System.currentTimeMillis();
-    boolean needsUpdate = force
-      || rotation.getTimeToUpdate() < now
-      || rotation.getProducts().isEmpty()
-      || rotation.getProducts().size() != shop.getRotationAmount()
-      || isScheduleStale(scheduler, rotation, now);
+    synchronized (rotation) {
+      long now = System.currentTimeMillis();
+      boolean needsUpdate = force
+        || rotation.getTimeToUpdate() < now
+        || rotation.getProducts().isEmpty()
+        || rotation.getProducts().size() != shop.getRotationAmount()
+        || isScheduleStale(scheduler, rotation, now);
 
-    if (needsUpdate) {
-      ShopContext ctx = ShopContext.get();
-      ctx.getAsyncContext().runAsync(() -> {
-        announceRotationIfEnabled(shop, ctx);
-
-        rotation.setTimeToUpdate(scheduler.nextFireTime(now));
+      if (needsUpdate) {
+        ShopContext ctx = ShopContext.get();
+        long refreshNow = System.currentTimeMillis();
+        rotation.setTimeToUpdate(scheduler.nextFireTime(refreshNow));
         rotation.setProducts(pickWeighted(shop.getProductPool(), shop.getRotationAmount()));
 
-        writeShopRotation(modId, shop.getId(), rotation);
+        List<Product> snapshot = List.copyOf(rotation.getProducts());
+        ctx.getAsyncContext().runAsync(() -> {
+          announceRotationIfEnabled(shop, ctx);
+          writeShopRotation(modId, shop.getId(), rotation);
+          ctx.getSellIndex().rebuild(ctx.getTypedShops());
 
-        // Rebuild sell index after rotation
-        ctx.getSellIndex().rebuild(ctx.getTypedShops());
-      });
+          // Send Discord webhook notification
+          ShopConfig config = ctx.getConfigs().get(modId);
+          String webhookUrl = shop.getWebhookUrl();
+          if (webhookUrl == null || webhookUrl.isBlank()) {
+            if (config != null && config.getWebhooks() != null) {
+              webhookUrl = config.getWebhooks().getRotationWebhookUrl();
+            }
+          }
+          if (webhookUrl != null && !webhookUrl.isBlank()) {
+            String shopName = shop.getDisplayConfig() != null && shop.getDisplayConfig().getName() != null
+              ? shop.getDisplayConfig().getName() : shop.getId();
+            shopName = shopName.replaceAll("(?i)§[0-9a-fk-or]", "").replaceAll("(?i)&[0-9a-fk-or]", "");
+
+            StringBuilder prodList = new StringBuilder();
+            for (Product p : snapshot) {
+              String title = p.getDisplayname();
+              if (title == null || title.isBlank()) {
+                String finalDisplay = p.getDisplay() != null ? p.getDisplay() : p.getProduct();
+                ItemChance itemChance = new ItemChance(finalDisplay, 0);
+                String resolvedTitle = itemChance.getTitle();
+                if (resolvedTitle != null && !resolvedTitle.isBlank() && !resolvedTitle.startsWith("<lang:")) {
+                  title = resolvedTitle;
+                } else {
+                  title = getCleanNameFromId(p.getProduct());
+                }
+              }
+              title = title.replaceAll("(?i)§[0-9a-fk-or]", "").replaceAll("(?i)&[0-9a-fk-or]", "");
+              prodList.append("- ").append(title).append("\n");
+            }
+            String title = "Rotación de Tienda: " + shopName;
+            String desc = "La tienda **" + shopName + "** ha rotado su catálogo. Nuevos productos disponibles:\n\n" + prodList.toString();
+            String payload = com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper.buildEmbedJson(title, desc, 0x00FFFF);
+            com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper.sendWebhook(webhookUrl, payload);
+          }
+        });
+        return snapshot;
+      }
     }
 
     return rotation.getProducts();
@@ -248,7 +286,7 @@ public class DataShop {
     if (pool == null || pool.isEmpty() || amount <= 0) return picked;
 
     List<Product> available = new ArrayList<>(pool);
-    Random rand = new Random();
+    java.util.concurrent.ThreadLocalRandom rand = java.util.concurrent.ThreadLocalRandom.current();
     int target = Math.min(amount, available.size());
 
     for (int i = 0; i < target && !available.isEmpty(); i++) {
@@ -270,5 +308,37 @@ public class DataShop {
       }
     }
     return picked;
+  }
+
+  private static String getCleanNameFromId(String id) {
+    if (id == null || id.isBlank()) return "";
+    if (id.startsWith("pokemon:")) {
+      String rest = id.substring("pokemon:".length()).trim();
+      String species = rest.split("\\s+")[0];
+      if (!species.isEmpty()) {
+        return Character.toUpperCase(species.charAt(0)) + species.substring(1).toLowerCase();
+      }
+      return "Pokémon";
+    }
+    if (id.startsWith("command:")) {
+      return "Command";
+    }
+    String path = id;
+    int colon = id.indexOf(':');
+    if (colon != -1) {
+      path = id.substring(colon + 1);
+    }
+    int brace = path.indexOf('{');
+    if (brace != -1) {
+      path = path.substring(0, brace);
+    }
+    String cleaned = path.replace('_', ' ').replace('-', ' ').trim();
+    StringBuilder sb = new StringBuilder();
+    for (String word : cleaned.split("\\s+")) {
+      if (!word.isEmpty()) {
+        sb.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1).toLowerCase()).append(" ");
+      }
+    }
+    return sb.toString().trim();
   }
 }

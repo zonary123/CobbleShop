@@ -44,6 +44,10 @@ public final class CategoryShop extends AbstractShop implements Shop {
 
   @Override
   public void check() {
+    checkConfigs();
+    if (displayConfig != null && displayConfig.isAutoPlace()) {
+      displayConfig = displayConfig.toBuilder().autoPlace(false).build();
+    }
     if (subShops == null) subShops = new ArrayList<>();
   }
 }

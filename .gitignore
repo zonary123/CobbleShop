@@ -7,7 +7,7 @@ forge/run
 fabric/run
 /run/
 .env
-
+.atl
 
 /forge/.architectury-transformer/debug.log
 

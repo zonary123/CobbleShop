@@ -48,7 +48,12 @@ public class Product {
   @Nullable private Boolean oneByOne;
   @Nullable private UUID uuid;
   @Nullable private Integer max;
-  @Nullable private Integer cooldown;
+  @com.google.gson.annotations.JsonAdapter(com.kingpixel.ultrashop.infrastructure.serialization.CooldownTypeAdapter.class)
+  @Nullable private String cooldown;
+
+  // --- Stock (optional) ---
+  @Nullable private StockMode stockMode;
+  @Nullable private Integer stockAmount;
 
   // --- Dynamic Rotation weight (optional — only relevant in rotational shops) ---
   @Nullable private Integer chance;
@@ -82,7 +87,7 @@ public class Product {
       this.oneByOne = true;
       this.uuid = UUID.randomUUID();
       this.max = 1;
-      this.cooldown = 60;
+      this.cooldown = "60m";
       this.chance = 100;
       this.conditions = new ArrayList<>();
       this.visibilityConditions = new ArrayList<>();
@@ -150,8 +155,22 @@ public class Product {
     if (cooldown != null || max != null) {
       if (uuid == null) uuid = UUID.randomUUID();
       if (max == null) max = 1;
-      if (cooldown == null) cooldown = 60;
+      if (cooldown == null) cooldown = "60m";
     }
+
+    if (stockAmount != null) {
+      if (stockAmount <= 0) {
+        stockAmount = null;
+        stockMode = null;
+      } else {
+        if (uuid == null) uuid = UUID.randomUUID();
+        if (stockMode == null) stockMode = StockMode.PLAYER;
+      }
+    }
+  }
+
+  public boolean hasStockControl() {
+    return stockAmount != null && stockAmount > 0 && stockMode != null && uuid != null;
   }
 
   /**

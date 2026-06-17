@@ -16,7 +16,25 @@ import com.kingpixel.cobbleutils.util.AdventureTranslator;
 import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.ultrashop.ShopContext;
-import com.kingpixel.ultrashop.domain.model.*;
+import com.kingpixel.ultrashop.domain.model.Product;
+import com.kingpixel.ultrashop.domain.model.SubShop;
+import com.kingpixel.ultrashop.domain.model.UserInfo;
+import com.kingpixel.ultrashop.domain.model.PriceEntry;
+import com.kingpixel.ultrashop.domain.model.StockMode;
+import com.kingpixel.ultrashop.domain.model.RotationSchedule;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.NormalShop;
+import com.kingpixel.ultrashop.domain.model.shop.CategoryShop;
+import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
+import com.kingpixel.ultrashop.domain.scheduler.CronScheduler;
+import com.kingpixel.ultrashop.domain.scheduler.DurationScheduler;
+import com.kingpixel.ultrashop.domain.scheduler.Scheduler;
+import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.EconomyConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
+import com.kingpixel.ultrashop.domain.model.shop.config.SoundConfig;
+import com.kingpixel.ultrashop.domain.model.ShopType;
+import com.kingpixel.ultrashop.domain.model.CronExpression;
 import com.kingpixel.ultrashop.infrastructure.config.ConfigLoader;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
@@ -49,7 +67,7 @@ public final class ShopEditMenuBuilder {
   public static void openShopList(ServerPlayerEntity player, ShopConfig config, String modId) {
     ShopContext ctx = ShopContext.get();
     LangConfig lang = ctx.getLang();
-    List<Shop> shops = ctx.getShops(modId);
+    List<Shop> shops = ctx.getTypedShops(modId);
     List<Button> buttons = new ArrayList<>();
 
     for (Shop shop : shops) {
@@ -58,10 +76,21 @@ public final class ShopEditMenuBuilder {
 
       // Layout
       lore.add("§7Type: §f" + shop.getType());
-      lore.add("§7Name: §f" + shop.getName());
-      lore.add("§7Rows: §f" + shop.getRows() + "  §7AutoPlace: " + boolIcon(shop.isAutoPlace()));
-      lore.add("§7Products: §f" + shop.getProducts().size()
-        + "  §7SubShops: §f" + (shop.getSubShops() != null ? shop.getSubShops().size() : 0));
+      lore.add("§7Name: §f" + (shop.getDisplayConfig() != null ? shop.getDisplayConfig().getName() : ""));
+      lore.add("§7Rows: §f" + (shop.getDisplayConfig() != null ? shop.getDisplayConfig().getRows() : 6) + "  §7AutoPlace: " + boolIcon(shop.isAutoPlace()));
+
+      int productCount = 0;
+      int subShopCount = 0;
+      if (shop instanceof NormalShop normal) {
+        productCount = normal.getProducts() != null ? normal.getProducts().size() : 0;
+      } else if (shop instanceof RotationShop rotation) {
+        productCount = rotation.getProductPool() != null ? rotation.getProductPool().size() : 0;
+      } else if (shop instanceof CategoryShop category) {
+        subShopCount = category.getSubShops() != null ? category.getSubShops().size() : 0;
+      }
+
+      lore.add("§7Products: §f" + productCount
+        + "  §7SubShops: §f" + subShopCount);
 
       // Economy
       lore.add("");
@@ -77,22 +106,25 @@ public final class ShopEditMenuBuilder {
       }
 
       // Rotation
-      if (shop.isRotation() && shop.getRotationSchedule() != null) {
+      if (shop instanceof RotationShop r && r.getScheduler() != null) {
         lore.add("");
         lore.add("§d⟳ Rotation");
-        if (shop.getRotationSchedule().getCron() != null) {
-          lore.add("  §7Cron: §f" + shop.getRotationSchedule().getCron() + " §8(priority)");
+        if (r.getScheduler() instanceof com.kingpixel.ultrashop.domain.scheduler.CronScheduler cron) {
+          lore.add("  §7Cron: §f" + cron.getExpression() + " §8(priority)");
+        } else if (r.getScheduler() instanceof com.kingpixel.ultrashop.domain.scheduler.DurationScheduler dur) {
+          lore.add("  §7Interval: §f" + dur.getDuration());
         }
-        lore.add("  §7Interval: §f" + shop.getRotationSchedule().getInterval());
-        lore.add("  §7Amount: §f" + shop.getRotationSchedule().getAmount() + " products");
-        lore.add("  §7Announce: " + boolIcon(shop.isAnnounceRotation()));
+        lore.add("  §7Amount: §f" + r.getRotationAmount() + " products");
+        lore.add("  §7Announce: " + boolIcon(shop.getConditionsConfig() != null && shop.getConditionsConfig().isAnnounceRotation()));
       }
 
       // Conditions
-      if (!shop.getOpenConditions().isEmpty()) {
+      var conditions = shop.getConditionsConfig() != null && shop.getConditionsConfig().getOpenConditions() != null
+        ? shop.getConditionsConfig().getOpenConditions() : List.<Condition>of();
+      if (!conditions.isEmpty()) {
         lore.add("");
-        lore.add("§c⚡ Conditions §7(" + shop.getOpenConditions().size() + ")");
-        for (var cond : shop.getOpenConditions()) {
+        lore.add("§c⚡ Conditions §7(" + conditions.size() + ")");
+        for (var cond : conditions) {
           lore.add("  §7• §f" + cond.getType());
         }
       }
@@ -101,7 +133,7 @@ public final class ShopEditMenuBuilder {
       lore.add("§a▶ Left click §7→ Edit products");
       lore.add("§e▶ Right click §7→ Edit shop settings");
 
-      ItemModel display = LangConfig.resolve(shop.getDisplay(), lang.getGlobalDisplay());
+      ItemModel display = LangConfig.resolve(shop.getDisplayConfig() != null ? shop.getDisplayConfig().getDisplayItem() : null, lang.getGlobalDisplay());
 
       buttons.add(button(display.getItemStack(), "§6§l" + shop.getId(), lore, action -> {
         switch (action.getClickType()) {
@@ -118,10 +150,21 @@ public final class ShopEditMenuBuilder {
     new Rectangle(0, 0, 5, 9).apply(template);
 
     LinkedPage.Builder lp = LinkedPage.builder().template(template)
-      .title(AdventureTranslator.toNative("§6§lShop Editor"));
+      .title(AdventureTranslator.toNative(lang.getEditorTitleShopList()));
     GooeyPage page = buttons.isEmpty() ? lp.build()
       : PaginationHelper.createPagesFromPlaceholders(template, buttons, lp);
     ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
+  }
+
+  // ======================= PRODUCT LIST =======================
+
+  private static List<Product> getEditableProducts(Shop shop) {
+    if (shop instanceof NormalShop normal) {
+      return normal.getProducts();
+    } else if (shop instanceof RotationShop rotation) {
+      return rotation.getProductPool();
+    }
+    return new ArrayList<>();
   }
 
   // ======================= PRODUCT LIST =======================
@@ -130,9 +173,10 @@ public final class ShopEditMenuBuilder {
     ShopContext ctx = ShopContext.get();
     LangConfig lang = ctx.getLang();
     List<Button> buttons = new ArrayList<>();
+    List<Product> products = getEditableProducts(shop);
 
-    for (int i = 0; i < shop.getProducts().size(); i++) {
-      Product product = shop.getProducts().get(i);
+    for (int i = 0; i < products.size(); i++) {
+      Product product = products.get(i);
       final int idx = i;
 
       List<String> lore = new ArrayList<>();
@@ -171,7 +215,7 @@ public final class ShopEditMenuBuilder {
       // Limits
       if (product.getMax() != null) {
         lore.add("");
-        lore.add("§6⏱ Limit: §f" + product.getMax() + " §7every §f" + product.getCooldown() + "min");
+        lore.add("§6⏱ Limit: §f" + product.getMax() + " §7every §f" + product.getCooldown());
       }
 
       // Rotation
@@ -212,7 +256,8 @@ public final class ShopEditMenuBuilder {
       buttons.add(button(icon, typeTag + " §f" + truncate(product.getProduct(), 30), lore, action -> {
         switch (action.getClickType()) {
           case SHIFT_RIGHT_CLICK -> {
-            shop.getProducts().remove(idx);
+            products.remove(idx);
+            ctx.replaceShop(modId, shop);
             ConfigLoader.saveShop(shop);
             openProductList(player, shop, config, modId);
           }
@@ -244,7 +289,8 @@ public final class ShopEditMenuBuilder {
             p.setProduct(itemId);
             p.setBuy(BigDecimal.valueOf(100));
             p.setSell(BigDecimal.valueOf(50));
-            shop.getProducts().add(p);
+            products.add(p);
+            ctx.replaceShop(modId, shop);
             ConfigLoader.saveShop(shop);
             openProductList(player, shop, config, modId);
           }
@@ -272,7 +318,8 @@ public final class ShopEditMenuBuilder {
       p.setBuy(BigDecimal.valueOf(1000));
       p.setSell(BigDecimal.ZERO);
       p.setOneByOne(true);
-      shop.getProducts().add(p);
+      products.add(p);
+      ctx.replaceShop(modId, shop);
       ConfigLoader.saveShop(shop);
       ctx.runOnServer(() -> openProductList(player, shop, config, modId));
     })));
@@ -298,7 +345,8 @@ public final class ShopEditMenuBuilder {
       p.setOneByOne(true);
       p.setDisplay("minecraft:paper");
       p.setDisplayname("§dCommand Reward");
-      shop.getProducts().add(p);
+      products.add(p);
+      ctx.replaceShop(modId, shop);
       ConfigLoader.saveShop(shop);
       ctx.runOnServer(() -> openProductList(player, shop, config, modId));
     })));
@@ -308,7 +356,7 @@ public final class ShopEditMenuBuilder {
     new Rectangle(0, 0, 5, 9).apply(template);
 
     LinkedPage.Builder lp = LinkedPage.builder().template(template)
-      .title(AdventureTranslator.toNative("§6§lProducts: §6" + shop.getId()));
+      .title(AdventureTranslator.toNative(lang.getEditorTitleProductList().replace("%shop%", shop.getId())));
     GooeyPage page = buttons.isEmpty() ? lp.build()
       : PaginationHelper.createPagesFromPlaceholders(template, buttons, lp);
     ShopContext.get().runOnServer(() -> UIManager.openUIForcefully(player, page));
@@ -372,8 +420,11 @@ public final class ShopEditMenuBuilder {
     previewLore.add("  §7OneByOne: " + boolIcon(Boolean.TRUE.equals(product.getOneByOne())));
     previewLore.add("  §7Stack: §f" + safeMaxStack(product));
     if (product.getMax() != null) {
-      previewLore.add("  §7Limit: §f" + product.getMax() + " §7every §f" + product.getCooldown() + "min");
+      previewLore.add("  §7Limit: §f" + product.getMax() + " §7every §f" + product.getCooldown());
       previewLore.add("  §7UUID: §8" + (product.getUuid() != null ? product.getUuid().toString().substring(0, 8) + "..." : "none"));
+    }
+    if (product.hasStockControl()) {
+      previewLore.add("  §7Stock: §f" + product.getStockAmount() + " §8(" + product.getStockMode() + ")");
     }
     if (product.getChance() != null) {
       previewLore.add("  §7Rotation Chance: §f" + product.getChance() + "%");
@@ -416,13 +467,13 @@ public final class ShopEditMenuBuilder {
     template.set(15, priceBtn("§c-100", product::getBuy, v -> product.setBuy(v), -100, shop, player, product, config, modId));
     template.set(16, button(new ItemStack(Items.OAK_SIGN), "§a✎ Set Exact Buy Price",
       List.of("§7Current: §a" + fmt(product.getBuy()), "", "§7Type a number in chat."),
-      a -> ChatInputManager.requestInput(player, "Enter exact buy price:", input -> {
+      a -> ChatInputManager.requestInput(player, lang.getEditorPromptExactBuyPrice(), input -> {
         try {
           product.setBuy(new BigDecimal(input));
           ConfigLoader.saveShop(shop);
           ctx.runOnServer(() -> openProductEditor(player, shop, product, config, modId));
         } catch (NumberFormatException e) {
-          com.kingpixel.cobbleutils.util.PlayerUtils.sendMessage(player, "&cInvalid number: " + input, "", com.kingpixel.cobbleutils.util.TypeMessage.CHAT);
+          sendConfiguredMessage(player, lang.getMessageInvalidNumber().replace("%input%", input));
         }
       })));
 
@@ -439,13 +490,13 @@ public final class ShopEditMenuBuilder {
     template.set(24, priceBtn("§c-100", product::getSell, v -> product.setSell(v), -100, shop, player, product, config, modId));
     template.set(25, button(new ItemStack(Items.OAK_SIGN), "§c✎ Set Exact Sell Price",
       List.of("§7Current: §c" + fmt(product.getSell()), "", "§7Type a number in chat."),
-      a -> ChatInputManager.requestInput(player, "Enter exact sell price:", input -> {
+      a -> ChatInputManager.requestInput(player, lang.getEditorPromptExactSellPrice(), input -> {
         try {
           product.setSell(new BigDecimal(input));
           ConfigLoader.saveShop(shop);
           ctx.runOnServer(() -> openProductEditor(player, shop, product, config, modId));
         } catch (NumberFormatException e) {
-          com.kingpixel.cobbleutils.util.PlayerUtils.sendMessage(player, "&cInvalid number: " + input, "", com.kingpixel.cobbleutils.util.TypeMessage.CHAT);
+          sendConfiguredMessage(player, lang.getMessageInvalidNumber().replace("%input%", input));
         }
       })));
 
@@ -591,7 +642,7 @@ public final class ShopEditMenuBuilder {
     template.set(36, button(new ItemStack(Items.IRON_DOOR), "§6⏱ Max Purchases",
       List.of(SEP,
         "§7Max: §f" + (product.getMax() != null ? product.getMax() : "§8unlimited"),
-        "§7Cooldown: §f" + (product.getCooldown() != null ? product.getCooldown() + " minutes" : "§8none"),
+        "§7Cooldown: §f" + (product.getCooldown() != null ? product.getCooldown() : "§8none"),
         "§7UUID: §8" + (product.getUuid() != null ? product.getUuid().toString().substring(0, 8) + "..." : "auto-generated"),
         "",
         "§7Limits how many times a player can buy.",
@@ -612,13 +663,13 @@ public final class ShopEditMenuBuilder {
           }
           case SHIFT_LEFT_CLICK -> {
             product.setMax((product.getMax() != null ? product.getMax() : 0) + 10);
-            if (product.getCooldown() == null) product.setCooldown(60);
+            if (product.getCooldown() == null) product.setCooldown("60m");
             ConfigLoader.saveShop(shop);
             openProductEditor(player, shop, product, config, modId);
           }
           case LEFT_CLICK -> {
             product.setMax((product.getMax() != null ? product.getMax() : 0) + 1);
-            if (product.getCooldown() == null) product.setCooldown(60);
+            if (product.getCooldown() == null) product.setCooldown("60m");
             ConfigLoader.saveShop(shop);
             openProductEditor(player, shop, product, config, modId);
           }
@@ -635,39 +686,35 @@ public final class ShopEditMenuBuilder {
         }
       }));
 
-    template.set(37, button(new ItemStack(Items.CLOCK), "§6⏱ Cooldown (minutes)",
+    template.set(37, button(new ItemStack(Items.CLOCK), "§6⏱ Cooldown (duration/cron)",
       List.of(SEP,
-        "§7Current: §f" + (product.getCooldown() != null ? product.getCooldown() + " minutes" : "§8none"),
+        "§7Current: §f" + (product.getCooldown() != null ? product.getCooldown() : "§8none"),
         "",
         "§7Time before the purchase limit resets.",
         "§7Requires §fMax Purchases §7to be set.",
         SEP,
-        "§a▶ Left §7→ +10min",
-        "§c▶ Right §7→ -10min",
+        "§a▶ Left §7→ +10m",
+        "§c▶ Right §7→ -10m",
         "§e▶ Shift §7→ Set exact via chat"),
       a -> {
         switch (a.getClickType()) {
           case SHIFT_LEFT_CLICK, SHIFT_RIGHT_CLICK ->
-            ChatInputManager.requestInput(player, "Enter cooldown in minutes:", input -> {
-              try {
-                int m = Integer.parseInt(input);
-                product.setCooldown(m > 0 ? m : null);
-                ConfigLoader.saveShop(shop);
-                ctx.runOnServer(() -> openProductEditor(player, shop, product, config, modId));
-              } catch (NumberFormatException e) {
-                com.kingpixel.cobbleutils.util.PlayerUtils.sendMessage(player, "&cInvalid number", "", com.kingpixel.cobbleutils.util.TypeMessage.CHAT);
+            ChatInputManager.requestInput(player, "Enter cooldown (e.g. 60m, 1d, 0 0 * * *):", input -> {
+              if (input == null || input.isBlank() || input.equalsIgnoreCase("none")) {
+                product.setCooldown(null);
+              } else {
+                product.setCooldown(input.trim());
               }
+              ConfigLoader.saveShop(shop);
+              ctx.runOnServer(() -> openProductEditor(player, shop, product, config, modId));
             });
           case LEFT_CLICK -> {
-            int c = product.getCooldown() != null ? product.getCooldown() : 0;
-            product.setCooldown(c + 10);
+            product.setCooldown(addMinutesToCooldown(product.getCooldown(), 10));
             ConfigLoader.saveShop(shop);
             openProductEditor(player, shop, product, config, modId);
           }
           default -> {
-            if (product.getCooldown() != null && product.getCooldown() > 10)
-              product.setCooldown(product.getCooldown() - 10);
-            else product.setCooldown(null);
+            product.setCooldown(addMinutesToCooldown(product.getCooldown(), -10));
             ConfigLoader.saveShop(shop);
             openProductEditor(player, shop, product, config, modId);
           }
@@ -706,7 +753,7 @@ public final class ShopEditMenuBuilder {
         "",
         "§7Fixed slot in the shop GUI.",
         "§7Only used when AutoPlace is OFF.",
-        "§7Slots: 0-" + ((shop.getRows() * 9) - 1),
+        "§7Slots: 0-" + (((shop.getDisplayConfig() != null ? shop.getDisplayConfig().getRows() : 6) * 9) - 1),
         SEP,
         "§a▶ Left §7→ +1",
         "§c▶ Right §7→ -1",
@@ -820,12 +867,62 @@ public final class ShopEditMenuBuilder {
         visLore, a -> openProductConditionsList(player, shop, product, config, modId, true)));
     }
 
+    template.set(43, button(new ItemStack(Items.CHEST), lang.getEditorButtonStockControl(),
+      List.of(SEP,
+        "§7Enabled: " + boolIcon(product.hasStockControl()),
+        "§7Amount: §f" + (product.getStockAmount() != null ? product.getStockAmount() : "§8none"),
+        "§7Mode: §f" + (product.getStockMode() != null ? product.getStockMode() : "§8none"),
+        "",
+        "§7PLAYER: stock per player",
+        "§7GLOBAL: shared stock for all players",
+        SEP,
+        "§a▶ Left §7→ +1 stock",
+        "§c▶ Right §7→ -1 stock",
+        "§e▶ Middle §7→ Toggle mode",
+        "§c▶ Shift §7→ Disable stock"),
+      a -> {
+        switch (a.getClickType()) {
+          case SHIFT_LEFT_CLICK, SHIFT_RIGHT_CLICK -> {
+            product.setStockAmount(null);
+            product.setStockMode(null);
+            ConfigLoader.saveShop(shop);
+            openProductEditor(player, shop, product, config, modId);
+          }
+          case MIDDLE_CLICK -> {
+            if (product.getStockAmount() == null || product.getStockAmount() <= 0) {
+              product.setStockAmount(1);
+            }
+            StockMode mode = product.getStockMode();
+            product.setStockMode(mode == StockMode.GLOBAL ? StockMode.PLAYER : StockMode.GLOBAL);
+            ConfigLoader.saveShop(shop);
+            openProductEditor(player, shop, product, config, modId);
+          }
+          case LEFT_CLICK -> {
+            int current = product.getStockAmount() != null ? product.getStockAmount() : 0;
+            product.setStockAmount(current + 1);
+            if (product.getStockMode() == null) product.setStockMode(StockMode.PLAYER);
+            ConfigLoader.saveShop(shop);
+            openProductEditor(player, shop, product, config, modId);
+          }
+          default -> {
+            if (product.getStockAmount() != null && product.getStockAmount() > 1) {
+              product.setStockAmount(product.getStockAmount() - 1);
+            } else {
+              product.setStockAmount(null);
+              product.setStockMode(null);
+            }
+            ConfigLoader.saveShop(shop);
+            openProductEditor(player, shop, product, config, modId);
+          }
+        }
+      }));
+
     // Bottom nav
     template.set(45, backBtn(lang, a -> openProductList(player, shop, config, modId)));
     template.set(49, closeBtn(lang, player));
 
     GooeyPage page = GooeyPage.builder().template(template)
-      .title(AdventureTranslator.toNative("§6§lEdit: §6" + truncate(product.getProduct(), 20)))
+      .title(AdventureTranslator.toNative(lang.getEditorTitleProductEdit().replace("%product%", truncate(product.getProduct(), 20))))
       .build();
     ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
   }
@@ -839,158 +936,183 @@ public final class ShopEditMenuBuilder {
 
     // Row 0: Basic info
     template.set(0, button(new ItemStack(Items.NAME_TAG), "§e✎ Name",
-      List.of(SEP, "§7Current: §f" + shop.getName(), "",
+      List.of(SEP, "§7Current: §f" + (shop.getDisplayConfig() != null ? shop.getDisplayConfig().getName() : ""), "",
         "§7Internal display name of this shop.", SEP, "§a▶ Click §7→ Set via chat"),
       a -> ChatInputManager.requestInput(player, "Enter shop name:", input -> {
-        shop.setName(input);
+        shop.setDisplayConfig(shop.getDisplayConfig().toBuilder().name(input).build());
+        ctx.replaceShop(modId, shop);
         ConfigLoader.saveShop(shop);
         ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
       })));
 
     template.set(1, button(new ItemStack(Items.OAK_SIGN), "§e✎ Title",
-      List.of(SEP, "§7Current: §f" + shop.getTitle(), "",
+      List.of(SEP, "§7Current: §f" + (shop.getDisplayConfig() != null ? shop.getDisplayConfig().getTitle() : ""), "",
         "§7GUI window title. Use §f%shop% §7for shop id.", SEP, "§a▶ Click §7→ Set via chat"),
       a -> ChatInputManager.requestInput(player, "Enter GUI title (use %shop%):", input -> {
-        shop.setTitle(input);
+        shop.setDisplayConfig(shop.getDisplayConfig().toBuilder().title(input).build());
+        ctx.replaceShop(modId, shop);
         ConfigLoader.saveShop(shop);
         ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
       })));
 
-    template.set(2, button(new ItemStack(shop.isAutoPlace() ? Items.LIME_DYE : Items.GRAY_DYE),
-      "§eAutoPlace: " + boolIcon(shop.isAutoPlace()),
-      List.of(SEP, "§7Current: " + boolIcon(shop.isAutoPlace()), "",
+    template.set(2, button(new ItemStack((shop.getDisplayConfig() != null && shop.getDisplayConfig().isAutoPlace()) ? Items.LIME_DYE : Items.GRAY_DYE),
+      "§eAutoPlace: " + boolIcon(shop.getDisplayConfig() != null && shop.getDisplayConfig().isAutoPlace()),
+      List.of(SEP, "§7Current: " + boolIcon(shop.getDisplayConfig() != null && shop.getDisplayConfig().isAutoPlace()), "",
         "§7When ON, products fill the grid automatically.",
         "§7When OFF, each product needs a slot number.", SEP,
         "§a▶ Click §7→ Toggle"),
       a -> {
-        shop.setAutoPlace(!shop.isAutoPlace());
+        boolean auto = shop.getDisplayConfig() != null && shop.getDisplayConfig().isAutoPlace();
+        shop.setDisplayConfig(shop.getDisplayConfig().toBuilder().autoPlace(!auto).build());
+        ctx.replaceShop(modId, shop);
         ConfigLoader.saveShop(shop);
         openShopSettings(player, shop, config, modId);
       }));
 
-    template.set(3, button(new ItemStack(Items.OAK_STAIRS, Math.max(1, shop.getRows())),
-      "§eRows: §f" + shop.getRows(),
-      List.of(SEP, "§7Current: §f" + shop.getRows() + " rows §8(" + (shop.getRows() * 9) + " slots)", "",
+    int rows = shop.getDisplayConfig() != null ? shop.getDisplayConfig().getRows() : 6;
+    template.set(3, button(new ItemStack(Items.OAK_STAIRS, Math.max(1, rows)),
+      "§eRows: §f" + rows,
+      List.of(SEP, "§7Current: §f" + rows + " rows §8(" + (rows * 9) + " slots)", "",
         "§7Number of rows in the shop chest GUI.", SEP,
         "§a▶ Left §7→ +1", "§c▶ Right §7→ -1"),
       a -> {
-        if (a.getClickType().name().contains("LEFT")) shop.setRows(Math.min(shop.getRows() + 1, 6));
-        else shop.setRows(Math.max(shop.getRows() - 1, 1));
+        int r = shop.getDisplayConfig() != null ? shop.getDisplayConfig().getRows() : 6;
+        if (a.getClickType().name().contains("LEFT")) r = Math.min(r + 1, 6);
+        else r = Math.max(r - 1, 1);
+        shop.setDisplayConfig(shop.getDisplayConfig().toBuilder().rows(r).build());
+        ctx.replaceShop(modId, shop);
         ConfigLoader.saveShop(shop);
         openShopSettings(player, shop, config, modId);
       }));
 
+    float globalDiscount = shop.getEconomyConfig() != null ? shop.getEconomyConfig().getGlobalDiscount() : 0f;
     template.set(4, button(new ItemStack(Items.GOLD_INGOT),
-      "§e✦ Global Discount: §f" + shop.getGlobalDiscount() + "%",
-      List.of(SEP, "§7Current: §e" + shop.getGlobalDiscount() + "%", "",
+      "§e✦ Global Discount: §f" + globalDiscount + "%",
+      List.of(SEP, "§7Current: §e" + globalDiscount + "%", "",
         "§7Applied to ALL buy prices in this shop.",
         "§7Stacks with per-product discounts.", SEP,
         "§a▶ Left §7→ +5%", "§c▶ Right §7→ -5%"),
       a -> {
-        if (a.getClickType().name().contains("LEFT"))
-          shop.setGlobalDiscount(Math.min(shop.getGlobalDiscount() + 5f, 100f));
-        else shop.setGlobalDiscount(Math.max(shop.getGlobalDiscount() - 5f, 0f));
+        float gd = shop.getEconomyConfig() != null ? shop.getEconomyConfig().getGlobalDiscount() : 0f;
+        if (a.getClickType().name().contains("LEFT")) gd = Math.min(gd + 5f, 100f);
+        else gd = Math.max(gd - 5f, 0f);
+        shop.setEconomyConfig(shop.getEconomyConfig().toBuilder().globalDiscount(gd).build());
+        ctx.replaceShop(modId, shop);
         ConfigLoader.saveShop(shop);
         openShopSettings(player, shop, config, modId);
       }));
 
     // Permission discounts (read-only)
     {
+      var discounts = shop.getEconomyConfig() != null && shop.getEconomyConfig().getDiscounts() != null ? shop.getEconomyConfig().getDiscounts() : Map.<String, Float>of();
       List<String> discLore = new ArrayList<>();
       discLore.add(SEP);
-      if (shop.getDiscounts().isEmpty()) {
+      if (discounts.isEmpty()) {
         discLore.add("§7No permission discounts configured.");
       } else {
-        for (var entry : shop.getDiscounts().entrySet()) {
+        for (var entry : discounts.entrySet()) {
           discLore.add("§7" + entry.getKey() + " §8→ §e" + entry.getValue() + "%");
         }
       }
       discLore.add(SEP);
       discLore.add("§8Edit in JSON: §7discounts");
       template.set(5, button(new ItemStack(Items.EXPERIENCE_BOTTLE),
-        "§e✦ Permission Discounts §7(" + shop.getDiscounts().size() + ")",
+        "§e✦ Permission Discounts §7(" + discounts.size() + ")",
         discLore, a -> {
         }));
     }
 
     // Economies (read-only)
     {
+      var economies = shop.getEconomyConfig() != null && shop.getEconomyConfig().getEconomies() != null ? shop.getEconomyConfig().getEconomies() : new java.util.LinkedHashSet<com.kingpixel.cobbleutils.Model.EconomyUse>();
       List<String> ecoLore = new ArrayList<>();
       ecoLore.add(SEP);
-      for (var eco : shop.getEconomies()) {
+      for (var eco : economies) {
         ecoLore.add("§7• §f" + eco.getEconomyId() + " §8: §f" + eco.getCurrency());
       }
       ecoLore.add(SEP);
       ecoLore.add("§8Edit in JSON: §7economies");
       template.set(6, button(new ItemStack(Items.DIAMOND),
-        "§e⛃ Economies §7(" + shop.getEconomies().size() + ")",
+        "§e⛃ Economies §7(" + economies.size() + ")",
         ecoLore, a -> {
         }));
     }
 
     // Row 1: Sounds & behavior
+    String soundOpen = shop.getSoundConfig() != null ? shop.getSoundConfig().getSoundOpen() : "";
     template.set(9, button(new ItemStack(Items.NOTE_BLOCK), "§e♪ Sound Open",
-      List.of(SEP, "§7Current: §f" + orEmpty(shop.getSoundOpen()), "",
+      List.of(SEP, "§7Current: §f" + orEmpty(soundOpen), "",
         "§7Sound played when the shop GUI opens.",
         "§7Example: §fminecraft:block.chest.open", SEP,
         "§a▶ Click §7→ Set via chat"),
       a -> ChatInputManager.requestInput(player, "Enter open sound (e.g. minecraft:block.chest.open):", input -> {
-        shop.setSoundOpen(input);
+        shop.setSoundConfig(shop.getSoundConfig().toBuilder().soundOpen(input).build());
+        ctx.replaceShop(modId, shop);
         ConfigLoader.saveShop(shop);
         ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
       })));
 
+    String soundClose = shop.getSoundConfig() != null ? shop.getSoundConfig().getSoundClose() : "";
     template.set(10, button(new ItemStack(Items.NOTE_BLOCK), "§e♪ Sound Close",
-      List.of(SEP, "§7Current: §f" + orEmpty(shop.getSoundClose()), "",
+      List.of(SEP, "§7Current: §f" + orEmpty(soundClose), "",
         "§7Sound played when the shop GUI closes.", SEP,
         "§a▶ Click §7→ Set via chat"),
       a -> ChatInputManager.requestInput(player, "Enter close sound:", input -> {
-        shop.setSoundClose(input);
+        shop.setSoundConfig(shop.getSoundConfig().toBuilder().soundClose(input).build());
+        ctx.replaceShop(modId, shop);
         ConfigLoader.saveShop(shop);
         ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
       })));
 
+    String closeCommand = shop.getConditionsConfig() != null ? shop.getConditionsConfig().getCloseCommand() : "";
     template.set(11, button(new ItemStack(Items.LEVER), "§e⚙ Close Command",
-      List.of(SEP, "§7Current: §f" + orEmpty(shop.getCloseCommand()), "",
+      List.of(SEP, "§7Current: §f" + orEmpty(closeCommand), "",
         "§7Command that runs when close button is clicked.",
         "§7Use §f%player% §7for the player's name.", SEP,
         "§a▶ Click §7→ Set", "§c▶ Shift §7→ Clear"),
       a -> {
         if (a.getClickType().name().contains("SHIFT")) {
-          shop.setCloseCommand("");
+          shop.setConditionsConfig(shop.getConditionsConfig().toBuilder().closeCommand("").build());
+          ctx.replaceShop(modId, shop);
           ConfigLoader.saveShop(shop);
           openShopSettings(player, shop, config, modId);
         } else ChatInputManager.requestInput(player, "Enter close command:", input -> {
-          shop.setCloseCommand(input);
+          shop.setConditionsConfig(shop.getConditionsConfig().toBuilder().closeCommand(input).build());
+          ctx.replaceShop(modId, shop);
           ConfigLoader.saveShop(shop);
           ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
         });
       }));
 
-    template.set(12, button(new ItemStack(shop.isAnnounceRotation() ? Items.BELL : Items.GRAY_DYE),
-      "§e📢 Announce Rotation: " + boolIcon(shop.isAnnounceRotation()),
-      List.of(SEP, "§7Current: " + boolIcon(shop.isAnnounceRotation()), "",
+    boolean announceRot = shop.getConditionsConfig() != null && shop.getConditionsConfig().isAnnounceRotation();
+    template.set(12, button(new ItemStack(announceRot ? Items.BELL : Items.GRAY_DYE),
+      "§e📢 Announce Rotation: " + boolIcon(announceRot),
+      List.of(SEP, "§7Current: " + boolIcon(announceRot), "",
         "§7Broadcasts a message to all players when",
         "§7the shop's products rotate.", SEP,
         "§a▶ Click §7→ Toggle"),
       a -> {
-        shop.setAnnounceRotation(!shop.isAnnounceRotation());
+        shop.setConditionsConfig(shop.getConditionsConfig().toBuilder().announceRotation(!announceRot).build());
+        ctx.replaceShop(modId, shop);
         ConfigLoader.saveShop(shop);
         openShopSettings(player, shop, config, modId);
       }));
 
+    String colorProduct = shop.getDisplayConfig() != null ? shop.getDisplayConfig().getColorProduct() : "";
     template.set(13, button(new ItemStack(Items.SPYGLASS), "§e🎨 Color Prefix",
-      List.of(SEP, "§7Current: §f" + orEmpty(shop.getColorProduct()), "",
+      List.of(SEP, "§7Current: §f" + orEmpty(colorProduct), "",
         "§7Color prefix added to product names.",
         "§7Example: §6&6 §7→ gold text", SEP,
         "§a▶ Click §7→ Set", "§c▶ Shift §7→ Clear"),
       a -> {
         if (a.getClickType().name().contains("SHIFT")) {
-          shop.setColorProduct("");
+          shop.setDisplayConfig(shop.getDisplayConfig().toBuilder().colorProduct("").build());
+          ctx.replaceShop(modId, shop);
           ConfigLoader.saveShop(shop);
           openShopSettings(player, shop, config, modId);
         } else ChatInputManager.requestInput(player, "Enter color prefix (e.g. &6, <#ff0000>):", input -> {
-          shop.setColorProduct(input);
+          shop.setDisplayConfig(shop.getDisplayConfig().toBuilder().colorProduct(input).build());
+          ctx.replaceShop(modId, shop);
           ConfigLoader.saveShop(shop);
           ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
         });
@@ -998,20 +1120,21 @@ public final class ShopEditMenuBuilder {
 
     // Open Conditions
     {
+      var openConditions = shop.getConditionsConfig() != null && shop.getConditionsConfig().getOpenConditions() != null ? shop.getConditionsConfig().getOpenConditions() : List.<Condition>of();
       List<String> condLore = new ArrayList<>();
       condLore.add(SEP);
-      if (shop.getOpenConditions().isEmpty()) {
+      if (openConditions.isEmpty()) {
         condLore.add("§7No conditions — shop is always open.");
       } else {
-        for (int i = 0; i < shop.getOpenConditions().size(); i++) {
-          var cond = shop.getOpenConditions().get(i);
+        for (int i = 0; i < openConditions.size(); i++) {
+          var cond = openConditions.get(i);
           condLore.add("§7" + (i + 1) + ". §f" + cond.getType());
         }
       }
       condLore.add(SEP);
       condLore.add("§a▶ Click §7→ Manage conditions");
       template.set(14, button(new ItemStack(Items.IRON_BARS),
-        "§c⚡ Open Conditions §7(" + shop.getOpenConditions().size() + ")",
+        "§c⚡ Open Conditions §7(" + openConditions.size() + ")",
         condLore, a -> openConditionsList(player, shop, config, modId)));
     }
 
@@ -1020,17 +1143,19 @@ public final class ShopEditMenuBuilder {
       List<String> rotLore = new ArrayList<>();
       rotLore.add(SEP);
       rotLore.add("§7Type: §f" + shop.getType());
-      if (shop.getRotationSchedule() != null) {
-        String cronStr = shop.getRotationSchedule().getCron();
-        rotLore.add("§7Cron: §f" + (cronStr != null && !cronStr.isBlank() ? cronStr + " §8(priority)" : "§8none"));
-        rotLore.add("§7Interval: §f" + shop.getRotationSchedule().getInterval()
-          + (cronStr != null && !cronStr.isBlank() ? " §8(ignored — cron set)" : ""));
-        rotLore.add("§7Amount: §f" + shop.getRotationSchedule().getAmount() + " products per rotation");
-        if (shop.isRotation()) {
-          long next = ShopContext.get().getDataShop().getActualCooldown(modId, shop.getId());
-          if (next > 0) {
-            rotLore.add("§7Next rotation: §f" + java.time.Instant.ofEpochMilli(next));
-          }
+      if (shop instanceof RotationShop r) {
+        Scheduler scheduler = r.getScheduler();
+        if (scheduler instanceof CronScheduler cron) {
+          rotLore.add("§7Cron: §f" + cron.getExpression() + " §8(priority)");
+          rotLore.add("§7Interval: none §8(ignored — cron set)");
+        } else if (scheduler instanceof DurationScheduler dur) {
+          rotLore.add("§7Cron: §8none");
+          rotLore.add("§7Interval: §f" + dur.getDuration());
+        }
+        rotLore.add("§7Amount: §f" + r.getRotationAmount() + " products per rotation");
+        long next = ShopContext.get().getDataShop().getActualCooldown(modId, shop.getId());
+        if (next > 0) {
+          rotLore.add("§7Next rotation: §f" + java.time.Instant.ofEpochMilli(next));
         }
       } else {
         rotLore.add("§7No rotation — type is " + shop.getType() + ".");
@@ -1045,42 +1170,116 @@ public final class ShopEditMenuBuilder {
         a -> {
           switch (a.getClickType()) {
             case SHIFT_LEFT_CLICK, SHIFT_RIGHT_CLICK -> {
-              shop.setRotationSchedule(null);
-              shop.setType(ShopType.NORMAL);
-              ConfigLoader.saveShop(shop);
-              openShopSettings(player, shop, config, modId);
+              if (shop instanceof RotationShop r) {
+                NormalShop normal = new NormalShop();
+                normal.setId(r.getId());
+                normal.setFilePath(r.getFilePath());
+                normal.setDisplayConfig(r.getDisplayConfig());
+                normal.setEconomyConfig(r.getEconomyConfig());
+                normal.setConditionsConfig(r.getConditionsConfig());
+                normal.setSoundConfig(r.getSoundConfig());
+                normal.setMaintenance(r.isMaintenance());
+                normal.setWebhookUrl(r.getWebhookUrl());
+                normal.setProducts(new ArrayList<>(r.getProductPool()));
+                ctx.replaceShop(modId, normal);
+                ConfigLoader.saveShop(normal);
+                openShopSettings(player, normal, config, modId);
+              }
             }
             case RIGHT_CLICK -> ChatInputManager.requestInput(player, "Enter rotation amount:", input -> {
               try {
                 int amt = Integer.parseInt(input);
-                if (shop.getRotationSchedule() == null) shop.setRotationSchedule(new RotationSchedule("1h", amt));
-                else shop.getRotationSchedule().setAmount(amt);
-                shop.setType(ShopType.ROTATION);
-                ConfigLoader.saveShop(shop);
-                ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
+                if (shop instanceof RotationShop r) {
+                  r.setRotationAmount(amt);
+                  ctx.replaceShop(modId, r);
+                  ConfigLoader.saveShop(r);
+                  ctx.runOnServer(() -> openShopSettings(player, r, config, modId));
+                } else {
+                  RotationShop rotation = new RotationShop();
+                  rotation.setId(shop.getId());
+                  rotation.setFilePath(shop.getFilePath());
+                  rotation.setDisplayConfig(shop.getDisplayConfig());
+                  rotation.setEconomyConfig(shop.getEconomyConfig());
+                  rotation.setConditionsConfig(shop.getConditionsConfig());
+                  rotation.setSoundConfig(shop.getSoundConfig());
+                  rotation.setMaintenance(shop.isMaintenance());
+                  rotation.setWebhookUrl(shop.getWebhookUrl());
+                  if (shop instanceof NormalShop n) {
+                    rotation.setProductPool(new ArrayList<>(n.getProducts()));
+                  }
+                  rotation.setRotationAmount(amt);
+                  rotation.setScheduler(Scheduler.defaultScheduler());
+                  ctx.replaceShop(modId, rotation);
+                  ConfigLoader.saveShop(rotation);
+                  ctx.runOnServer(() -> openShopSettings(player, rotation, config, modId));
+                }
               } catch (NumberFormatException e) {
-                PlayerUtils.sendMessage(player, "&cInvalid number", "", TypeMessage.CHAT);
+                sendConfiguredMessage(player, lang.getMessageInvalidNumber().replace("%input%", input));
               }
             });
             case MIDDLE_CLICK -> ChatInputManager.requestInput(player, "Enter cron (e.g. 0 18 * * 5):", input -> {
               try {
                 CronExpression.parse(input); // validate
               } catch (Exception e) {
-                PlayerUtils.sendMessage(player, "&cInvalid cron: " + e.getMessage(), "", TypeMessage.CHAT);
+                sendConfiguredMessage(player, lang.getMessageConditionCreateFailed().replace("%error%", e.getMessage()));
                 return;
               }
-              if (shop.getRotationSchedule() == null) shop.setRotationSchedule(new RotationSchedule("1h", 3));
-              shop.getRotationSchedule().setCron(input);
-              shop.setType(ShopType.ROTATION);
-              ConfigLoader.saveShop(shop);
-              ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
+              if (shop instanceof RotationShop r) {
+                r.setScheduler(new CronScheduler(input));
+                ctx.replaceShop(modId, r);
+                ConfigLoader.saveShop(r);
+                ctx.runOnServer(() -> openShopSettings(player, r, config, modId));
+              } else {
+                RotationShop rotation = new RotationShop();
+                rotation.setId(shop.getId());
+                rotation.setFilePath(shop.getFilePath());
+                rotation.setDisplayConfig(shop.getDisplayConfig());
+                rotation.setEconomyConfig(shop.getEconomyConfig());
+                rotation.setConditionsConfig(shop.getConditionsConfig());
+                rotation.setSoundConfig(shop.getSoundConfig());
+                rotation.setMaintenance(shop.isMaintenance());
+                rotation.setWebhookUrl(shop.getWebhookUrl());
+                if (shop instanceof NormalShop n) {
+                  rotation.setProductPool(new ArrayList<>(n.getProducts()));
+                }
+                rotation.setRotationAmount(3);
+                rotation.setScheduler(new CronScheduler(input));
+                ctx.replaceShop(modId, rotation);
+                ConfigLoader.saveShop(rotation);
+                ctx.runOnServer(() -> openShopSettings(player, rotation, config, modId));
+              }
             });
             default -> ChatInputManager.requestInput(player, "Enter interval (e.g. 30m, 1h, 12h, 7d):", input -> {
-              if (shop.getRotationSchedule() == null) shop.setRotationSchedule(new RotationSchedule(input, 3));
-              else shop.getRotationSchedule().setInterval(input);
-              shop.setType(ShopType.ROTATION);
-              ConfigLoader.saveShop(shop);
-              ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
+              try {
+                new DurationScheduler(input); // validate
+              } catch (Exception e) {
+                sendConfiguredMessage(player, lang.getMessageConditionCreateFailed().replace("%error%", e.getMessage()));
+                return;
+              }
+              if (shop instanceof RotationShop r) {
+                r.setScheduler(new DurationScheduler(input));
+                ctx.replaceShop(modId, r);
+                ConfigLoader.saveShop(r);
+                ctx.runOnServer(() -> openShopSettings(player, r, config, modId));
+              } else {
+                RotationShop rotation = new RotationShop();
+                rotation.setId(shop.getId());
+                rotation.setFilePath(shop.getFilePath());
+                rotation.setDisplayConfig(shop.getDisplayConfig());
+                rotation.setEconomyConfig(shop.getEconomyConfig());
+                rotation.setConditionsConfig(shop.getConditionsConfig());
+                rotation.setSoundConfig(shop.getSoundConfig());
+                rotation.setMaintenance(shop.isMaintenance());
+                rotation.setWebhookUrl(shop.getWebhookUrl());
+                if (shop instanceof NormalShop n) {
+                  rotation.setProductPool(new ArrayList<>(n.getProducts()));
+                }
+                rotation.setRotationAmount(3);
+                rotation.setScheduler(new DurationScheduler(input));
+                ctx.replaceShop(modId, rotation);
+                ConfigLoader.saveShop(rotation);
+                ctx.runOnServer(() -> openShopSettings(player, rotation, config, modId));
+              }
             });
           }
         }));
@@ -1091,7 +1290,7 @@ public final class ShopEditMenuBuilder {
     template.set(31, closeBtn(lang, player));
 
     GooeyPage page = GooeyPage.builder().template(template)
-      .title(AdventureTranslator.toNative("§6§lSettings: §6" + shop.getId()))
+      .title(AdventureTranslator.toNative(lang.getEditorTitleShopSettings().replace("%shop%", shop.getId())))
       .build();
     ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
   }
@@ -1153,7 +1352,9 @@ public final class ShopEditMenuBuilder {
             p.setBuy(BigDecimal.valueOf(100));
             p.setSell(BigDecimal.valueOf(50));
           }
-          shop.getProducts().add(p);
+          List<Product> products = getEditableProducts(shop);
+          products.add(p);
+          ctx.replaceShop(modId, shop);
           ConfigLoader.saveShop(shop);
           openProductList(player, shop, config, modId);
         })
@@ -1167,7 +1368,7 @@ public final class ShopEditMenuBuilder {
     new Rectangle(0, 0, 5, 9).apply(template);
 
     LinkedPage.Builder lp = LinkedPage.builder().template(template)
-      .title(AdventureTranslator.toNative("§6§lPick Item from Inventory"));
+      .title(AdventureTranslator.toNative(lang.getEditorTitleInventoryPicker()));
     GooeyPage page = buttons.isEmpty() ? lp.build()
       : PaginationHelper.createPagesFromPlaceholders(template, buttons, lp);
     ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
@@ -1236,7 +1437,7 @@ public final class ShopEditMenuBuilder {
     new Rectangle(0, 0, 5, 9).apply(template);
 
     LinkedPage.Builder lp = LinkedPage.builder().template(template)
-      .title(AdventureTranslator.toNative("§6§lPick Item for: §6" + truncate(product.getProduct(), 18)));
+      .title(AdventureTranslator.toNative(lang.getEditorTitleInventoryPickerEdit().replace("%product%", truncate(product.getProduct(), 18))));
     GooeyPage page = buttons.isEmpty() ? lp.build()
       : PaginationHelper.createPagesFromPlaceholders(template, buttons, lp);
     ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
@@ -1253,9 +1454,11 @@ public final class ShopEditMenuBuilder {
     ShopContext ctx = ShopContext.get();
     LangConfig lang = ctx.getLang();
     List<Button> buttons = new ArrayList<>();
+    var openConditions = shop.getConditionsConfig() != null && shop.getConditionsConfig().getOpenConditions() != null 
+        ? shop.getConditionsConfig().getOpenConditions() : List.<Condition>of();
 
-    for (int i = 0; i < shop.getOpenConditions().size(); i++) {
-      var cond = shop.getOpenConditions().get(i);
+    for (int i = 0; i < openConditions.size(); i++) {
+      var cond = openConditions.get(i);
       final int idx = i;
 
       List<String> lore = new ArrayList<>();
@@ -1275,7 +1478,10 @@ public final class ShopEditMenuBuilder {
 
       buttons.add(button(new ItemStack(Items.PAPER), "§e#" + (i + 1) + " §f" + cond.getType(), lore, a -> {
         if (a.getClickType().name().contains("SHIFT")) {
-          shop.getOpenConditions().remove(idx);
+          List<Condition> mutableConditions = new ArrayList<>(openConditions);
+          mutableConditions.remove(idx);
+          shop.setConditionsConfig(shop.getConditionsConfig().toBuilder().openConditions(mutableConditions).build());
+          ctx.replaceShop(modId, shop);
           ConfigLoader.saveShop(shop);
           openConditionsList(player, shop, config, modId);
         }
@@ -1300,7 +1506,7 @@ public final class ShopEditMenuBuilder {
     new Rectangle(0, 0, 5, 9).apply(template);
 
     LinkedPage.Builder lp = LinkedPage.builder().template(template)
-      .title(AdventureTranslator.toNative("§6§lConditions: §6" + shop.getId()));
+      .title(AdventureTranslator.toNative(lang.getEditorTitleConditionList().replace("%shop%", shop.getId())));
     GooeyPage page = buttons.isEmpty() ? lp.build()
       : PaginationHelper.createPagesFromPlaceholders(template, buttons, lp);
     ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
@@ -1319,8 +1525,7 @@ public final class ShopEditMenuBuilder {
     // Access the TYPES map from ConditionAdapter via reflection
     Map<String, Class<? extends com.kingpixel.cobbleutils.Model.conditions.Condition>> types = getConditionTypes();
     if (types == null || types.isEmpty()) {
-      com.kingpixel.cobbleutils.util.PlayerUtils.sendMessage(player,
-        "&cCould not load condition types from CobbleUtils.", "", com.kingpixel.cobbleutils.util.TypeMessage.CHAT);
+      sendConfiguredMessage(player, lang.getMessageConditionTypesUnavailable());
       openConditionsList(player, shop, config, modId);
       return;
     }
@@ -1342,12 +1547,16 @@ public final class ShopEditMenuBuilder {
       buttons.add(button(new ItemStack(Items.CHAIN), "§e" + typeName, lore, a -> {
         try {
           var condition = clazz.getDeclaredConstructor().newInstance();
-          shop.getOpenConditions().add(condition);
+          var openConditions = shop.getConditionsConfig() != null && shop.getConditionsConfig().getOpenConditions() != null 
+              ? shop.getConditionsConfig().getOpenConditions() : List.<Condition>of();
+          List<Condition> mutableConditions = new ArrayList<>(openConditions);
+          mutableConditions.add(condition);
+          shop.setConditionsConfig(shop.getConditionsConfig().toBuilder().openConditions(mutableConditions).build());
+          ctx.replaceShop(modId, shop);
           ConfigLoader.saveShop(shop);
           openConditionsList(player, shop, config, modId);
         } catch (Exception e) {
-          com.kingpixel.cobbleutils.util.PlayerUtils.sendMessage(player,
-            "&cFailed to create condition: " + e.getMessage(), "", com.kingpixel.cobbleutils.util.TypeMessage.CHAT);
+          sendConfiguredMessage(player, lang.getMessageConditionCreateFailed().replace("%error%", e.getMessage()));
         }
       }));
     }
@@ -1359,7 +1568,7 @@ public final class ShopEditMenuBuilder {
     new Rectangle(0, 0, 5, 9).apply(template);
 
     LinkedPage.Builder lp = LinkedPage.builder().template(template)
-      .title(AdventureTranslator.toNative("§6§lAdd Condition"));
+      .title(AdventureTranslator.toNative(lang.getEditorTitleAddCondition()));
     GooeyPage page = buttons.isEmpty() ? lp.build()
       : PaginationHelper.createPagesFromPlaceholders(template, buttons, lp);
     ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
@@ -1465,8 +1674,7 @@ public final class ShopEditMenuBuilder {
 
     Map<String, Class<? extends Condition>> types = getConditionTypes();
     if (types == null || types.isEmpty()) {
-      com.kingpixel.cobbleutils.util.PlayerUtils.sendMessage(player,
-        "&cCould not load condition types from CobbleUtils.", "", com.kingpixel.cobbleutils.util.TypeMessage.CHAT);
+      sendConfiguredMessage(player, lang.getMessageConditionTypesUnavailable());
       openProductConditionsList(player, shop, product, config, modId, isVisibility);
       return;
     }
@@ -1502,8 +1710,7 @@ public final class ShopEditMenuBuilder {
           ConfigLoader.saveShop(shop);
           openProductConditionsList(player, shop, product, config, modId, isVisibility);
         } catch (Exception e) {
-          com.kingpixel.cobbleutils.util.PlayerUtils.sendMessage(player,
-            "&cFailed to create condition: " + e.getMessage(), "", com.kingpixel.cobbleutils.util.TypeMessage.CHAT);
+          sendConfiguredMessage(player, lang.getMessageConditionCreateFailed().replace("%error%", e.getMessage()));
         }
       }));
     }
@@ -1515,7 +1722,7 @@ public final class ShopEditMenuBuilder {
     new Rectangle(0, 0, 5, 9).apply(template);
 
     LinkedPage.Builder lp = LinkedPage.builder().template(template)
-      .title(AdventureTranslator.toNative("§6§lAdd Condition"));
+      .title(AdventureTranslator.toNative(lang.getEditorTitleAddCondition()));
     GooeyPage page = buttons.isEmpty() ? lp.build()
       : PaginationHelper.createPagesFromPlaceholders(template, buttons, lp);
     ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
@@ -1576,7 +1783,7 @@ public final class ShopEditMenuBuilder {
   private static GooeyButton closeBtn(LangConfig lang, ServerPlayerEntity player) {
     return GooeyButton.builder()
       .display(lang.getGlobalItemClose().getItemStack())
-      .with(DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative("§c✕ Close"))
+      .with(DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(lang.getEditorButtonClose()))
       .onClick(a -> UIManager.closeUI(player))
       .build();
   }
@@ -1584,9 +1791,16 @@ public final class ShopEditMenuBuilder {
   private static GooeyButton backBtn(LangConfig lang, java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
     return GooeyButton.builder()
       .display(lang.getGlobalItemPrevious().getItemStack())
-      .with(DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative("§7← Back"))
+      .with(DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(lang.getEditorButtonBack()))
       .onClick(onClick::accept)
       .build();
+  }
+
+  private static void sendConfiguredMessage(ServerPlayerEntity player, String message) {
+    LangConfig lang = ShopContext.get().getLang();
+    PlayerUtils.sendMessage(player,
+      message.replace("%prefix%", lang.getPrefix()),
+      lang.getPrefix(), TypeMessage.CHAT);
   }
 
   private static LinkedPageButton prevBtn(LangConfig lang) {
@@ -1679,5 +1893,46 @@ public final class ShopEditMenuBuilder {
     }
 
     return itemId;
+  }
+
+  private static String addMinutesToCooldown(String cooldown, int minutesToAdd) {
+    if (cooldown == null || cooldown.isBlank()) {
+      int newMinutes = Math.max(0, minutesToAdd);
+      return newMinutes + "m";
+    }
+    cooldown = cooldown.trim();
+    if (cooldown.contains(" ") || cooldown.contains("*")) {
+      // It's a cron expression, don't change it or return unchanged
+      return cooldown;
+    }
+    // Parse duration.
+    // If it's a pure number, treat as minutes.
+    int totalMinutes = 0;
+    try {
+      if (cooldown.matches("\\d+")) {
+        totalMinutes = Integer.parseInt(cooldown);
+      } else {
+        // Parse simple duration like 60m, 2h, 1d
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)([smdh])").matcher(cooldown.toLowerCase());
+        while (m.find()) {
+          int val = Integer.parseInt(m.group(1));
+          String unit = m.group(2);
+          switch (unit) {
+            case "s" -> totalMinutes += val / 60; // seconds
+            case "m" -> totalMinutes += val;      // minutes
+            case "h" -> totalMinutes += val * 60; // hours
+            case "d" -> totalMinutes += val * 1440; // days
+          }
+        }
+        if (totalMinutes == 0) {
+          totalMinutes = Integer.parseInt(cooldown.replaceAll("[^0-9]", ""));
+        }
+      }
+    } catch (Exception e) {
+      totalMinutes = 60; // Default fallback
+    }
+
+    int newMinutes = Math.max(0, totalMinutes + minutesToAdd);
+    return newMinutes + "m";
   }
 }

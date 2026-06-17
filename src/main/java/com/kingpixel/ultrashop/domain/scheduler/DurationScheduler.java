@@ -1,9 +1,11 @@
 package com.kingpixel.ultrashop.domain.scheduler;
 
 import com.kingpixel.cobbleutils.Model.DurationValue;
+import com.kingpixel.cobbleutils.Model.ScheduleValue;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -52,7 +54,12 @@ public final class DurationScheduler implements Scheduler {
 
   @Override
   public long nextFireTime(long afterEpochMs) {
-    return afterEpochMs + durationMs;
+    try {
+      return ScheduleValue.ofDuration(DurationValue.parse(duration))
+        .toNextEpochMillis(Instant.ofEpochMilli(afterEpochMs));
+    } catch (Exception ignored) {
+      return afterEpochMs + durationMs;
+    }
   }
 
   @Override

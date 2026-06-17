@@ -7,6 +7,7 @@ import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.domain.model.PriceEntry;
 import com.kingpixel.ultrashop.domain.model.Product;
 import com.kingpixel.ultrashop.domain.model.ActionShop;
+import com.kingpixel.ultrashop.domain.model.StockMode;
 import com.kingpixel.ultrashop.domain.model.UserInfo;
 import com.kingpixel.ultrashop.domain.model.shop.ShopReference;
 import com.kingpixel.ultrashop.domain.service.PriceCalculator;
@@ -60,7 +61,7 @@ public final class PlaceholderReplacer {
       text = text.replace("%discount%", discount > 0f ? discount + "%" : "");
     }
 
-    // Stock/limit placeholders
+    // Cooldown-limit placeholders (player quota)
     if (text.contains("%limit%") || text.contains("%bought%") || text.contains("%remaining%") || text.contains("%cooldown_time%")) {
       boolean hasLimit = product.getUuid() != null && product.getMax() != null;
       if (hasLimit) {
@@ -70,9 +71,11 @@ public final class PlaceholderReplacer {
         int max = product.getMax();
         int remaining = Math.max(0, max - bought);
         long cooldownMs = userInfo != null ? userInfo.getProductCooldown(product) : System.currentTimeMillis();
+        String readyMsg = ctx.getLang().getCooldownReady();
+        if (readyMsg == null) readyMsg = "<#2ecc71>Ready";
         String cooldownStr = cooldownMs > System.currentTimeMillis()
           ? PlayerUtils.getCooldown(cooldownMs)
-          : "";
+          : readyMsg;
 
         text = text.replace("%limit%", String.valueOf(max));
         text = text.replace("%bought%", String.valueOf(bought));
@@ -86,10 +89,39 @@ public final class PlaceholderReplacer {
       }
     }
 
+    // Dedicated stock placeholders
+    if (text.contains("%stock_remaining%") || text.contains("%stock_limit%") || text.contains("%stock_mode%")
+        || text.contains("%remaining%") || text.contains("%limit%")) {
+      boolean hasStock = product.hasStockControl();
+      if (hasStock) {
+        ShopContext ctx = ShopContext.get();
+        long limit = product.getStockAmount();
+        StockMode mode = product.getStockMode();
+        long remaining = ctx.getRepositories().getStockRepository().getRemaining(
+          player.getUuid(),
+          product.getUuid(),
+          mode,
+          limit
+        );
+        text = text.replace("%stock_remaining%", String.valueOf(remaining));
+        text = text.replace("%stock_limit%", String.valueOf(limit));
+        text = text.replace("%stock_mode%", mode.name());
+
+        // Backward-compat for templates still using %remaining%/%limit% for stock
+        text = text.replace("%remaining%", String.valueOf(remaining));
+        text = text.replace("%limit%", String.valueOf(limit));
+      } else {
+        text = text.replace("%stock_remaining%", "∞");
+        text = text.replace("%stock_limit%", "∞");
+        text = text.replace("%stock_mode%", "");
+      }
+    }
+
     text = text.replace("%removebuy%", "")
       .replace("%removesell%", "")
       .replace("%removediscount%", "")
       .replace("%removelimit%", "")
+      .replace("%removestock%", "")
       .replace("%balance%", playerBalance != null ? playerBalance : "");
 
     return text;
@@ -103,6 +135,7 @@ public final class PlaceholderReplacer {
                                         ShopConfig config, ActionShop actionShop) {
     List<String> filtered = new ArrayList<>();
     boolean hasLimit = product.getUuid() != null && product.getMax() != null;
+    boolean hasStock = product.hasStockControl();
 
     for (String line : loreTemplate) {
       if (line == null || line.isEmpty()) {
@@ -121,6 +154,9 @@ public final class PlaceholderReplacer {
 
       // Hide limit lines when product has no limits
       if (!hasLimit && line.contains("%removelimit%")) continue;
+
+      // Hide stock lines when product has no stock control
+      if (!hasStock && line.contains("%removestock%")) continue;
 
       if (actionShop != null) {
         if (actionShop == ActionShop.BUY && (line.contains("%sell%") || line.contains("%removesell%"))) continue;

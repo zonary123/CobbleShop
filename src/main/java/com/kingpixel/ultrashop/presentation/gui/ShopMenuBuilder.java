@@ -72,6 +72,16 @@ public final class ShopMenuBuilder {
         ConditionsConfig conditionsCfg = shop.getConditionsConfig();
         SoundConfig soundCfg = shop.getSoundConfig();
 
+        // Check maintenance mode
+        if (shop.isMaintenance() && !PermissionApi.hasPermission(player, modId + ".admin", 2)
+            && !PermissionApi.hasPermission(player, UltraShop.MOD_ID + ".admin", 2)) {
+          String shopName = displayCfg != null && displayCfg.getName() != null ? displayCfg.getName() : shop.getId();
+          PlayerUtils.sendMessage(player,
+            ctx.getLang().getMessageShopInMaintenance().replace("%shop%", shopName),
+            ctx.getLang().getPrefix(), TypeMessage.CHAT);
+          return;
+        }
+
         // Check permission
         if (!PermissionApi.hasPermission(player, shop.getPermission(modId), 4)) {
           PlayerUtils.sendMessage(player,
@@ -103,12 +113,14 @@ public final class ShopMenuBuilder {
           displayCfg != null ? displayCfg.getRectangle() : null;
         int totalSlots = rectangle != null ? rectangle.getLength() * rectangle.getWidth() : rows * 9;
         List<Button> buttons = new ArrayList<>();
+        boolean hasPagination;
 
         if (!(shop instanceof CategoryShop categoryShop)) {
           // Products mode
           List<Product> products = ShopProducts.activeProducts(shop, modId);
           boolean autoPlace = displayCfg != null && displayCfg.isAutoPlace();
           boolean needsPagination = products.size() > totalSlots || autoPlace;
+          hasPagination = needsPagination;
 
           if (needsPagination) {
             for (Product product : products) {
@@ -130,14 +142,18 @@ public final class ShopMenuBuilder {
         } else {
           // Categories mode
           boolean autoPlace = displayCfg != null && displayCfg.isAutoPlace();
+          boolean needsPagination = autoPlace || categoryShop.getSubShops().size() > totalSlots;
+          hasPagination = needsPagination;
+
           for (SubShop subShop : categoryShop.getSubShops()) {
             GooeyButton btn = createCategoryButton(subShop, player, nav, config, withClose, modId);
-            if (btn != null) {
-              if (autoPlace) {
-                buttons.add(btn);
-              } else if (UIUtils.isInside(subShop.getSlot(), rows)) {
-                template.set(subShop.getSlot(), btn);
-              }
+            if (btn == null) {
+              continue;
+            }
+            if (needsPagination) {
+              buttons.add(btn);
+            } else if (UIUtils.isInside(subShop.getSlot(), rows)) {
+              template.set(subShop.getSlot(), btn);
             }
           }
         }
@@ -153,7 +169,7 @@ public final class ShopMenuBuilder {
         if (itemCloseRaw != null && UIUtils.isInside(itemCloseRaw.getSlot(), rows) && withClose) {
           ItemModel closeItem = LangConfig.resolve(itemCloseRaw, lang.getGlobalItemClose());
           String closeCommand = conditionsCfg != null ? conditionsCfg.getCloseCommand() : null;
-          template.set(itemCloseRaw.getSlot(), closeItem.getButton(1, action -> {
+          template.set(itemCloseRaw.getSlot(), getButton(closeItem, action -> {
             if (closeCommand != null && !closeCommand.isEmpty()) {
               PlayerUtils.executeCommand(closeCommand, player);
               return;
@@ -169,7 +185,6 @@ public final class ShopMenuBuilder {
         }
 
         // Build page (with or without pagination)
-        boolean hasPagination = !buttons.isEmpty();
 
         if (hasPagination) {
           // Pagination navigation
@@ -209,7 +224,6 @@ public final class ShopMenuBuilder {
         ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
       } catch (Exception e) {
         UltraShop.LOGGER.error("Error opening shop " + shop.getId() + ": " + e.getMessage());
-        e.printStackTrace();
       }
     });
   }
@@ -250,7 +264,7 @@ public final class ShopMenuBuilder {
     if (raw == null) return null;
     ItemModel display = LangConfig.resolve(raw, ctx.getLang().getGlobalDisplay());
     List<String> lore = new ArrayList<>(display.getLore());
-    return display.getButton(1,
+    return getButton(display,
       display.getDisplayname().replace("%shop%", category.getId()),
       lore,
       action -> navigateTo(player, category, nav, config, withClose));
@@ -286,7 +300,7 @@ public final class ShopMenuBuilder {
     }
 
     String name = infoItem.getDisplayname().replace("%shop%", shop.getId());
-    template.set(infoRaw.getSlot(), infoItem.getButton(1, name, lore, a -> {}));
+    template.set(infoRaw.getSlot(), getButton(infoItem, name, lore, a -> {}));
   }
 
   private static void applyBalanceButton(ChestTemplate template, Shop shop, DisplayConfig displayCfg,
@@ -312,8 +326,25 @@ public final class ShopMenuBuilder {
     lore.replaceAll(s -> s.replace("%balance%", format)
       .replace("%currency%", currency)
       .replace("%amount%", format));
-    template.set(balanceRaw.getSlot(), balanceItem.getButton(1, name, lore, a -> {
+    template.set(balanceRaw.getSlot(), getButton(balanceItem, name, lore, a -> {
     }));
+  }
+
+  private static GooeyButton getButton(ItemModel model, java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+    return GooeyButton.builder()
+      .display(model.getItemStack())
+      .onClick(onClick::accept)
+      .build();
+  }
+
+  private static GooeyButton getButton(ItemModel model, String title, List<String> lore,
+                                       java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+    return GooeyButton.builder()
+      .display(model.getItemStack())
+      .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(title))
+      .with(net.minecraft.component.DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(lore)))
+      .onClick(onClick::accept)
+      .build();
   }
 }
 

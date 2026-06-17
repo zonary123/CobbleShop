@@ -2,6 +2,7 @@ package com.kingpixel.ultrashop;
 
 import com.kingpixel.cobbleutils.util.async.AsyncContext;
 import com.kingpixel.cobbleutils.util.async.UtilsAsync;
+import com.kingpixel.ultrashop.domain.model.Shop;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import com.kingpixel.ultrashop.infrastructure.index.SellProductIndex;
@@ -23,15 +24,17 @@ public final class ShopContext {
 
   private static final ShopContext INSTANCE = new ShopContext();
 
+  private final AsyncContext asyncContext = UtilsAsync.createContext(UltraShop.MOD_ID, "UltraShop");
+
   public AsyncContext getAsyncContext() {
-    return UtilsAsync.createContext(UltraShop.MOD_ID, "UltraShop");
+    return asyncContext;
   }
 
   @Getter
   private final Map<String, ShopConfig> configs = new ConcurrentHashMap<>();
 
   @Getter
-  private final Map<String, List<com.kingpixel.ultrashop.domain.model.Shop>> shops = new ConcurrentHashMap<>();
+  private final Map<String, List<Shop>> shops = new ConcurrentHashMap<>();
 
   /**
    * Parallel storage of shops in the new sealed {@link com.kingpixel.ultrashop.domain.model.shop.Shop}
@@ -108,6 +111,11 @@ public final class ShopContext {
   public void startDashboard() {
     ShopConfig config = getMainConfig();
     if (config != null && config.isWebDashboardEnabled()) {
+      if (config.getWebDashboardPassword() == null || config.getWebDashboardPassword().isBlank()) {
+        UltraShop.LOGGER.error(
+          "[Web] Dashboard enabled but no password configured. Refusing to start insecure dashboard.");
+        return;
+      }
       stopDashboard();
       dashboardServer = new DashboardHttpServer(config.getWebDashboardPort(), config.getWebDashboardPassword());
       dashboardServer.start();
@@ -143,7 +151,7 @@ public final class ShopContext {
    * Use this when consuming shops via {@link com.kingpixel.ultrashop.domain.model.shop.ShopVisitor}.
    */
   public List<com.kingpixel.ultrashop.domain.model.shop.Shop> getTypedShops(String modId) {
-    return typedShops.getOrDefault(modId, List.of());
+    return typedShops.getOrDefault(modId, java.util.Collections.emptyList());
   }
 
   // --- Typed shop mutators ------------------------------------------------
@@ -160,7 +168,8 @@ public final class ShopContext {
    */
   public boolean replaceShop(String modId, com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
     List<com.kingpixel.ultrashop.domain.model.shop.Shop> typedList =
-      typedShops.computeIfAbsent(modId, k -> new java.util.concurrent.CopyOnWriteArrayList<>());
+      typedShops.computeIfAbsent(modId,
+        k -> new java.util.concurrent.CopyOnWriteArrayList<com.kingpixel.ultrashop.domain.model.shop.Shop>());
     boolean replacedTyped = replaceById(typedList, shop, com.kingpixel.ultrashop.domain.model.shop.Shop::getId);
 
     var legacyList = shops.computeIfAbsent(modId, k -> new java.util.concurrent.CopyOnWriteArrayList<>());
@@ -175,7 +184,8 @@ public final class ShopContext {
    * call-sites still observe it.
    */
   public void addTypedShop(String modId, com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
-    typedShops.computeIfAbsent(modId, k -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(shop);
+    typedShops.computeIfAbsent(modId,
+      k -> new java.util.concurrent.CopyOnWriteArrayList<com.kingpixel.ultrashop.domain.model.shop.Shop>()).add(shop);
     shops.computeIfAbsent(modId, k -> new java.util.concurrent.CopyOnWriteArrayList<>())
       .add(com.kingpixel.ultrashop.domain.model.shop.ShopBridge.toLegacy(shop));
   }

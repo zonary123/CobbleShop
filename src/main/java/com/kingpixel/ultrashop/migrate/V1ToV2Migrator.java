@@ -5,12 +5,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.kingpixel.cobbleutils.util.UtilsFile;
 import com.kingpixel.ultrashop.UltraShop;
-import com.kingpixel.ultrashop.domain.model.Shop;
-
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -35,12 +31,25 @@ public final class V1ToV2Migrator {
   public static void migrateIfNeeded(Path shopDir) {
     if (!Files.exists(shopDir)) return;
 
-    List<Path> jsonFiles = UtilsFile.getAllJsonFiles(shopDir);
+    List<Path> jsonFiles = new java.util.ArrayList<>(UtilsFile.getAllJsonFiles(shopDir));
+    jsonFiles.removeIf(file -> {
+      Path relative = shopDir.relativize(file);
+      for (Path part : relative) {
+        String name = part.toString().toLowerCase();
+        if (name.startsWith("_") || name.contains("backup")) {
+          return true;
+        }
+      }
+      return false;
+    });
     boolean anyMigrated = false;
 
     for (Path file : jsonFiles) {
       try {
         String content = UtilsFile.readText(file);
+        if (content == null || content.isBlank()) {
+          continue;
+        }
         JsonObject json = com.google.gson.JsonParser.parseString(content).getAsJsonObject();
 
         if (isV1Format(json)) {
@@ -123,65 +132,5 @@ public final class V1ToV2Migrator {
     json.remove("type");
   }
 
-  /**
-   * Also migrates the old OldShop format (v0 → v2) if files exist in the migration folder.
-   */
-  public static void migrateV0IfNeeded(Path migrationDir, Path shopDir) {
-    if (!Files.exists(migrationDir)) return;
-
-    try {
-      List<Path> files = UtilsFile.getAllJsonFiles(migrationDir);
-      for (Path file : files) {
-        try {
-          // Read as OldShop, convert to new Shop
-          com.kingpixel.ultrashop.migrate.OldShop oldShop = UtilsFile.read(file, OldShop.class);
-          if (oldShop == null) continue;
-
-          Shop newShop = convertOldShop(oldShop);
-
-          // Write to shop dir
-          UtilsFile.write(shopDir.resolve(file.getFileName()), newShop);
-
-          // Backup
-          Path backupDir = migrationDir.resolve("backup_v0");
-          Files.createDirectories(backupDir);
-          Files.move(file, backupDir.resolve(file.getFileName()),
-            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-
-          UltraShop.LOGGER.info(UltraShop.MOD_ID, "Migrated v0 shop: " + file.getFileName());
-        } catch (Exception e) {
-          UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error migrating v0 " + file + ": " + e.getMessage());
-        }
-      }
-    } catch (Exception e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error scanning migration dir: " + e.getMessage());
-    }
-  }
-
-  private static Shop convertOldShop(OldShop oldShop) {
-    Shop shop = new Shop();
-    shop.setId(oldShop.getId());
-    shop.setTitle(oldShop.getTitle());
-    shop.setRows(oldShop.getRows());
-    shop.setAutoPlace(true);
-    if (oldShop.getSoundopen() != null) shop.setSoundOpen(oldShop.getSoundopen());
-    if (oldShop.getSoundclose() != null) shop.setSoundClose(oldShop.getSoundclose());
-    if (oldShop.getCloseCommand() != null) shop.setCloseCommand(oldShop.getCloseCommand());
-    shop.setGlobalDiscount(oldShop.getGlobalDiscount());
-    if (oldShop.getRectangle() != null) shop.setRectangle(oldShop.getRectangle());
-    if (oldShop.getDisplay() != null) shop.setDisplay(oldShop.getDisplay());
-
-    // Convert products
-    if (oldShop.getProducts() != null) {
-      List<com.kingpixel.ultrashop.domain.model.Product> products = new ArrayList<>();
-      for (OldProduct oldProduct : oldShop.getProducts()) {
-        products.add(oldProduct.from());
-      }
-      shop.setProducts(products);
-    }
-
-    shop.check();
-    return shop;
-  }
 }
 

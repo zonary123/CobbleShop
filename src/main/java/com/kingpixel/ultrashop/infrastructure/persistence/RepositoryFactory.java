@@ -6,8 +6,10 @@ import com.kingpixel.cobbleutils.util.mongodb.MongoDBService;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonTransactionRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonUserRepository;
+import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonStockRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoTransactionRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoUserRepository;
+import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoStockRepository;
 import com.mongodb.client.MongoDatabase;
 import lombok.Getter;
 
@@ -26,12 +28,14 @@ public class RepositoryFactory {
 
   private final UserRepository userRepository;
   private final TransactionRepository transactionRepository;
+  private final StockRepository stockRepository;
 
   public RepositoryFactory(DataBaseConfig config) {
     switch (config.getType()) {
       case MONGODB -> {
         UserRepository userRepo;
         TransactionRepository txRepo;
+        StockRepository stockRepo;
         try {
           MongoDBManager manager = MongoDBService.getOrCreateManager(config);
           String dbName = (config.getDatabase() != null && !config.getDatabase().isBlank())
@@ -41,20 +45,24 @@ public class RepositoryFactory {
 
           userRepo = new MongoUserRepository(database);
           txRepo = new MongoTransactionRepository(database);
+          stockRepo = new MongoStockRepository(database);
           UltraShop.LOGGER.info("Connected to MongoDB '{}' via CobbleUtils shared pool (active pools: {})",
             dbName, MongoDBService.getActiveConnections());
         } catch (Exception e) {
           UltraShop.LOGGER.error("Failed to acquire MongoDB manager: {}. Falling back to JSON.", e.getMessage());
           userRepo = new JsonUserRepository();
           txRepo = new JsonTransactionRepository();
+          stockRepo = new JsonStockRepository();
         }
         this.userRepository = userRepo;
         this.transactionRepository = txRepo;
+        this.stockRepository = stockRepo;
       }
       default -> {
         // JSON fallback for all other types until SQL backend is implemented
         this.userRepository = new JsonUserRepository();
         this.transactionRepository = new JsonTransactionRepository();
+        this.stockRepository = new JsonStockRepository();
       }
     }
   }

@@ -1,9 +1,12 @@
 package com.kingpixel.ultrashop.domain.scheduler;
 
 import com.kingpixel.ultrashop.domain.model.CronExpression;
+import com.kingpixel.cobbleutils.Model.ScheduleValue;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Objects;
 
 /**
@@ -50,7 +53,12 @@ public final class CronScheduler implements Scheduler {
 
   @Override
   public long nextFireTime(long afterEpochMs) {
-    return compiled.nextFireTime(afterEpochMs);
+    try {
+      return ScheduleValue.ofCron(expression, ZoneId.systemDefault().getId())
+        .toNextEpochMillis(Instant.ofEpochMilli(afterEpochMs));
+    } catch (Exception ignored) {
+      return compiled.nextFireTime(afterEpochMs);
+    }
   }
 
   @Override

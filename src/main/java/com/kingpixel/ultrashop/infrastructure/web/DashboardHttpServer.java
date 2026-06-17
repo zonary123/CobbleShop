@@ -62,11 +62,18 @@ public final class DashboardHttpServer {
 
   public DashboardHttpServer(int port, String password) {
     this.port = port;
-    this.password = password != null ? password : "";
+    this.password = requirePassword(password);
     // Bounded thread pool — prevents thread exhaustion attacks
     QueuedThreadPool threadPool = new QueuedThreadPool(MAX_THREAD_POOL, MIN_THREAD_POOL);
     threadPool.setName("ultrashop-web");
     this.server = new Server(threadPool);
+  }
+
+  private static String requirePassword(String password) {
+    if (password == null || password.isBlank()) {
+      throw new IllegalArgumentException("Dashboard API password must be configured and non-blank");
+    }
+    return password.trim();
   }
 
   /**
@@ -160,7 +167,7 @@ public final class DashboardHttpServer {
   }
 
   /**
-   * Authenticates all {@code /api/*} requests using Bearer token or query parameter.
+   * Authenticates all {@code /api/*} requests using Bearer token.
    * Returns {@code 401 Unauthorized} if the token does not match.
    * If no password is configured (empty), authentication is skipped.
    */
@@ -176,12 +183,6 @@ public final class DashboardHttpServer {
         return;
       }
 
-      // If no password is configured, skip authentication
-      if (password.isEmpty()) {
-        chain.doFilter(request, response);
-        return;
-      }
-
       // Check Authorization: Bearer <token>
       String authHeader = req.getHeader("Authorization");
       if (authHeader != null && authHeader.startsWith("Bearer ")) {
@@ -190,13 +191,6 @@ public final class DashboardHttpServer {
           chain.doFilter(request, response);
           return;
         }
-      }
-
-      // Check ?token=<value> query parameter (fallback)
-      String tokenParam = req.getParameter("token");
-      if (tokenParam != null && password.equals(tokenParam)) {
-        chain.doFilter(request, response);
-        return;
       }
 
       // Authentication failed
@@ -313,14 +307,10 @@ public final class DashboardHttpServer {
   // ── Helpers ──
 
   /**
-   * Extracts the real client IP, respecting X-Forwarded-For for reverse proxies.
+   * Extracts client IP from the socket address only.
+   * Do not trust proxy headers unless a trusted reverse-proxy mode is implemented.
    */
   private static String getClientIp(HttpServletRequest req) {
-    String forwarded = req.getHeader("X-Forwarded-For");
-    if (forwarded != null && !forwarded.isBlank()) {
-      // Take the first IP in the chain (the original client)
-      return forwarded.split(",")[0].trim();
-    }
     return req.getRemoteAddr();
   }
 

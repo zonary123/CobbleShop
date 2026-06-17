@@ -1,21 +1,22 @@
 package com.kingpixel.ultrashop.presentation.command;
 
 import com.kingpixel.cobbleutils.api.PermissionApi;
+import com.kingpixel.cobbleutils.util.AdventureTranslator;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
-import com.kingpixel.ultrashop.domain.model.shop.Shop;
-import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
-import com.kingpixel.ultrashop.domain.model.Transaction;
 import com.kingpixel.ultrashop.domain.model.ActionShop;
+import com.kingpixel.ultrashop.domain.model.RotationSchedule;
+import com.kingpixel.ultrashop.domain.model.ShopType;
+import com.kingpixel.ultrashop.domain.model.Transaction;
+import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.ShopBridge;
 import com.kingpixel.ultrashop.domain.service.StatsService;
 import com.kingpixel.ultrashop.infrastructure.config.ConfigLoader;
+import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
-import com.kingpixel.ultrashop.presentation.gui.MainMenuBuilder;
-import com.kingpixel.ultrashop.presentation.gui.NavigationContext;
-import com.kingpixel.ultrashop.presentation.gui.ShopMenuBuilder;
-import com.kingpixel.ultrashop.presentation.gui.StatsMenuBuilder;
-import com.kingpixel.ultrashop.presentation.gui.TransactionMenuBuilder;
+import com.kingpixel.ultrashop.presentation.gui.*;
 import com.kingpixel.ultrashop.presentation.gui.edit.ShopEditMenuBuilder;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
@@ -25,19 +26,25 @@ import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Collection;
 import java.util.List;
 
 /**
  * Command tree registration — clean delegation to services and GUI builders.
  */
 public final class CommandTree {
+
+  private static final String ADMIN_PERMISSION_SUFFIX = ".admin";
+  private static final String ARG_PLAYER = "player";
+  private static final String ARG_SHOP = "shop";
+  private static final String ARG_SHOP_ID = "IdShop";
+  private static final String ARG_WITH_CLOSE = "WithClose";
 
   private CommandTree() {
   }
@@ -66,191 +73,18 @@ public final class CommandTree {
     String modId = options.getModId().equals(UltraShop.MOD_ID)
       ? UltraShop.MOD_ID : options.getModId() + ".shop";
 
-    return base
-      .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".base", modId + ".admin"), 2))
-
-      // /shop — open main menu
-      .executes(ctx -> {
-        if (!ctx.getSource().isExecutedByPlayer()) return 0;
-        ServerPlayerEntity player = ctx.getSource().getPlayer();
-        if (player == null) return 0;
-        ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
-        MainMenuBuilder.open(player, config, options.getModId());
-        return 1;
-      })
-
-      // /shop reload
-      .then(CommandManager.literal("reload")
-        .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".reload", modId + ".admin"), 2))
-        .executes(ctx -> {
-          ConfigLoader.load(options);
-          StatsService.invalidateCache();
-          ShopContext.get().startDashboard();
-          ctx.getSource().sendMessage(Text.literal("Reloaded " + options.getModId() + " shops"));
-          return 1;
-        }))
-
-      // /shop other <player> [shopId] [withClose]
-      .then(CommandManager.literal("other")
-        .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".admin"), 2))
-        .then(CommandManager.argument("player", EntityArgumentType.players())
-          .executes(ctx -> {
-            ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
-            for (ServerPlayerEntity p : EntityArgumentType.getPlayers(ctx, "player")) {
-              MainMenuBuilder.open(p, config, options.getModId());
-            }
-            return 1;
-          })
-          .then(CommandManager.argument("IdShop", StringArgumentType.string())
-            .suggests((ctx, builder) -> {
-              ShopContext.get().getTypedShops(options.getModId()).forEach(s -> builder.suggest(s.getId()));
-              return builder.buildFuture();
-            })
-            .executes(ctx -> openShopForPlayers(ctx, options, true))
-            .then(CommandManager.argument("WithClose", BoolArgumentType.bool())
-              .executes(ctx -> openShopForPlayers(ctx, options, BoolArgumentType.getBool(ctx, "WithClose")))))))
-
-      // /shop create <name>
-      .then(CommandManager.literal("create")
-        .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".admin"), 2))
-        .then(CommandManager.argument("shop", StringArgumentType.string())
-          .then(CommandManager.argument("dynamic", BoolArgumentType.bool())
-            .executes(ctx -> {
-              String id = StringArgumentType.getString(ctx, "shop");
-              boolean exists = ShopContext.get().getTypedShops(options.getModId()).stream()
-                .anyMatch(s -> s.getId().equals(id));
-              if (exists) {
-                ctx.getSource().sendMessage(Text.literal("Shop already exists: " + id));
-                return 0;
-              }
-              boolean dynamic = BoolArgumentType.getBool(ctx, "dynamic");
-              com.kingpixel.ultrashop.domain.model.Shop shop =
-                new com.kingpixel.ultrashop.domain.model.Shop(id, dynamic);
-              ConfigLoader.createShop(options, shop);
-              ctx.getSource().sendMessage(Text.literal("Created shop: " + id));
-              return 1;
-            }))))
-
-      // /shop restartShop <shopId>
-      .then(CommandManager.literal("restartShop")
-        .requires(src -> PermissionApi.hasPermission(src, modId + ".restart.shop", 2))
-        .then(CommandManager.argument("shop", StringArgumentType.string())
-          .suggests((ctx, builder) -> {
-            ShopContext.get().getTypedShops(options.getModId()).stream()
-              .filter(s -> s instanceof RotationShop)
-              .forEach(s -> builder.suggest(s.getId()));
-            return builder.buildFuture();
-          })
-          .executes(ctx -> {
-            String shopId = StringArgumentType.getString(ctx, "shop");
-            Shop shop = ShopContext.get().getTypedShops(options.getModId()).stream()
-              .filter(s -> s.getId().equals(shopId))
-              .findFirst().orElse(null);
-            if (shop instanceof RotationShop rotShop) {
-              ShopContext.get().getDataShop().updateDynamicProducts(rotShop, options.getModId(), true);
-              ctx.getSource().sendMessage(Text.literal("Restarted dynamic shop: " + shopId));
-            } else {
-              ctx.getSource().sendMessage(Text.literal("Shop is not dynamic or not found: " + shopId));
-            }
-            return 1;
-          })))
-
-      // /shop transactions [player]
-      .then(CommandManager.literal("transactions")
-        .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".transactions", modId + ".admin"), 2))
-        .executes(ctx -> {
-          if (!ctx.getSource().isExecutedByPlayer()) return 0;
-          ServerPlayerEntity player = ctx.getSource().getPlayer();
-          if (player == null) return 0;
-          ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
-          TransactionMenuBuilder.open(player, player.getUuid(), player.getGameProfile().getName(),
-            config, options.getModId());
-          return 1;
-        })
-        .then(CommandManager.argument("player", EntityArgumentType.player())
-          .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".admin"), 2))
-          .executes(ctx -> {
-            ServerPlayerEntity target = EntityArgumentType.getPlayer(ctx, "player");
-            if (ctx.getSource().isExecutedByPlayer()) {
-              ServerPlayerEntity viewer = ctx.getSource().getPlayer();
-              if (viewer != null) {
-                ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
-                TransactionMenuBuilder.open(viewer, target.getUuid(), target.getGameProfile().getName(),
-                  config, options.getModId());
-                return 1;
-              }
-            }
-            return showTransactions(ctx.getSource(), target.getUuid(), target.getGameProfile().getName(), options);
-          })))
-
-      // /shop delete <shopId>
-      .then(CommandManager.literal("delete")
-        .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".admin"), 2))
-        .then(CommandManager.argument("shop", StringArgumentType.string())
-          .suggests((ctx, builder) -> {
-            ShopContext.get().getTypedShops(options.getModId()).forEach(s -> builder.suggest(s.getId()));
-            return builder.buildFuture();
-          })
-          .executes(ctx -> {
-            String shopId = StringArgumentType.getString(ctx, "shop");
-            // Path resolution still goes through the legacy mirror because
-            // typed Shop has no filePath field yet (removed in Lote 4 cleanup).
-            com.kingpixel.ultrashop.domain.model.Shop legacyShop =
-              ShopContext.get().getShops(options.getModId()).stream()
-                .filter(s -> s.getId().equals(shopId))
-                .findFirst().orElse(null);
-            if (legacyShop == null) {
-              ctx.getSource().sendMessage(Text.literal("§cShop not found: " + shopId));
-              return 0;
-            }
-            try {
-              if (legacyShop.getFilePath() != null) {
-                Files.deleteIfExists(Path.of(legacyShop.getFilePath()));
-              }
-              ShopContext.get().removeTypedShop(options.getModId(), shopId);
-              ShopContext.get().getSellIndex().rebuild(ShopContext.get().getTypedShops());
-              ctx.getSource().sendMessage(Text.literal("§aDeleted shop: " + shopId));
-            } catch (Exception e) {
-              ctx.getSource().sendMessage(Text.literal("§cError deleting shop: " + e.getMessage()));
-            }
-            return 1;
-          })))
-
-      // /shop edit — open admin edit GUI
-      .then(CommandManager.literal("edit")
-        .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".admin"), 2))
-        .executes(ctx -> {
-          if (!ctx.getSource().isExecutedByPlayer()) return 0;
-          ServerPlayerEntity player = ctx.getSource().getPlayer();
-          if (player == null) return 0;
-          ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
-          ShopEditMenuBuilder.openShopList(player, config, options.getModId());
-          return 1;
-        }))
-
-      // /shop stats — open stats GUI (admin) or print to console
-      .then(CommandManager.literal("stats")
-        .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".stats", modId + ".admin"), 2))
-        .executes(ctx -> {
-          if (ctx.getSource().isExecutedByPlayer()) {
-            ServerPlayerEntity player = ctx.getSource().getPlayer();
-            if (player == null) return 0;
-            ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
-            StatsMenuBuilder.open(player, config, options.getModId());
-          } else {
-            // Console: print text summary
-            var totals = StatsService.getServerTotals(30);
-            ctx.getSource().sendMessage(Text.literal(
-              "§6--- UltraShop Stats (30d) ---\n" +
-              "§7Transactions: §f" + totals.totalTransactions + "\n" +
-              "§7Players: §f" + totals.uniquePlayers.size() + "\n" +
-              "§7Revenue: §a$" + totals.totalRevenue.toPlainString() + "\n" +
-              "§7Payouts: §c$" + totals.totalPayout.toPlainString() + "\n" +
-              "§7Net: §e$" + totals.getNetProfit().toPlainString()
-            ));
-          }
-          return 1;
-        }));
+    base.requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".base", modId + ADMIN_PERMISSION_SUFFIX), 2));
+    base.executes(ctx -> openMainMenu(ctx.getSource(), options));
+    registerReload(base, modId, options);
+    registerOther(base, modId, options);
+    registerCreate(base, modId, options);
+    registerRestartShop(base, modId, options);
+    registerTransactions(base, modId, options);
+    registerDelete(base, modId, options);
+    registerEdit(base, modId, options);
+    registerStats(base, modId, options);
+    registerMaintenance(base, modId, options);
+    return base;
   }
 
   private static final DateTimeFormatter TX_FORMAT = DateTimeFormatter.ofPattern("MM/dd HH:mm")
@@ -260,42 +94,48 @@ public final class CommandTree {
                                       ShopOptionsApi options) {
     ShopContext ctx = ShopContext.get();
     ShopConfig config = ctx.getConfigs().get(options.getModId());
+    LangConfig lang = ctx.getLang();
     int limit = config != null ? config.getTransactionPageSize() : 10;
-    var repo = ctx.getRepositories();
+    com.kingpixel.ultrashop.infrastructure.persistence.RepositoryFactory repo = ctx.getRepositories();
     if (repo == null) {
-      source.sendMessage(Text.literal("§cNo repository available"));
+      sendConfiguredMessage(source, lang.getCommandNoRepository());
       return 0;
     }
     List<Transaction> transactions = repo.getTransactionRepository().findByPlayer(uuid, limit);
     if (transactions.isEmpty()) {
-      source.sendMessage(Text.literal("§7No transactions found for " + name));
+      sendConfiguredMessage(source, lang.getCommandNoTransactionsFound().replace("%player%", name));
       return 1;
     }
 
-    StringBuilder sb = new StringBuilder("§6--- Transactions for §e" + name + " §6---\n");
+    StringBuilder sb = new StringBuilder(resolveLang(lang.getCommandTransactionsHeader())
+      .replace("%player%", name));
     for (Transaction tx : transactions) {
-      String action = tx.getAction() == ActionShop.BUY ? "§aBUY" : "§cSELL";
+      String action = tx.getAction() == ActionShop.BUY ? lang.getTransactionBuyLabel() : lang.getTransactionSellLabel();
       String date = TX_FORMAT.format(Instant.ofEpochMilli(tx.getTimestamp()));
-      sb.append(String.format("§7[%s§7] %s §7x%d §e%s §7(%s §7%s)\n",
-        date, action, tx.getAmount(), tx.getProductId(),
-        tx.getValue().toPlainString(), tx.getCurrency()));
+      sb.append(String.format("%n%s", resolveLang(lang.getCommandTransactionLine())
+        .replace("%date%", date)
+        .replace("%action%", action)
+        .replace("%amount%", String.valueOf(tx.getAmount()))
+        .replace("%product%", tx.getProductId())
+        .replace("%price%", tx.getValue().toPlainString())
+        .replace("%currency%", tx.getCurrency())));
     }
-    source.sendMessage(Text.literal(sb.toString()));
+    source.sendMessage(AdventureTranslator.toNative(sb.toString()));
     return 1;
   }
 
   private static int openShopForPlayers(com.mojang.brigadier.context.CommandContext<ServerCommandSource> ctx,
                                         ShopOptionsApi options, boolean withClose) {
     try {
-      var players = EntityArgumentType.getPlayers(ctx, "player");
-      String shopId = StringArgumentType.getString(ctx, "IdShop");
+      Collection<ServerPlayerEntity> players = EntityArgumentType.getPlayers(ctx, ARG_PLAYER);
+      String shopId = StringArgumentType.getString(ctx, ARG_SHOP_ID);
       ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
       Shop shop = ShopContext.get().getTypedShops(options.getModId()).stream()
         .filter(s -> s.getId().equals(shopId))
         .findFirst().orElse(null);
 
       if (shop == null) {
-        ctx.getSource().sendMessage(Text.literal("Shop not found: " + shopId));
+        sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandShopNotFound().replace("%shop%", shopId));
         return 0;
       }
 
@@ -306,9 +146,290 @@ public final class CommandTree {
       }
       return 1;
     } catch (Exception e) {
-      e.printStackTrace();
+      UltraShop.LOGGER.error("Error opening shop for players: " + e.getMessage());
       return 0;
     }
+  }
+
+
+
+  private static void registerReload(LiteralArgumentBuilder<ServerCommandSource> base, String modId,
+                                     ShopOptionsApi options) {
+    base.then(CommandManager.literal("reload")
+      .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".reload", modId + ADMIN_PERMISSION_SUFFIX), 2))
+      .executes(ctx -> {
+        ConfigLoader.load(options);
+        StatsService.invalidateCache();
+        ShopContext.get().startDashboard();
+        sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandReloaded()
+          .replace("%modId%", options.getModId()));
+        return 1;
+      }));
+  }
+
+  private static void registerOther(LiteralArgumentBuilder<ServerCommandSource> base, String modId,
+                                    ShopOptionsApi options) {
+    base.then(CommandManager.literal("other")
+      .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ADMIN_PERMISSION_SUFFIX), 2))
+      .then(CommandManager.argument(ARG_PLAYER, EntityArgumentType.players())
+        .executes(ctx -> {
+          ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
+          for (ServerPlayerEntity player : EntityArgumentType.getPlayers(ctx, ARG_PLAYER)) {
+            MainMenuBuilder.open(player, config, options.getModId());
+          }
+          return 1;
+        })
+        .then(CommandManager.argument(ARG_SHOP_ID, StringArgumentType.string())
+          .suggests((ctx, builder) -> {
+            ShopContext.get().getTypedShops(options.getModId()).forEach(shop -> builder.suggest(shop.getId()));
+            return builder.buildFuture();
+          })
+          .executes(ctx -> openShopForPlayers(ctx, options, true))
+          .then(CommandManager.argument(ARG_WITH_CLOSE, BoolArgumentType.bool())
+            .executes(ctx -> openShopForPlayers(ctx, options, BoolArgumentType.getBool(ctx, ARG_WITH_CLOSE)))))));
+  }
+
+  private static void registerCreate(LiteralArgumentBuilder<ServerCommandSource> base, String modId,
+                                     ShopOptionsApi options) {
+    base.then(CommandManager.literal("create")
+      .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ADMIN_PERMISSION_SUFFIX), 2))
+      .then(CommandManager.argument(ARG_SHOP, StringArgumentType.string())
+        .then(CommandManager.argument("dynamic", BoolArgumentType.bool())
+          .executes(ctx -> {
+            String id = StringArgumentType.getString(ctx, ARG_SHOP);
+            boolean exists = ShopContext.get().getTypedShops(options.getModId()).stream().anyMatch(shop -> shop.getId().equals(id));
+            if (exists) {
+              sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandShopAlreadyExists().replace("%shop%", id));
+              return 0;
+            }
+            boolean dynamic = BoolArgumentType.getBool(ctx, "dynamic");
+            com.kingpixel.ultrashop.domain.model.shop.Shop shop;
+            if (dynamic) {
+              com.kingpixel.ultrashop.domain.model.shop.RotationShop r = new com.kingpixel.ultrashop.domain.model.shop.RotationShop();
+              r.setId(id);
+              r.setScheduler(new com.kingpixel.ultrashop.domain.scheduler.DurationScheduler("30m"));
+              r.setRotationAmount(3);
+              shop = r;
+            } else {
+              com.kingpixel.ultrashop.domain.model.shop.NormalShop n = new com.kingpixel.ultrashop.domain.model.shop.NormalShop();
+              n.setId(id);
+              shop = n;
+            }
+            ConfigLoader.createShop(options, shop);
+            sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandShopCreated().replace("%shop%", id));
+            return 1;
+          }))));
+  }
+
+  private static void registerRestartShop(LiteralArgumentBuilder<ServerCommandSource> base, String modId,
+                                          ShopOptionsApi options) {
+    base.then(CommandManager.literal("restartShop")
+      .requires(src -> PermissionApi.hasPermission(src, modId + ".restart.shop", 2))
+      .then(CommandManager.argument(ARG_SHOP, StringArgumentType.string())
+        .suggests((ctx, builder) -> {
+          ShopContext.get().getTypedShops(options.getModId()).stream()
+            .filter(RotationShop.class::isInstance)
+            .forEach(shop -> builder.suggest(shop.getId()));
+          return builder.buildFuture();
+        })
+        .executes(ctx -> {
+          String shopId = StringArgumentType.getString(ctx, ARG_SHOP);
+          Shop shop = findTypedShop(options, shopId);
+          if (shop instanceof RotationShop rotationShop) {
+            ShopContext.get().getDataShop().updateDynamicProducts(rotationShop, options.getModId(), true);
+            sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandDynamicShopRestarted().replace("%shop%", shopId));
+          } else {
+            sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandDynamicShopInvalid().replace("%shop%", shopId));
+          }
+          return 1;
+        })));
+  }
+
+  private static void registerTransactions(LiteralArgumentBuilder<ServerCommandSource> base, String modId,
+                                           ShopOptionsApi options) {
+    base.then(CommandManager.literal("transactions")
+      .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".transactions", modId + ADMIN_PERMISSION_SUFFIX), 2))
+      .executes(ctx -> openOwnTransactions(ctx.getSource(), options))
+      .then(CommandManager.argument(ARG_PLAYER, EntityArgumentType.player())
+        .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ADMIN_PERMISSION_SUFFIX), 2))
+        .executes(ctx -> openTargetTransactions(ctx.getSource(), EntityArgumentType.getPlayer(ctx, ARG_PLAYER), options))));
+  }
+
+  private static void registerDelete(LiteralArgumentBuilder<ServerCommandSource> base, String modId,
+                                     ShopOptionsApi options) {
+    base.then(CommandManager.literal("delete")
+      .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ADMIN_PERMISSION_SUFFIX), 2))
+      .then(CommandManager.argument(ARG_SHOP, StringArgumentType.string())
+        .suggests((ctx, builder) -> {
+          ShopContext.get().getTypedShops(options.getModId()).forEach(shop -> builder.suggest(shop.getId()));
+          return builder.buildFuture();
+        })
+        .executes(ctx -> deleteShop(ctx.getSource(), options, StringArgumentType.getString(ctx, ARG_SHOP)))));
+  }
+
+  private static void registerEdit(LiteralArgumentBuilder<ServerCommandSource> base, String modId,
+                                   ShopOptionsApi options) {
+    base.then(CommandManager.literal("edit")
+      .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ADMIN_PERMISSION_SUFFIX), 2))
+      .executes(ctx -> {
+        if (!ctx.getSource().isExecutedByPlayer()) return 0;
+        ServerPlayerEntity player = ctx.getSource().getPlayer();
+        if (player == null) return 0;
+        ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
+        ShopEditMenuBuilder.openShopList(player, config, options.getModId());
+        return 1;
+      }));
+  }
+
+  private static void registerStats(LiteralArgumentBuilder<ServerCommandSource> base, String modId,
+                                    ShopOptionsApi options) {
+    base.then(CommandManager.literal("stats")
+      .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".stats", modId + ADMIN_PERMISSION_SUFFIX), 2))
+      .executes(ctx -> {
+        if (ctx.getSource().isExecutedByPlayer()) {
+          ServerPlayerEntity player = ctx.getSource().getPlayer();
+          if (player == null) return 0;
+          ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
+          StatsMenuBuilder.open(player, config, options.getModId());
+          return 1;
+        }
+        sendConfiguredMessage(ctx.getSource(), buildConsoleStatsMessage(StatsService.getServerTotals(30), ShopContext.get().getLang()));
+        return 1;
+      }));
+  }
+
+  private static int openMainMenu(ServerCommandSource source, ShopOptionsApi options) {
+    if (!source.isExecutedByPlayer()) return 0;
+    ServerPlayerEntity player = source.getPlayer();
+    if (player == null) return 0;
+    ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
+    MainMenuBuilder.open(player, config, options.getModId());
+    return 1;
+  }
+
+  private static int openOwnTransactions(ServerCommandSource source, ShopOptionsApi options) {
+    if (!source.isExecutedByPlayer()) return 0;
+    ServerPlayerEntity player = source.getPlayer();
+    if (player == null) return 0;
+    ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
+    TransactionMenuBuilder.open(player, player.getUuid(), player.getGameProfile().getName(), config, options.getModId());
+    return 1;
+  }
+
+  private static int openTargetTransactions(ServerCommandSource source, ServerPlayerEntity target,
+                                            ShopOptionsApi options) {
+    if (source.isExecutedByPlayer()) {
+      ServerPlayerEntity viewer = source.getPlayer();
+      if (viewer != null) {
+        ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
+        TransactionMenuBuilder.open(viewer, target.getUuid(), target.getGameProfile().getName(), config, options.getModId());
+        return 1;
+      }
+    }
+    return showTransactions(source, target.getUuid(), target.getGameProfile().getName(), options);
+  }
+
+  private static int deleteShop(ServerCommandSource source, ShopOptionsApi options, String shopId) {
+    Shop typedShop = findTypedShop(options, shopId);
+    if (typedShop == null) {
+      sendConfiguredMessage(source, ShopContext.get().getLang().getCommandShopNotFound().replace("%shop%", shopId));
+      return 0;
+    }
+    try {
+      Path shopPath = com.kingpixel.cobbleutils.CobbleUtils.getPath()
+        .resolve(options.getPath())
+        .resolve("shop")
+        .resolve(shopId + ".json");
+      Files.deleteIfExists(shopPath);
+      ShopContext.get().removeTypedShop(options.getModId(), shopId);
+      ShopContext.get().getSellIndex().rebuild(ShopContext.get().getTypedShops());
+      sendConfiguredMessage(source, ShopContext.get().getLang().getCommandShopDeleted().replace("%shop%", shopId));
+    } catch (Exception e) {
+      sendConfiguredMessage(source, ShopContext.get().getLang().getCommandShopDeleteError().replace("%error%", e.getMessage()));
+    }
+    return 1;
+  }
+
+  private static Shop findTypedShop(ShopOptionsApi options, String shopId) {
+    return ShopContext.get().getTypedShops(options.getModId()).stream()
+      .filter(shop -> shop.getId().equals(shopId))
+      .findFirst()
+      .orElse(null);
+  }
+
+  private static String buildConsoleStatsMessage(StatsService.ServerTotals totals, LangConfig lang) {
+    return String.join(String.format("%n"),
+      resolveLang(lang.getCommandStatsConsoleTitle()),
+      resolveLang(lang.getCommandStatsConsoleTransactions()).replace("%value%", String.valueOf(totals.totalTransactions)),
+      resolveLang(lang.getCommandStatsConsolePlayers()).replace("%value%", String.valueOf(totals.uniquePlayers.size())),
+      resolveLang(lang.getCommandStatsConsoleRevenue()).replace("%value%", totals.totalRevenue.toPlainString()),
+      resolveLang(lang.getCommandStatsConsolePayouts()).replace("%value%", totals.totalPayout.toPlainString()),
+      resolveLang(lang.getCommandStatsConsoleNet()).replace("%value%", totals.getNetProfit().toPlainString()));
+  }
+
+  private static void registerMaintenance(LiteralArgumentBuilder<ServerCommandSource> base, String modId,
+                                          ShopOptionsApi options) {
+    base.then(CommandManager.literal("maintenance")
+      .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ADMIN_PERMISSION_SUFFIX), 2))
+      .then(CommandManager.argument(ARG_SHOP, StringArgumentType.string())
+        .suggests((ctx, builder) -> {
+          ShopContext.get().getTypedShops(options.getModId()).forEach(shop -> builder.suggest(shop.getId()));
+          return builder.buildFuture();
+        })
+        .then(CommandManager.argument("active", BoolArgumentType.bool())
+          .executes(ctx -> {
+            String shopId = StringArgumentType.getString(ctx, ARG_SHOP);
+            boolean active = BoolArgumentType.getBool(ctx, "active");
+            Shop shop = findTypedShop(options, shopId);
+            if (shop == null) {
+              sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandShopNotFound().replace("%shop%", shopId));
+              return 0;
+            }
+            shop.setMaintenance(active);
+            
+            // Re-save shop to persist state
+            if (shop.getFilePath() == null) {
+              shop.setFilePath(com.kingpixel.cobbleutils.CobbleUtils.getPath()
+                .resolve(options.getPath()).resolve("shop").resolve(shop.getId() + ".json").toString());
+            }
+            ShopContext.get().replaceShop(options.getModId(), shop);
+            ConfigLoader.saveShop(shop);
+
+            // Send feedback
+            String status = active ? "§cCLOSED (Maintenance)" : "§aOPEN";
+            sendConfiguredMessage(ctx.getSource(), "%prefix% §7Tienda §e" + shopId + " §7ahora está " + status);
+
+            // Send webhook to Discord
+            ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
+            String webhookUrl = shop.getWebhookUrl();
+            if (webhookUrl == null || webhookUrl.isBlank()) {
+              if (config != null && config.getWebhooks() != null) {
+                webhookUrl = config.getWebhooks().getMaintenanceWebhookUrl();
+              }
+            }
+            
+            if (webhookUrl != null && !webhookUrl.isBlank()) {
+              String rawShopName = shop.getDisplayConfig() != null && shop.getDisplayConfig().getName() != null
+                ? shop.getDisplayConfig().getName() : shopId;
+              String cleanShopName = rawShopName.replaceAll("(?i)§[0-9a-fk-or]", "").replaceAll("(?i)&[0-9a-fk-or]", "");
+              String title = "Mantenimiento de Tienda: " + shopId;
+              String desc = "La tienda **" + shopId + "** (" + cleanShopName + ") ha sido **" + (active ? "CERRADA para mantenimiento" : "ABIERTA al público") + "**.";
+              int color = active ? 0xFF0000 : 0x00FF00;
+              String payload = com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper.buildEmbedJson(title, desc, color);
+              com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper.sendWebhook(webhookUrl, payload);
+            }
+
+            return 1;
+          }))));
+  }
+
+  private static void sendConfiguredMessage(ServerCommandSource source, String message) {
+    source.sendMessage(AdventureTranslator.toNative(resolveLang(message)));
+  }
+
+  private static String resolveLang(String text) {
+    if (text == null) return "";
+    return text.replace("%prefix%", ShopContext.get().getLang().getPrefix());
   }
 }
 

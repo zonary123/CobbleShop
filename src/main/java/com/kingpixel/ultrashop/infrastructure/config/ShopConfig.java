@@ -32,6 +32,9 @@ public class ShopConfig {
   private int transactionPageSize;
   private List<PanelsConfig> panels;
 
+  // --- Webhooks ---
+  private WebhooksConfig webhooks;
+
   // --- Web Dashboard ---
   private boolean webDashboardEnabled;
   private int webDashboardPort;
@@ -64,12 +67,14 @@ public class ShopConfig {
     this.webDashboardEnabled = false;
     this.webDashboardPort = 8095;
     this.webDashboardPassword = "";
+    this.webhooks = new WebhooksConfig();
   }
 
   public void check() {
     if (commands == null || commands.isEmpty()) {
       commands = new ArrayList<>();
       commands.add("shop");
+      commands.add(UltraShop.MOD_ID);
     }
     if (sellCommands == null || sellCommands.isEmpty()) {
       sellCommands = new ArrayList<>();
@@ -83,6 +88,35 @@ public class ShopConfig {
     if (maxBuyAmount <= 0) maxBuyAmount = 2304;
     if (transactionPageSize <= 0) transactionPageSize = 10;
     if (webDashboardPort <= 0 || webDashboardPort > 65535) webDashboardPort = 8095;
-    if (webDashboardPassword == null) webDashboardPassword = "";
+    webDashboardPassword = webDashboardPassword == null ? "" : webDashboardPassword.trim();
+    if (itemClose == null) {
+      itemClose = new ItemModel(49, "minecraft:barrier", "&cClose", new ArrayList<>(), 0);
+    }
+    if (webhooks == null) {
+      webhooks = new WebhooksConfig();
+    }
+    if (webhooks.getRotationWebhookUrl() == null) {
+      webhooks.setRotationWebhookUrl("");
+    }
+    if (webhooks.getMaintenanceWebhookUrl() == null) {
+      webhooks.setMaintenanceWebhookUrl("");
+    }
+    if (lang == null || lang.isBlank()) {
+      lang = "en";
+    }
+    if (title == null || title.isBlank()) {
+      title = "Shop";
+    }
+    if (soundOpen == null) {
+      soundOpen = "";
+    }
+    if (soundClose == null) {
+      soundClose = "";
+    }
+    if (panels == null || panels.isEmpty()) {
+      panels = List.of(
+        new PanelsConfig(new ItemModel("minecraft:gray_stained_glass_pane"), rows <= 0 ? 6 : rows)
+      );
+    }
   }
 }

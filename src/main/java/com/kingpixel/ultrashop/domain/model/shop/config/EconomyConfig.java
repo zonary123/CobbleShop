@@ -31,13 +31,22 @@ public class EconomyConfig {
      * Ordered set of accepted currencies. Must contain at least one entry — when
      * empty, {@code Shop.check()} fills in a default Impactor dollars entry.
      */
-    LinkedHashSet<EconomyUse> economies;
+    @Builder.Default
+    LinkedHashSet<EconomyUse> economies = defaultEconomies();
 
     float globalDiscount;
 
     /** Permission-keyed discounts. Never null in canonical state — defaults to empty. */
-    Map<String, Float> discounts;
+    @Builder.Default
+    Map<String, Float> discounts = new java.util.HashMap<>();
+
+    private static LinkedHashSet<EconomyUse> defaultEconomies() {
+        LinkedHashSet<EconomyUse> ecos = new LinkedHashSet<>();
+        ecos.add(new EconomyUse(com.kingpixel.cobbleutils.util.economys.providers.ImpactorEconomy.IDENTIFY, "impactor:dollars"));
+        return ecos;
+    }
 }
+
 
 
 

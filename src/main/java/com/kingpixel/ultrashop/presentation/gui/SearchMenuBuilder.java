@@ -2,6 +2,7 @@ package com.kingpixel.ultrashop.presentation.gui;
 
 import ca.landonjw.gooeylibs2.api.UIManager;
 import ca.landonjw.gooeylibs2.api.button.Button;
+import ca.landonjw.gooeylibs2.api.button.GooeyButton;
 import ca.landonjw.gooeylibs2.api.button.linked.LinkType;
 import ca.landonjw.gooeylibs2.api.button.linked.LinkedPageButton;
 import ca.landonjw.gooeylibs2.api.helpers.PaginationHelper;
@@ -16,6 +17,7 @@ import com.kingpixel.cobbleutils.util.AdventureTranslator;
 import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.ultrashop.ShopContext;
+import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.domain.model.Product;
 import com.kingpixel.ultrashop.domain.model.shop.Shop;
 import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
@@ -94,7 +96,7 @@ public final class SearchMenuBuilder {
 
         // Close button
         ItemModel closeItem = lang.getGlobalItemClose();
-        template.set(49, closeItem.getButton(1, action -> MainMenuBuilder.open(player, config, modId)));
+        template.set(49, getButton(closeItem, action -> MainMenuBuilder.open(player, config, modId)));
 
         // Pagination buttons
         ItemModel prev = lang.getGlobalItemPrevious();
@@ -118,7 +120,7 @@ public final class SearchMenuBuilder {
         ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
 
       } catch (Exception e) {
-        e.printStackTrace();
+        UltraShop.LOGGER.error("Error opening search menu: " + e.getMessage());
       }
     });
   }
@@ -160,5 +162,12 @@ public final class SearchMenuBuilder {
 
     // Last resort: displayname
     return product.getDisplayname();
+  }
+
+  private static GooeyButton getButton(ItemModel model, java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+    return GooeyButton.builder()
+      .display(model.getItemStack())
+      .onClick(onClick::accept)
+      .build();
   }
 }

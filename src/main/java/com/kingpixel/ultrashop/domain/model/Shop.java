@@ -83,6 +83,8 @@ public class Shop implements com.kingpixel.ultrashop.domain.model.shop.ShopRefer
   // --- Content ---
   private List<SubShop> subShops;
   private List<Product> products;
+  private boolean maintenance;
+  private String webhookUrl;
 
 
   public Shop() {

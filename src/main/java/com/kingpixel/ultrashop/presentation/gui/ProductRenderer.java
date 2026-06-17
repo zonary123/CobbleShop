@@ -7,6 +7,7 @@ import com.kingpixel.cobbleutils.util.AdventureTranslator;
 import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.ultrashop.ShopContext;
+import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.domain.model.ActionShop;
 import com.kingpixel.ultrashop.domain.model.Product;
 import com.kingpixel.ultrashop.domain.model.shop.Shop;
@@ -96,6 +97,21 @@ public final class ProductRenderer {
         return;
       }
 
+      if (shopAction == ActionShop.BUY && product.hasStockControl()) {
+        long remaining = ctx.getRepositories().getStockRepository().getRemaining(
+          player.getUuid(),
+          product.getUuid(),
+          product.getStockMode(),
+          product.getStockAmount()
+        );
+        if (remaining <= 0) {
+          PlayerUtils.sendMessage(player,
+            ctx.getLang().getMessageOutOfStock(),
+            ctx.getLang().getPrefix(), TypeMessage.CHAT);
+          return;
+        }
+      }
+
       // Block sell if sell price > buy price (exploit prevention)
       if (shopAction == ActionShop.SELL && !PriceCalculator.canSell(product, player, shop, config)) {
         PlayerUtils.sendMessage(player, ctx.getLang().getMessageBuyPriceLessThanSell(),
@@ -116,7 +132,7 @@ public final class ProductRenderer {
       new Sound(soundOpen(shop)).playSoundPlayer(player);
       BuyAndSellMenuBuilder.open(player, nav, product, amount, shopAction, config, withClose);
     } catch (Exception e) {
-      e.printStackTrace();
+      UltraShop.LOGGER.error("Error handling product click for " + product.getProduct() + ": " + e.getMessage());
     }
   }
 

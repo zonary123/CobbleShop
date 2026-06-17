@@ -8,16 +8,21 @@ import com.kingpixel.cobbleutils.Model.ItemModel;
 import com.kingpixel.cobbleutils.Model.PanelsConfig;
 import com.kingpixel.cobbleutils.Model.Sound;
 import com.kingpixel.cobbleutils.util.AdventureTranslator;
+import com.kingpixel.cobbleutils.util.LuckPermsUtil;
 import com.kingpixel.cobbleutils.util.UIUtils;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
+import com.kingpixel.ultrashop.domain.model.SubShop;
+import com.kingpixel.ultrashop.domain.model.shop.CategoryShop;
 import com.kingpixel.ultrashop.domain.model.shop.Shop;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Builds and opens the main shop listing menu.
@@ -45,21 +50,23 @@ public final class MainMenuBuilder {
     ChestTemplate template = ChestTemplate.builder(config.getRows()).build();
     PanelsConfig.applyConfig(template, config.getPanels(), config.getRows());
 
-    List<Shop> shops = ctx.getTypedShops(modId);
+    List<Shop> shops = visibleInMainMenu(ctx.getTypedShops(modId));
     NavigationContext nav = new NavigationContext();
 
     for (Shop shop : shops) {
       ItemModel displayItem = shop.getDisplayConfig() != null
-        ? shop.getDisplayConfig().getDisplayItem()
-        : null;
-      if (displayItem == null) continue;
+          ? shop.getDisplayConfig().getDisplayItem()
+          : null;
+      if (displayItem == null) {
+        continue;
+      }
       if (UIUtils.isInside(displayItem.getSlot(), config.getRows())) {
         ItemModel display = LangConfig.resolve(displayItem, lang.getGlobalDisplay());
         List<String> lore = new ArrayList<>(display.getLore());
-        GooeyButton button = display.getButton(1,
-          display.getDisplayname().replace("%shop%", shop.getId()),
-          lore,
-          action -> ShopMenuBuilder.navigateTo(player, shop, nav, config, true));
+        GooeyButton button = getButton(display,
+            display.getDisplayname().replace("%shop%", shop.getId()),
+            lore,
+            action -> ShopMenuBuilder.navigateTo(player, shop, nav, config, true));
         template.set(displayItem.getSlot(), button);
       }
     }
@@ -67,17 +74,65 @@ public final class MainMenuBuilder {
     // Close button
     if (UIUtils.isInside(config.getItemClose().getSlot(), config.getRows())) {
       ItemModel close = LangConfig.resolve(config.getItemClose(), lang.getGlobalItemClose());
-      GooeyButton closeButton = close.getButton(1, action -> UIManager.closeUI(player));
+      GooeyButton closeButton = getButton(close, action -> UIManager.closeUI(player));
       template.set(config.getItemClose().getSlot(), closeButton);
     }
 
     GooeyPage page = GooeyPage.builder()
-      .template(template)
-      .title(AdventureTranslator.toNative(config.getTitle()))
-      .onOpen(action -> new Sound(config.getSoundOpen()).playSoundPlayer(action.getPlayer()))
-      .build();
+        .template(template)
+        .title(AdventureTranslator.toNative(config.getTitle()))
+        .onOpen(action -> new Sound(config.getSoundOpen()).playSoundPlayer(action.getPlayer()))
+        .build();
 
     ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
+
+  }
+
+  /**
+   * Shops shown in main menu:
+   * <ul>
+   * <li>shops not referenced by any category sub-entry</li>
+   * <li>category container shops remain visible unless they are themselves
+   * nested</li>
+   * </ul>
+   */
+  static List<Shop> visibleInMainMenu(List<Shop> shops) {
+    Set<String> nestedShopIds = referencedSubShopIds(shops);
+    return shops.stream()
+        .filter(shop -> !nestedShopIds.contains(shop.getId()))
+        .toList();
+  }
+
+  private static Set<String> referencedSubShopIds(List<Shop> shops) {
+    Set<String> result = new LinkedHashSet<>();
+    for (Shop shop : shops) {
+      if (shop instanceof CategoryShop categoryShop && categoryShop.getSubShops() != null) {
+        for (SubShop subShop : categoryShop.getSubShops()) {
+          if (subShop != null && subShop.getIdShop() != null && !subShop.getIdShop().isBlank()) {
+            result.add(subShop.getIdShop());
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  private static GooeyButton getButton(ItemModel model,
+      java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+    return GooeyButton.builder()
+        .display(model.getItemStack())
+        .onClick(onClick::accept)
+        .build();
+  }
+
+  private static GooeyButton getButton(ItemModel model, String title, List<String> lore,
+      java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+    return GooeyButton.builder()
+        .display(model.getItemStack())
+        .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(title))
+        .with(net.minecraft.component.DataComponentTypes.LORE,
+            new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(lore)))
+        .onClick(onClick::accept)
+        .build();
   }
 }
-

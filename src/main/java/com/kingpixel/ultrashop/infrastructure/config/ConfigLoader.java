@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -103,6 +104,7 @@ public final class ConfigLoader {
     Path langPath = CobbleUtils.getPath().resolve(UltraShop.MOD_ID).resolve("lang").resolve(config.getLang() + ".json");
     try {
       LangConfig lang = UtilsFile.readOrCreate(langPath, LangConfig.class, LangConfig::new);
+      lang.check();
       UtilsFile.writeAsync(langPath, lang);
       ctx.setLang(lang);
     } catch (IOException e) {
@@ -129,14 +131,34 @@ public final class ConfigLoader {
     Path shopDir = CobbleUtils.getPath().resolve(options.getPath()).resolve("shop");
 
     try {
+      boolean createDefaults = false;
       if (!Files.exists(shopDir)) {
         Files.createDirectories(shopDir);
+        createDefaults = true;
+      } else {
+        try (var stream = Files.list(shopDir)) {
+          if (!stream.findAny().isPresent()) {
+            createDefaults = true;
+          }
+        }
+      }
+      if (createDefaults) {
         createDefaultShops(shopDir);
       }
 
       List<com.kingpixel.ultrashop.domain.model.shop.Shop> typedShops = new ArrayList<>();
       List<Shop> legacyShops = new ArrayList<>();
-      List<Path> jsonFiles = UtilsFile.getAllJsonFiles(shopDir);
+      List<Path> jsonFiles = new ArrayList<>(UtilsFile.getAllJsonFiles(shopDir));
+      jsonFiles.removeIf(file -> {
+        Path relative = shopDir.relativize(file);
+        for (Path part : relative) {
+          String name = part.toString().toLowerCase();
+          if (name.startsWith("_") || name.contains("backup")) {
+            return true;
+          }
+        }
+        return false;
+      });
 
       for (Path file : jsonFiles) {
         try {
@@ -149,6 +171,8 @@ public final class ConfigLoader {
           if (typed instanceof com.kingpixel.ultrashop.domain.model.shop.AbstractShop a) {
             a.setId(shopId);
           }
+          typed.setFilePath(file.toString());
+          typed.check();
 
           // Rewrite in canonical typed format (migrates legacy files in-place).
           Files.writeString(file, GsonProvider.gson()
@@ -163,6 +187,7 @@ public final class ConfigLoader {
           legacyShops.add(legacy);
         } catch (Exception e) {
           UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error loading shop " + file + ": " + e.getMessage());
+          backupIncompatibleShop(shopDir, file);
         }
       }
 
@@ -175,29 +200,33 @@ public final class ConfigLoader {
     }
   }
 
+  private static void backupIncompatibleShop(Path shopDir, Path file) {
+    try {
+      Path backupDir = shopDir.resolve("_backup").resolve("incompatible");
+      Files.createDirectories(backupDir);
+      String timestamp = String.valueOf(System.currentTimeMillis());
+      String name = file.getFileName().toString();
+      Path target = backupDir.resolve(timestamp + "_" + name);
+      Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
+      UltraShop.LOGGER.warn(UltraShop.MOD_ID,
+        "Moved incompatible shop file to backup: " + file + " -> " + target);
+    } catch (Exception backupError) {
+      UltraShop.LOGGER.error(UltraShop.MOD_ID,
+        "Failed to backup incompatible shop file " + file + ": " + backupError.getMessage());
+    }
+  }
+
   /**
    * Saves a single shop to disk in the canonical typed JSON format.
-   *
-   * <p>Accepts the legacy {@link Shop} type because the editor still operates on
-   * the legacy view. Internally bridges to the typed hierarchy before writing,
-   * guaranteeing the on-disk format stays in the new shape regardless of caller.</p>
    */
-  public static void saveShop(Shop shop) {
+  public static void saveShop(com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
     if (shop.getFilePath() == null) return;
     Path path = Path.of(shop.getFilePath());
-    com.kingpixel.ultrashop.domain.model.shop.Shop typed;
-    try {
-      typed = ShopBridge.fromLegacy(shop);
-    } catch (Exception e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID,
-        "Error bridging shop " + shop.getId() + " before save: " + e.getMessage());
-      return;
-    }
 
     CompletableFuture.runAsync(() -> {
       try {
         Files.writeString(path, GsonProvider.gson()
-          .toJson(typed, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
+          .toJson(shop, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
       } catch (IOException e) {
         UltraShop.LOGGER.error(UltraShop.MOD_ID,
           "Error saving shop " + shop.getId() + ": " + e.getMessage());
@@ -207,19 +236,15 @@ public final class ConfigLoader {
 
   /**
    * Creates a shop and adds it to the registry.
-   *
-   * <p>Persists in the canonical typed JSON format via {@link ShopBridge} +
-   * {@link GsonProvider}.</p>
    */
-  public static void createShop(ShopOptionsApi options, Shop shop) {
+  public static void createShop(ShopOptionsApi options, com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
     shop.check();
     Path shopDir = CobbleUtils.getPath().resolve(options.getPath()).resolve("shop");
     Path filePath = shopDir.resolve(shop.getId() + ".json");
     try {
       Files.createDirectories(shopDir);
-      com.kingpixel.ultrashop.domain.model.shop.Shop typed = ShopBridge.fromLegacy(shop);
       Files.writeString(filePath, GsonProvider.gson()
-        .toJson(typed, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
+        .toJson(shop, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
       shop.setFilePath(filePath.toString());
       load(options); // Reload everything
     } catch (IOException e) {
@@ -257,6 +282,9 @@ public final class ConfigLoader {
       assignDisplaySlotIfMissing((AbstractShop) shop, slot++);
       shop.check();
       Path file = shopDir.resolve(((AbstractShop) shop).getId() + ".json");
+      if (Files.exists(file)) {
+        continue;
+      }
       try {
         Files.writeString(file, GsonProvider.gson()
           .toJson(shop, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
@@ -281,11 +309,17 @@ public final class ConfigLoader {
   private static CategoryShop buildMainMenu() {
     CategoryShop shop = new CategoryShop();
     shop.setId("main_menu");
-    shop.setDisplayConfig(simpleDisplay("Main Menu", "§b§lMain Menu", List.of(
-      "§7Browse all shops by category.",
-      "§7This is a §bCATEGORY§7 shop — it has no products,",
-      "§7only links to other shops via §fsubShops§7."
-    )));
+    shop.setDisplayConfig(DisplayConfig.builder()
+      .name("Main Menu")
+      .autoPlace(false)
+      .rows(6)
+      .displayItem(displayIcon("minecraft:compass", "<#2ecc71>« <#feca57><b>Main Menu</b> <#2ecc71>»", List.of(
+        "§8─────────────────────────────────",
+        " §7Browse all shops by category.",
+        " §7Select a department to view products.",
+        "§8─────────────────────────────────"
+      )))
+      .build());
     shop.setSubShops(new ArrayList<>(List.of(
       new SubShop(10, "starter_blocks"),
       new SubShop(11, "farm_market"),
@@ -304,9 +338,11 @@ public final class ConfigLoader {
   private static NormalShop buildStarterBlocks() {
     NormalShop shop = new NormalShop();
     shop.setId("starter_blocks");
-    shop.setDisplayConfig(simpleDisplay("Starter Blocks", "§a§lStarter Blocks", List.of(
-      "§7Cheap building blocks for new players.",
-      "§7§oNORMAL shop — every product is always visible."
+    shop.setDisplayConfig(simpleDisplay("Starter Blocks", "minecraft:grass_block", "<#2ecc71>« <#10ac84>Starter Blocks <#2ecc71>»", List.of(
+      "§8─────────────────────────────────",
+      " §7Cheap building blocks for new players.",
+      " §7Every product here is always in stock.",
+      "§8─────────────────────────────────"
     )));
     shop.setProducts(new ArrayList<>(List.of(
       simpleProduct("minecraft:dirt", 5, 1),
@@ -323,9 +359,11 @@ public final class ConfigLoader {
   private static NormalShop buildFarmMarket() {
     NormalShop shop = new NormalShop();
     shop.setId("farm_market");
-    shop.setDisplayConfig(simpleDisplay("Farm Market", "§e§lFarm Market", List.of(
-      "§7Sell your harvest here for a fair price.",
-      "§7§oSet §fbuy=0§7 to make a product §fsell-only§7."
+    shop.setDisplayConfig(simpleDisplay("Farm Market", "minecraft:wheat", "<#2ecc71>« <#feca57>Farm Market <#2ecc71>»", List.of(
+      "§8─────────────────────────────────",
+      " §7Sell your harvest here for a fair price.",
+      " §7This shop is sell-only.",
+      "§8─────────────────────────────────"
     )));
     shop.setProducts(new ArrayList<>(List.of(
       simpleProduct("minecraft:wheat", 0, 4),
@@ -348,9 +386,11 @@ public final class ConfigLoader {
       .name("Tools Workshop")
       .autoPlace(false)
       .rows(6)
-      .displayItem(displayIcon("§6§lTools Workshop", List.of(
-        "§7Buy tools at fixed positions in the GUI.",
-        "§7§oautoPlace=false §7lets you pin each product to a §fslot§7."
+      .displayItem(displayIcon("minecraft:iron_pickaxe", "<#2ecc71>« <#ff9f43>Tools Workshop <#2ecc71>»", List.of(
+        "§8─────────────────────────────────",
+        " §7Buy tools at fixed positions in the GUI.",
+        " §7Custom arrangements pin each product.",
+        "§8─────────────────────────────────"
       )))
       .build());
     shop.setProducts(new ArrayList<>(List.of(
@@ -372,9 +412,11 @@ public final class ConfigLoader {
   private static NormalShop buildVipLounge() {
     NormalShop shop = new NormalShop();
     shop.setId("vip_lounge");
-    shop.setDisplayConfig(simpleDisplay("VIP Lounge", "§d§lVIP Lounge", List.of(
-      "§7Exclusive items for VIP players.",
-      "§7§oUses §fopenConditions §7to require a permission to open."
+    shop.setDisplayConfig(simpleDisplay("VIP Lounge", "minecraft:diamond", "<#2ecc71>« <#ff6b81>VIP Lounge <#2ecc71>»", List.of(
+      "§8─────────────────────────────────",
+      " §7Exclusive high-tier items for VIPs.",
+      " §7Requires VIP permission to enter.",
+      "§8─────────────────────────────────"
     )));
     List<Condition> openConditions = new ArrayList<>();
     openConditions.add(PermissionCondition.builder().permission("ultrashop.vip").build());
@@ -398,22 +440,24 @@ public final class ConfigLoader {
   private static NormalShop buildLimitedDrops() {
     NormalShop shop = new NormalShop();
     shop.setId("limited_drops");
-    shop.setDisplayConfig(simpleDisplay("Limited Drops", "§c§lLimited Drops", List.of(
-      "§7Each player can buy a limited amount per cooldown.",
-      "§7§oSet §fmax §7and §fcooldown §7(minutes) on the product."
+    shop.setDisplayConfig(simpleDisplay("Limited Drops", "minecraft:totem_of_undying", "<#2ecc71>« <#ee5253>Limited Drops <#2ecc71>»", List.of(
+      "§8─────────────────────────────────",
+      " §7Buy rare items with purchase limits.",
+      " §7Limits reset automatically after cooldown.",
+      "§8─────────────────────────────────"
     )));
 
     Product dailyDiamond = simpleProduct("minecraft:diamond", 100, 50);
     dailyDiamond.setMax(8);
-    dailyDiamond.setCooldown(1440);
+    dailyDiamond.setCooldown("1440m");
 
     Product hourlyEnderPearl = simpleProduct("minecraft:ender_pearl", 200, 100);
     hourlyEnderPearl.setMax(4);
-    hourlyEnderPearl.setCooldown(60);
+    hourlyEnderPearl.setCooldown("60m");
 
     Product weeklyTotem = simpleProduct("minecraft:totem_of_undying", 5000, 2500);
     weeklyTotem.setMax(1);
-    weeklyTotem.setCooldown(10080);
+    weeklyTotem.setCooldown("10080m");
 
     shop.setProducts(new ArrayList<>(List.of(dailyDiamond, hourlyEnderPearl, weeklyTotem)));
     return shop;
@@ -423,9 +467,11 @@ public final class ConfigLoader {
   private static NormalShop buildMulticurrencyBazaar() {
     NormalShop shop = new NormalShop();
     shop.setId("multicurrency_bazaar");
-    shop.setDisplayConfig(simpleDisplay("Bazaar", "§9§lMulti-Currency Bazaar", List.of(
-      "§7Pay with §fmultiple currencies §7at once.",
-      "§7§oWhen §fprices[] §7is set, simple §fbuy/sell §7are ignored."
+    shop.setDisplayConfig(simpleDisplay("Bazaar", "minecraft:emerald", "<#2ecc71>« <#54a0ff>Multi-Currency Bazaar <#2ecc71>»", List.of(
+      "§8─────────────────────────────────",
+      " §7Special items priced in multiple currencies.",
+      " §7Accepts virtual dollars and physical items.",
+      "§8─────────────────────────────────"
     )));
 
     EconomyUse dollars = new EconomyUse(ImpactorEconomy.IDENTIFY, "impactor:dollars");
@@ -462,9 +508,11 @@ public final class ConfigLoader {
   private static RotationShop buildHourlyRotation() {
     RotationShop shop = new RotationShop();
     shop.setId("hourly_rotation");
-    shop.setDisplayConfig(simpleDisplay("Hourly Rotation", "§b§lHourly Rotation", List.of(
-      "§7Refreshes every hour.",
-      "§7§oROTATION + §finterval='1h'§7 — relative cooldown."
+    shop.setDisplayConfig(simpleDisplay("Hourly Rotation", "minecraft:clock", "<#2ecc71>« <#00d2d3>Hourly Rotation <#2ecc71>»", List.of(
+      "§8─────────────────────────────────",
+      " §7A pool of rotating items refreshed hourly.",
+      " §7New deals appear dynamically.",
+      "§8─────────────────────────────────"
     )));
     shop.setConditionsConfig(ConditionsConfig.builder().announceRotation(true).build());
     shop.setScheduler(SchedulerFactory.fromInterval("1h"));
@@ -485,9 +533,11 @@ public final class ConfigLoader {
   private static RotationShop buildLegendaryRotation() {
     RotationShop shop = new RotationShop();
     shop.setId("legendary_rotation");
-    shop.setDisplayConfig(simpleDisplay("Legendary Rotation", "§6§lLegendary Rotation", List.of(
-      "§7High-tier items rotated §fevery Friday at 18:00§7.",
-      "§7§oROTATION + §fcron='0 18 * * 5'§7 — fixed schedule."
+    shop.setDisplayConfig(simpleDisplay("Legendary Rotation", "minecraft:dragon_egg", "<#2ecc71>« <#ff9f43>Legendary Rotation <#2ecc71>»", List.of(
+      "§8─────────────────────────────────",
+      " §7Rotating high-tier legendary drops.",
+      " §7Rotates every Friday at 18:00.",
+      "§8─────────────────────────────────"
     )));
     shop.setConditionsConfig(ConditionsConfig.builder().announceRotation(true).build());
     shop.setScheduler(SchedulerFactory.fromCron("0 18 * * 5"));
@@ -507,9 +557,11 @@ public final class ConfigLoader {
   private static RotationShop buildDailySpecials() {
     RotationShop shop = new RotationShop();
     shop.setId("daily_specials");
-    shop.setDisplayConfig(simpleDisplay("Daily Specials", "§e§lDaily Specials", List.of(
-      "§7New deals every day at midnight.",
-      "§7§oROTATION + §fcron='0 0 * * *'§7 — daily reset."
+    shop.setDisplayConfig(simpleDisplay("Daily Specials", "minecraft:sunflower", "<#2ecc71>« <#feca57>Daily Specials <#2ecc71>»", List.of(
+      "§8─────────────────────────────────",
+      " §7Special deals rotated daily at midnight.",
+      " §7Grab them before they disappear!",
+      "§8─────────────────────────────────"
     )));
     shop.setScheduler(SchedulerFactory.fromCron("0 0 * * *"));
     shop.setRotationAmount(6);
@@ -528,17 +580,17 @@ public final class ConfigLoader {
 
   // --- VO factory helpers ---
 
-  private static DisplayConfig simpleDisplay(String name, String displayname, List<String> lore) {
+  private static DisplayConfig simpleDisplay(String name, String item, String displayname, List<String> lore) {
     return DisplayConfig.builder()
       .name(name)
       .autoPlace(true)
       .rows(6)
-      .displayItem(displayIcon(displayname, lore))
+      .displayItem(displayIcon(item, displayname, lore))
       .build();
   }
 
-  private static ItemModel displayIcon(String displayname, List<String> lore) {
-    return new ItemModel("", displayname, lore);
+  private static ItemModel displayIcon(String item, String displayname, List<String> lore) {
+    return new ItemModel(0, item, displayname, lore, 0);
   }
 
   // --- Product factory helpers ---

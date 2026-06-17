@@ -46,6 +46,7 @@ public final class NormalShop extends AbstractShop implements Shop {
 
   @Override
   public void check() {
+    checkConfigs();
     if (products == null) products = new ArrayList<>();
     products.forEach(p -> p.check(legacyView()));
     deduplicateProductUuids();

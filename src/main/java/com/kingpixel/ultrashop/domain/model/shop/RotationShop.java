@@ -58,12 +58,18 @@ public final class RotationShop extends AbstractShop implements Shop {
 
   @Override
   public void check() {
+    checkConfigs();
     if (productPool == null) productPool = new ArrayList<>();
+    productPool.forEach(p -> p.check(legacyView()));
     if (rotationAmount < 1) rotationAmount = 1;
     if (scheduler == null) {
       UltraShop.LOGGER.warn("RotationShop '{}' has no scheduler — falling back to default.", getId());
       scheduler = Scheduler.defaultScheduler();
     }
+  }
+
+  private com.kingpixel.ultrashop.domain.model.Shop legacyView() {
+    return ShopBridge.toLegacy(this);
   }
 }
 

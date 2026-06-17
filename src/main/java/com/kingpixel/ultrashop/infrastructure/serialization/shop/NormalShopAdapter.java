@@ -26,6 +26,10 @@ public final class NormalShopAdapter implements ShopJsonAdapter<NormalShop> {
   public JsonObject serialize(NormalShop shop, JsonSerializationContext ctx) {
     JsonObject obj = new JsonObject();
     obj.addProperty("id", shop.getId());
+    obj.addProperty("maintenance", shop.isMaintenance());
+    if (shop.getWebhookUrl() != null) {
+      obj.addProperty("webhookUrl", shop.getWebhookUrl());
+    }
     obj.add("displayConfig", ctx.serialize(shop.getDisplayConfig(), DisplayConfig.class));
     obj.add("economyConfig", ctx.serialize(shop.getEconomyConfig(), EconomyConfig.class));
     obj.add("conditionsConfig", ctx.serialize(shop.getConditionsConfig(), ConditionsConfig.class));
@@ -39,6 +43,12 @@ public final class NormalShopAdapter implements ShopJsonAdapter<NormalShop> {
     NormalShop shop = new NormalShop();
     if (json.has("id") && !json.get("id").isJsonNull()) {
       shop.setId(json.get("id").getAsString());
+    }
+    if (json.has("maintenance") && !json.get("maintenance").isJsonNull()) {
+      shop.setMaintenance(json.get("maintenance").getAsBoolean());
+    }
+    if (json.has("webhookUrl") && !json.get("webhookUrl").isJsonNull()) {
+      shop.setWebhookUrl(json.get("webhookUrl").getAsString());
     }
     shop.setDisplayConfig(ctx.deserialize(json.get("displayConfig"), DisplayConfig.class));
     shop.setEconomyConfig(ctx.deserialize(json.get("economyConfig"), EconomyConfig.class));
