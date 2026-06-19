@@ -77,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Blank Cooldown Tooltips**: Fixed a bug where the cooldown tooltip was displayed blank instead of showing "Ready"
   when a product was not on active cooldown.
 - **Fixed Loggers**: Fixed loggers that were printing the mod id in the logs.
+- **Web Dashboard Classpath Resolution**: Fixed an issue where the embedded Jetty server failed to load static web resources inside JAR packaging due to directory resource lookup limitations.
+- **Menu Sell Transaction Feedback**: Fixed a bug where selling an item via the GUI confirmation menu would exit silently without sending a notification when the player had no matching items in their inventory.
 
 ## [1.0.0] - 2025-12-01
 

@@ -26,10 +26,6 @@ public final class ShopContext {
 
   private final AsyncContext asyncContext = UtilsAsync.createContext(UltraShop.MOD_ID, "UltraShop");
 
-  public AsyncContext getAsyncContext() {
-    return asyncContext;
-  }
-
   @Getter
   private final Map<String, ShopConfig> configs = new ConcurrentHashMap<>();
 

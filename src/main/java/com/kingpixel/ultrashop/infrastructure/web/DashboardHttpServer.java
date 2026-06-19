@@ -266,10 +266,14 @@ public final class DashboardHttpServer {
   // ── Static Files & SPA ──
 
   private void registerStaticFiles(ServletContextHandler context) {
-    String webRoot = Objects.requireNonNull(
-      getClass().getClassLoader().getResource("ultrashop-web"),
-      "ultrashop-web resources not found on classpath"
-    ).toExternalForm();
+    java.net.URL resource = getClass().getClassLoader().getResource("ultrashop-web/");
+    if (resource == null) {
+      resource = getClass().getClassLoader().getResource("ultrashop-web");
+    }
+    if (resource == null) {
+      throw new IllegalStateException("ultrashop-web resources not found on classpath");
+    }
+    String webRoot = resource.toExternalForm();
     context.setResourceBase(webRoot);
     context.addServlet(DefaultServlet.class, "/");
   }

@@ -148,9 +148,7 @@ public final class ConfigLoader {
 
       for (Path file : jsonFiles) {
         try {
-          String json = Files.readString(file);
-          com.kingpixel.ultrashop.domain.model.shop.Shop shopLoaded = GsonProvider.gson()
-            .fromJson(json, com.kingpixel.ultrashop.domain.model.shop.Shop.class);
+          com.kingpixel.ultrashop.domain.model.shop.Shop shopLoaded = UtilsFile.read(file, com.kingpixel.ultrashop.domain.model.shop.Shop.class);
           if (shopLoaded == null) continue;
 
           String shopId = file.getFileName().toString().replace(".json", "");

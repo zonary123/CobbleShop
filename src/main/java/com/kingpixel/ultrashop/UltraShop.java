@@ -28,6 +28,16 @@ public class UltraShop implements ModInitializer {
 
   @Override
   public void onInitialize() {
+    // Register custom serializers into the framework file utility
+    com.kingpixel.cobbleutils.util.UtilsFile.registerAdapter(
+      com.kingpixel.ultrashop.domain.model.shop.Shop.class,
+      new com.kingpixel.ultrashop.infrastructure.serialization.shop.ShopTypeAdapterFactory()
+    );
+    com.kingpixel.cobbleutils.util.UtilsFile.registerAdapter(
+      com.kingpixel.ultrashop.domain.scheduler.Scheduler.class,
+      new com.kingpixel.ultrashop.infrastructure.serialization.scheduler.SchedulerJsonAdapter()
+    );
+
     // Initialize context (async, data structures)
     ShopContext.get().init();
 

@@ -155,11 +155,14 @@ public final class TransactionService {
         PlayerUtils.sendMessage(player,
           ctx.getLang().getMessageSimpleSell()
             .replace("%product%", productTemplate.getName().getString())
-            .replace("%amount%", String.valueOf(sold[0]))
-            .replace("%price%", allSellSb.toString().trim()),
+            .replace(PLACEHOLDER_AMOUNT, String.valueOf(sold[0]))
+            .replace(PLACEHOLDER_PRICE, allSellSb.toString().trim()),
           ctx.getLang().getPrefix(), TypeMessage.CHAT);
 
         saveTransactions(player, product, shop, sold[0], totals, ActionShop.SELL, config, ctx);
+      } else {
+        PlayerUtils.sendMessage(player, ctx.getLang().getMessageNotSell(),
+          ctx.getLang().getPrefix(), TypeMessage.CHAT);
       }
     }
   }
