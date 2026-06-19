@@ -66,7 +66,7 @@ public final class BuyAndSellMenuBuilder {
 
       ctx.runOnServer(() -> UIManager.openUIForcefully(request.player(), page));
     } catch (Exception e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error opening buy/sell menu: " + e.getMessage());
+      UltraShop.LOGGER.error( "Error opening buy/sell menu: " + e.getMessage());
     }
   }
 

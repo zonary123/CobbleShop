@@ -63,12 +63,12 @@ public class JsonTransactionRepository implements TransactionRepository {
             daily.add(transaction);
             UtilsFile.write(filePath, daily);
           } catch (Exception e) {
-            UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error writing transaction: " + e.getMessage());
+            UltraShop.LOGGER.error( "Error writing transaction: " + e.getMessage());
           }
         }
       });
     } catch (IOException e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error saving transaction: " + e.getMessage());
+      UltraShop.LOGGER.error( "Error saving transaction: " + e.getMessage());
     }
   }
 
@@ -97,12 +97,12 @@ public class JsonTransactionRepository implements TransactionRepository {
                 .forEach(result::add);
             }
           } catch (Exception e) {
-            UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error reading transaction file " + file + ": " + e.getMessage());
+            UltraShop.LOGGER.error( "Error reading transaction file " + file + ": " + e.getMessage());
           }
         }
       }
     } catch (IOException e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error listing transaction files: " + e.getMessage());
+      UltraShop.LOGGER.error( "Error listing transaction files: " + e.getMessage());
     }
 
     // Sort by timestamp desc, limit
@@ -142,12 +142,12 @@ public class JsonTransactionRepository implements TransactionRepository {
               if (!daily.isEmpty() && daily.get(0).getTimestamp() < cutoff) break;
             }
           } catch (Exception e) {
-            UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error reading transaction file " + file + ": " + e.getMessage());
+            UltraShop.LOGGER.error( "Error reading transaction file " + file + ": " + e.getMessage());
           }
         }
       }
     } catch (IOException e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error listing transaction files: " + e.getMessage());
+      UltraShop.LOGGER.error( "Error listing transaction files: " + e.getMessage());
     }
 
     result.sort(Comparator.comparingLong(Transaction::getTimestamp).reversed());

@@ -53,7 +53,7 @@ public final class V1ToV2Migrator {
         JsonObject json = com.google.gson.JsonParser.parseString(content).getAsJsonObject();
 
         if (isV1Format(json)) {
-          UltraShop.LOGGER.info(UltraShop.MOD_ID, "Migrating v1 shop: " + file.getFileName());
+          UltraShop.LOGGER.info( "Migrating v1 shop: " + file.getFileName());
 
           // Backup
           Path backupDir = shopDir.resolve("backup_v1");
@@ -69,12 +69,12 @@ public final class V1ToV2Migrator {
           anyMigrated = true;
         }
       } catch (Exception e) {
-        UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error migrating " + file + ": " + e.getMessage());
+        UltraShop.LOGGER.error( "Error migrating " + file + ": " + e.getMessage());
       }
     }
 
     if (anyMigrated) {
-      UltraShop.LOGGER.info(UltraShop.MOD_ID, "V1 → V2 migration complete. Backups in shop/backup_v1/");
+      UltraShop.LOGGER.info( "V1 → V2 migration complete. Backups in shop/backup_v1/");
     }
   }
 

@@ -85,7 +85,7 @@ public final class ConfigLoader {
       UtilsFile.writeAsync(configPath, config);
       return config;
     } catch (IOException e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error loading config: " + e.getMessage());
+      UltraShop.LOGGER.error( "Error loading config: " + e.getMessage());
       ShopConfig fallback = new ShopConfig();
       fallback.check();
       return fallback;
@@ -104,7 +104,7 @@ public final class ConfigLoader {
       UtilsFile.writeAsync(langPath, lang);
       ctx.setLang(lang);
     } catch (IOException e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error loading lang: " + e.getMessage());
+      UltraShop.LOGGER.error( "Error loading lang: " + e.getMessage());
       ctx.setLang(new LangConfig());
     }
   }
@@ -812,7 +812,7 @@ public final class ConfigLoader {
         """;
       Files.writeString(readme, content);
     } catch (IOException e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error generating README.md: " + e.getMessage());
+      UltraShop.LOGGER.error( "Error generating README.md: " + e.getMessage());
     }
   }
 }

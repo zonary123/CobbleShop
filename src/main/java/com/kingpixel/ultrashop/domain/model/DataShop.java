@@ -55,7 +55,7 @@ public class DataShop {
       migrateFromLegacy();
       loadAllRotations();
     } catch (Exception e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error loading DataShop: " + e.getMessage());
+      UltraShop.LOGGER.error( "Error loading DataShop: " + e.getMessage());
       this.products = new ConcurrentHashMap<>();
     }
   }
@@ -75,7 +75,7 @@ public class DataShop {
             Files.createDirectories(file.getParent());
             UtilsFile.write(file, rotation);
           } catch (IOException e) {
-            UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error migrating rotation " + modId + "/" + shopId + ": " + e.getMessage());
+            UltraShop.LOGGER.error( "Error migrating rotation " + modId + "/" + shopId + ": " + e.getMessage());
           }
         }));
         UltraShop.LOGGER.info("Migrated dataShop.json to per-shop rotation files.");
@@ -86,7 +86,7 @@ public class DataShop {
       Files.move(LEGACY_FILE, backup);
       UltraShop.LOGGER.info("Legacy dataShop.json backed up to dataShop.json.bak");
     } catch (Exception e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error during legacy migration: " + e.getMessage());
+      UltraShop.LOGGER.error( "Error during legacy migration: " + e.getMessage());
     }
   }
 
@@ -111,18 +111,18 @@ public class DataShop {
                   shopMap.put(shopId, rotation);
                 }
               } catch (Exception e) {
-                UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error loading rotation " + file + ": " + e.getMessage());
+                UltraShop.LOGGER.error( "Error loading rotation " + file + ": " + e.getMessage());
               }
             }
           } catch (Exception e) {
-            UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error scanning rotations for " + modId + ": " + e.getMessage());
+            UltraShop.LOGGER.error( "Error scanning rotations for " + modId + ": " + e.getMessage());
           }
           if (!shopMap.isEmpty()) {
             products.put(modId, shopMap);
           }
         });
     } catch (IOException e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error scanning rotations directory: " + e.getMessage());
+      UltraShop.LOGGER.error( "Error scanning rotations directory: " + e.getMessage());
     }
   }
 
@@ -142,12 +142,12 @@ public class DataShop {
     try {
       Files.createDirectories(file.getParent());
     } catch (IOException e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error creating rotation dir: " + e.getMessage());
+      UltraShop.LOGGER.error( "Error creating rotation dir: " + e.getMessage());
       return;
     }
     UtilsFile.writeAsync(file, rotation)
       .exceptionally(e -> {
-        UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error writing rotation " + modId + "/" + shopId + ": " + e.getMessage());
+        UltraShop.LOGGER.error( "Error writing rotation " + modId + "/" + shopId + ": " + e.getMessage());
         return null;
       });
   }
