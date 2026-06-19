@@ -2,7 +2,7 @@ name: Build, Discord & Modrinth Release
 
 on:
   push:
-    tags: [ "*" ]
+    tags: ["*"]
 
 env:
   DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
@@ -56,7 +56,7 @@ jobs:
       - name: Send Discord Notification with Embed and File
         run: |
           FILE=$(ls build/libs/*.jar | grep -v "sources" | head -n1)
-          
+
           # Extraer changelog
           BASE=$(echo "$TAG" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
           CHANGELOG_CONTENT=$(tr -d '\r' < CHANGELOG.md | awk -v ver="$BASE" '
@@ -64,19 +64,19 @@ jobs:
             /^## \[/ && flag {flag=0}
             flag {print}
           ')
-          
+
           # Generar JSON embed correctamente escapado
           JSON_PAYLOAD=$(jq -nc --arg tag "$TAG" --arg changelog "$CHANGELOG_CONTENT" \
             '{content: "@everyone 🎉 New Release!", embeds:[{title:("Release "+$tag), description:$changelog, color:3066993}]}')
-          
+
           echo "Embed JSON:"
           echo "$JSON_PAYLOAD"
-          
+
           # 1️⃣ Enviar primero el embed
           curl -s -X POST "$DISCORD_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD"
-          
+
           # 2️⃣ Enviar después el archivo como segundo mensaje
           curl -s -X POST "$DISCORD_WEBHOOK_URL" \
             -F "file=@${FILE}"
