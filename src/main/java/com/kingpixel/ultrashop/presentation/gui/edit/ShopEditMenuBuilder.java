@@ -1187,6 +1187,83 @@ public final class ShopEditMenuBuilder {
         condLore, a -> openConditionsList(player, shop, config, modId)));
     }
 
+    // Webhook URL
+    {
+      String webhook = shop.getWebhookUrl() != null ? shop.getWebhookUrl() : "";
+      template.set(7, button(new ItemStack(Items.WRITABLE_BOOK), "§e⚙ Webhook URL",
+        List.of(SEP, "§7Current: §f" + truncate(webhook, 45), "",
+          "§7Discord webhook URL for notifications.", SEP,
+          "§a▶ Click §7→ Set via chat", "§c▶ Shift §7→ Clear"),
+        a -> {
+          if (a.getClickType().name().contains("SHIFT")) {
+            shop.setWebhookUrl("");
+            ctx.replaceShop(modId, shop);
+            ConfigLoader.saveShop(shop);
+            openShopSettings(player, shop, config, modId);
+          } else {
+            ChatInputManager.requestInput(player, "Enter webhook URL:", input -> {
+              shop.setWebhookUrl(input);
+              ctx.replaceShop(modId, shop);
+              ConfigLoader.saveShop(shop);
+              ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
+            });
+          }
+        }));
+    }
+
+    // Maintenance Mode
+    {
+      boolean maintenance = shop.isMaintenance();
+      template.set(8, button(new ItemStack(maintenance ? Items.REDSTONE_TORCH : Items.LEVER),
+        "§e⚙ Maintenance Mode: " + boolIcon(maintenance),
+        List.of(SEP, "§7Current: " + boolIcon(maintenance), "",
+          "§7When ON, players cannot open this shop.", SEP,
+          "§a▶ Click §7→ Toggle"),
+        a -> {
+          shop.setMaintenance(!maintenance);
+          ctx.replaceShop(modId, shop);
+          ConfigLoader.saveShop(shop);
+          openShopSettings(player, shop, config, modId);
+        }));
+    }
+
+    // Display Item (Icon)
+    {
+      ItemModel displayItem = shop.getDisplayConfig() != null ? shop.getDisplayConfig().getDisplayItem() : null;
+      String displayStr = displayItem != null ? displayItem.getItem() : "minecraft:book";
+      template.set(15, button(new ItemStack(displayItem != null ? displayItem.getItemStack().getItem() : Items.BOOK),
+        "§e🎨 Display Item (Icon)",
+        List.of(SEP, "§7Current: §f" + displayStr, "",
+          "§7Icon representing this shop in menus.", SEP,
+          "§a▶ Click §7→ Set to item in hand", "§e▶ Right Click §7→ Set via chat"),
+        a -> {
+          switch (a.getClickType()) {
+            case RIGHT_CLICK, SHIFT_RIGHT_CLICK -> ChatInputManager.requestInput(player, "Enter display item ID (e.g. minecraft:diamond):", input -> {
+              ItemModel newItem = new ItemModel(input);
+              DisplayConfig dc = shop.getDisplayConfig() != null ? shop.getDisplayConfig() : DisplayConfig.builder().build();
+              shop.setDisplayConfig(dc.toBuilder().displayItem(newItem).build());
+              ctx.replaceShop(modId, shop);
+              ConfigLoader.saveShop(shop);
+              ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
+            });
+            default -> {
+              ItemStack hand = player.getMainHandStack();
+              if (!hand.isEmpty()) {
+                String itemId = itemStackToProductId(hand);
+                ItemModel newItem = new ItemModel(itemId);
+                DisplayConfig dc = shop.getDisplayConfig() != null ? shop.getDisplayConfig() : DisplayConfig.builder().build();
+                shop.setDisplayConfig(dc.toBuilder().displayItem(newItem).build());
+                ctx.replaceShop(modId, shop);
+                ConfigLoader.saveShop(shop);
+                openShopSettings(player, shop, config, modId);
+              } else {
+                PlayerUtils.sendMessage(player, "§cHold an item in your hand first.", lang.getPrefix(), TypeMessage.CHAT);
+              }
+            }
+          }
+        }));
+    }
+
     // Row 2: Rotation schedule
     {
       List<String> rotLore = new ArrayList<>();
