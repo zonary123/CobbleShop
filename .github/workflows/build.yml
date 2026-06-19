@@ -65,9 +65,24 @@ jobs:
             flag {print}
           ')
 
-          # Generar JSON embed correctamente escapado
-          JSON_PAYLOAD=$(jq -nc --arg tag "$TAG" --arg changelog "$CHANGELOG_CONTENT" \
-            '{content: "@everyone 🎉 New Release!", embeds:[{title:("Release "+$tag), description:$changelog, color:3066993}]}')
+          # Verificar el tamaño del changelog (límite de Discord para descripción de embed es 4096)
+          LIMIT=3000
+          LEN=${#CHANGELOG_CONTENT}
+
+          if [ $LEN -gt $LIMIT ]; then
+            echo "Changelog too long ($LEN characters). Sending as file attachment."
+            EMBED_DESC="The changelog is too long to fit in this message. Please see the attached CHANGELOG.md file for the full list of changes."
+            
+            # Guardar el contenido en un archivo CHANGELOG.md temporal en una subcarpeta
+            mkdir -p temp_discord
+            echo "$CHANGELOG_CONTENT" > temp_discord/CHANGELOG.md
+
+            JSON_PAYLOAD=$(jq -nc --arg tag "$TAG" --arg changelog "$EMBED_DESC" \
+              '{content: "@everyone 🎉 New Release!", embeds:[{title:("Release "+$tag), description:$changelog, color:3066993}]}')
+          else
+            JSON_PAYLOAD=$(jq -nc --arg tag "$TAG" --arg changelog "$CHANGELOG_CONTENT" \
+              '{content: "@everyone 🎉 New Release!", embeds:[{title:("Release "+$tag), description:$changelog, color:3066993}]}')
+          fi
 
           echo "Embed JSON:"
           echo "$JSON_PAYLOAD"
@@ -77,9 +92,15 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD"
 
-          # 2️⃣ Enviar después el archivo como segundo mensaje
-          curl -s -X POST "$DISCORD_WEBHOOK_URL" \
-            -F "file=@${FILE}"
+          # 2️⃣ Enviar después el archivo o archivos
+          if [ -f temp_discord/CHANGELOG.md ]; then
+            curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+              -F "files[0]=@${FILE}" \
+              -F "files[1]=@temp_discord/CHANGELOG.md"
+          else
+            curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+              -F "file=@${FILE}"
+          fi
 
       - name: Publish to Modrinth
         run: |
