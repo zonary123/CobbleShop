@@ -158,11 +158,19 @@ public final class CommandTree {
     base.then(CommandManager.literal("reload")
       .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".reload", modId + ADMIN_PERMISSION_SUFFIX), 2))
       .executes(ctx -> {
-        ConfigLoader.load(options);
-        StatsService.invalidateCache();
-        ShopContext.get().startDashboard();
-        sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandReloaded()
-          .replace("%modId%", options.getModId()));
+        try{
+          ConfigLoader.load(options);
+          StatsService.invalidateCache();
+          ShopContext.get().startDashboard();
+          sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandReloaded()
+            .replace("%modId%", options.getModId()));
+        } catch (Exception e) {
+          UltraShop.LOGGER.error("Error reloading shops: {}", e.getMessage(), e);
+          sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandReloadFailed()
+            .replace("%modId%", options.getModId())
+            .replace("%prefix%", ShopContext.get().getLang().getPrefix())
+            .replace("%error%", e.getMessage()));
+        }
         return 1;
       }));
   }
