@@ -20,7 +20,6 @@ import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
 import com.kingpixel.ultrashop.domain.model.shop.config.EconomyConfig;
 import com.kingpixel.ultrashop.domain.scheduler.SchedulerFactory;
 import com.kingpixel.ultrashop.infrastructure.persistence.RepositoryFactory;
-import com.kingpixel.ultrashop.infrastructure.serialization.GsonProvider;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -169,7 +168,7 @@ public final class ConfigLoader {
           typedShops.add(shopLoaded);
           legacyShops.add(legacy);
         } catch (Exception e) {
-          UltraShop.LOGGER.error("Error loading shop " + file + ": " + e.getMessage());
+          UltraShop.LOGGER.error("Error loading shop " + file, e);
           backupIncompatibleShop(shopDir, file);
         }
       }
@@ -205,15 +204,9 @@ public final class ConfigLoader {
   public static void saveShop(com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
     if (shop.getFilePath() == null) return;
     Path path = Path.of(shop.getFilePath());
-
-    CompletableFuture.runAsync(() -> {
-      try {
-        Files.writeString(path, GsonProvider.gson()
-          .toJson(shop, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
-      } catch (IOException e) {
-        UltraShop.LOGGER.error(
-          "Error saving shop " + shop.getId() + ": " + e.getMessage());
-      }
+    UtilsFile.writeAsync(path, shop).exceptionally(ex -> {
+      UltraShop.LOGGER.error("Error saving shop " + shop.getId(), ex);
+      return null;
     });
   }
 
@@ -225,9 +218,7 @@ public final class ConfigLoader {
     Path shopDir = CobbleUtils.getPath().resolve(options.getPath()).resolve("shop");
     Path filePath = shopDir.resolve(shop.getId() + ".json");
     try {
-      Files.createDirectories(shopDir);
-      Files.writeString(filePath, GsonProvider.gson()
-        .toJson(shop, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
+      UtilsFile.write(filePath, shop);
       shop.setFilePath(filePath.toString());
       load(options); // Reload everything
     } catch (IOException e) {
@@ -259,8 +250,7 @@ public final class ConfigLoader {
         continue;
       }
       try {
-        Files.writeString(file, GsonProvider.gson()
-          .toJson(shop, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
+        UtilsFile.write(file, shop);
       } catch (IOException e) {
         UltraShop.LOGGER.error("Error creating default shop: " + e.getMessage());
       }

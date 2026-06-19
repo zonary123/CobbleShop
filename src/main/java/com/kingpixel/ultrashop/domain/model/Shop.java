@@ -155,7 +155,7 @@ public class Shop implements com.kingpixel.ultrashop.domain.model.shop.ShopRefer
    */
   public void check() {
     if (subShops == null) subShops = new ArrayList<>();
-    if (economies.isEmpty()) {
+    if (economies == null || economies.isEmpty()) {
       economies = new LinkedHashSet<>();
       economies.add(new EconomyUse(ImpactorEconomy.IDENTIFY, "impactor:dollars"));
     }

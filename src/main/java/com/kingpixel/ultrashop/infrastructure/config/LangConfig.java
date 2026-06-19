@@ -36,6 +36,7 @@ public class LangConfig {
 
   // --- Command messages ---
   private String commandReloaded;
+  private String commandReloadFailed;
   private String commandShopAlreadyExists;
   private String commandShopCreated;
   private String commandDynamicShopRestarted;
@@ -153,6 +154,7 @@ public class LangConfig {
     cooldownReady = "<#2ecc71>Ready";
 
     commandReloaded = "%prefix% <#2ecc71>Reloaded <#ffa502>%modId% <#2ecc71>shops";
+    commandReloadFailed = "%prefix% <#ff6b6b>Reload failed for <#ffa502>%modId%<#ff6b6b>: <#ffa502>%error%";
     commandShopAlreadyExists = "%prefix% <#ff6b6b>Shop already exists: <#ffa502>%shop%";
     commandShopCreated = "%prefix% <#2ecc71>Created shop: <#ffa502>%shop%";
     commandDynamicShopRestarted = "%prefix% <#2ecc71>Restarted dynamic shop: <#ffa502>%shop%";
@@ -293,6 +295,7 @@ public class LangConfig {
       messageConditionCreateFailed = "%prefix% <#ff6b6b>Failed to create condition: <#ffa502>%error%";
     }
     if (commandReloaded == null || commandReloaded.isBlank()) commandReloaded = "%prefix% <#2ecc71>Reloaded <#ffa502>%modId% <#2ecc71>shops";
+    if (commandReloadFailed == null || commandReloadFailed.isBlank()) commandReloadFailed = "%prefix% <#ff6b6b>Reload failed for <#ffa502>%modId%<#ff6b6b>: <#ffa502>%error%";
     if (commandShopAlreadyExists == null || commandShopAlreadyExists.isBlank()) commandShopAlreadyExists = "%prefix% <#ff6b6b>Shop already exists: <#ffa502>%shop%";
     if (commandShopCreated == null || commandShopCreated.isBlank()) commandShopCreated = "%prefix% <#2ecc71>Created shop: <#ffa502>%shop%";
     if (commandDynamicShopRestarted == null || commandDynamicShopRestarted.isBlank()) commandDynamicShopRestarted = "%prefix% <#2ecc71>Restarted dynamic shop: <#ffa502>%shop%";
