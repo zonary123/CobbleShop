@@ -35,6 +35,7 @@ import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
 import com.kingpixel.ultrashop.domain.model.shop.config.SoundConfig;
 import com.kingpixel.ultrashop.domain.model.ShopType;
 import com.kingpixel.ultrashop.domain.model.CronExpression;
+import com.kingpixel.ultrashop.api.ShopOptionsApi;
 import com.kingpixel.ultrashop.infrastructure.config.ConfigLoader;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
@@ -147,6 +148,54 @@ public final class ShopEditMenuBuilder {
     template.set(49, closeBtn(lang, player));
     template.set(45, prevBtn(lang));
     template.set(53, nextBtn(lang));
+    
+    // Create Shop Button
+    template.set(47, button(new ItemStack(Items.WRITABLE_BOOK), "§a§l+ Create Shop", List.of(
+      SEP,
+      "§7Create a new shop directly from here.",
+      "§7You will be prompted to enter the ID",
+      "§7and type (normal, rotation, category) in chat.",
+      SEP,
+      "§a▶ Click §7→ Create new shop"
+    ), a -> ChatInputManager.requestInput(player, "Enter new shop ID (alphanumeric, no spaces):", inputId -> {
+      String cleanId = inputId.trim().toLowerCase().replaceAll("[^a-z0-9_-]", "");
+      if (cleanId.isEmpty()) {
+        PlayerUtils.sendMessage(player, "§cInvalid ID.", lang.getPrefix(), TypeMessage.CHAT);
+        return;
+      }
+      boolean exists = ShopContext.get().getTypedShops(modId).stream()
+        .anyMatch(s -> s.getId().equalsIgnoreCase(cleanId));
+      if (exists) {
+        PlayerUtils.sendMessage(player, lang.getCommandShopAlreadyExists().replace("%shop%", cleanId), lang.getPrefix(), TypeMessage.CHAT);
+        return;
+      }
+      ctx.runOnServer(() -> ChatInputManager.requestInput(player, "Enter shop type (normal / rotation / category):", inputType -> {
+        String typeStr = inputType.trim().toUpperCase();
+        com.kingpixel.ultrashop.domain.model.shop.Shop newShop;
+        if (typeStr.equals("ROTATION")) {
+          com.kingpixel.ultrashop.domain.model.shop.RotationShop r = new com.kingpixel.ultrashop.domain.model.shop.RotationShop();
+          r.setId(cleanId);
+          r.setScheduler(new com.kingpixel.ultrashop.domain.scheduler.DurationScheduler("30m"));
+          r.setRotationAmount(3);
+          newShop = r;
+        } else if (typeStr.equals("CATEGORY")) {
+          com.kingpixel.ultrashop.domain.model.shop.CategoryShop c = new com.kingpixel.ultrashop.domain.model.shop.CategoryShop();
+          c.setId(cleanId);
+          c.setSubShops(new ArrayList<>());
+          newShop = c;
+        } else {
+          com.kingpixel.ultrashop.domain.model.shop.NormalShop n = new com.kingpixel.ultrashop.domain.model.shop.NormalShop();
+          n.setId(cleanId);
+          newShop = n;
+        }
+
+        ShopOptionsApi op = ShopOptionsApi.builder().modId(modId).path(modId + "/").build();
+        ConfigLoader.createShop(op, newShop);
+        PlayerUtils.sendMessage(player, lang.getCommandShopCreated().replace("%shop%", cleanId), lang.getPrefix(), TypeMessage.CHAT);
+        ctx.runOnServer(() -> openShopList(player, config, modId));
+      }));
+    })));
+
     new Rectangle(0, 0, 5, 9).apply(template);
 
     LinkedPage.Builder lp = LinkedPage.builder().template(template)
