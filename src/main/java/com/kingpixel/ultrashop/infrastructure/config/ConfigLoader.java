@@ -14,11 +14,7 @@ import com.kingpixel.ultrashop.domain.model.PriceEntry;
 import com.kingpixel.ultrashop.domain.model.Product;
 import com.kingpixel.ultrashop.domain.model.Shop;
 import com.kingpixel.ultrashop.domain.model.SubShop;
-import com.kingpixel.ultrashop.domain.model.shop.AbstractShop;
-import com.kingpixel.ultrashop.domain.model.shop.CategoryShop;
-import com.kingpixel.ultrashop.domain.model.shop.NormalShop;
-import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
-import com.kingpixel.ultrashop.domain.model.shop.ShopBridge;
+import com.kingpixel.ultrashop.domain.model.shop.*;
 import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
 import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
 import com.kingpixel.ultrashop.domain.model.shop.config.EconomyConfig;
@@ -115,16 +111,6 @@ public final class ConfigLoader {
 
   /**
    * Loads all shop files recursively from the shop directory.
-   *
-   * <p>Reads each file via {@link GsonProvider} which transparently handles both
-   * the new {@code type}-discriminated format AND the legacy flat format (auto-bridged).
-   * After load, every shop is rewritten in the canonical typed format, so legacy
-   * configs migrate to the new shape on first boot without manual intervention.</p>
-   *
-   * <p>The legacy {@code ctx.getShops()} mirror is kept in sync via
-   * {@link ShopBridge#toLegacy(com.kingpixel.ultrashop.domain.model.shop.Shop)}
-   * to keep the editor (which still mutates the legacy view) functional until
-   * its dedicated migration sub-phase lands.</p>
    */
   public static void loadShops(ShopOptionsApi options) {
     ShopContext ctx = ShopContext.get();
@@ -163,30 +149,29 @@ public final class ConfigLoader {
       for (Path file : jsonFiles) {
         try {
           String json = Files.readString(file);
-          com.kingpixel.ultrashop.domain.model.shop.Shop typed = GsonProvider.gson()
+          com.kingpixel.ultrashop.domain.model.shop.Shop shopLoaded = GsonProvider.gson()
             .fromJson(json, com.kingpixel.ultrashop.domain.model.shop.Shop.class);
-          if (typed == null) continue;
+          if (shopLoaded == null) continue;
 
           String shopId = file.getFileName().toString().replace(".json", "");
-          if (typed instanceof com.kingpixel.ultrashop.domain.model.shop.AbstractShop a) {
+          if (shopLoaded instanceof com.kingpixel.ultrashop.domain.model.shop.AbstractShop a) {
             a.setId(shopId);
           }
-          typed.setFilePath(file.toString());
-          typed.check();
+          shopLoaded.setFilePath(file.toString());
+          shopLoaded.check();
 
-          // Rewrite in canonical typed format (migrates legacy files in-place).
-          Files.writeString(file, GsonProvider.gson()
-            .toJson(typed, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
+          // Rewrite in canonical shopLoaded format (migrates legacy files in-place).
+          UtilsFile.write(file, shopLoaded);
 
           // Mirror to legacy view for the editor and check() side-effects.
-          Shop legacy = ShopBridge.toLegacy(typed);
+          Shop legacy = ShopBridge.toLegacy(shopLoaded);
           legacy.setFilePath(file.toString());
           legacy.check();
 
-          typedShops.add(typed);
+          typedShops.add(shopLoaded);
           legacyShops.add(legacy);
         } catch (Exception e) {
-          UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error loading shop " + file + ": " + e.getMessage());
+          UltraShop.LOGGER.error("Error loading shop " + file + ": " + e.getMessage());
           backupIncompatibleShop(shopDir, file);
         }
       }
@@ -194,7 +179,7 @@ public final class ConfigLoader {
       ctx.getShops().put(options.getModId(), legacyShops);
       ctx.getTypedShops().put(options.getModId(), typedShops);
     } catch (IOException e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error loading shops: " + e.getMessage());
+      UltraShop.LOGGER.error("Error loading shops: " + e.getMessage());
       ctx.getShops().put(options.getModId(), new ArrayList<>());
       ctx.getTypedShops().put(options.getModId(), new ArrayList<>());
     }
@@ -208,16 +193,16 @@ public final class ConfigLoader {
       String name = file.getFileName().toString();
       Path target = backupDir.resolve(timestamp + "_" + name);
       Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
-      UltraShop.LOGGER.warn(UltraShop.MOD_ID,
+      UltraShop.LOGGER.warn(
         "Moved incompatible shop file to backup: " + file + " -> " + target);
     } catch (Exception backupError) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID,
+      UltraShop.LOGGER.error(
         "Failed to backup incompatible shop file " + file + ": " + backupError.getMessage());
     }
   }
 
   /**
-   * Saves a single shop to disk in the canonical typed JSON format.
+   * Saves a single shop to disk in the canonical shopLoaded JSON format.
    */
   public static void saveShop(com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
     if (shop.getFilePath() == null) return;
@@ -228,7 +213,7 @@ public final class ConfigLoader {
         Files.writeString(path, GsonProvider.gson()
           .toJson(shop, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
       } catch (IOException e) {
-        UltraShop.LOGGER.error(UltraShop.MOD_ID,
+        UltraShop.LOGGER.error(
           "Error saving shop " + shop.getId() + ": " + e.getMessage());
       }
     });
@@ -248,22 +233,12 @@ public final class ConfigLoader {
       shop.setFilePath(filePath.toString());
       load(options); // Reload everything
     } catch (IOException e) {
-      UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error creating shop: " + e.getMessage());
+      UltraShop.LOGGER.error("Error creating shop: " + e.getMessage());
     }
   }
 
   // --- Default shop generation ---
 
-  /**
-   * Creates a comprehensive set of example shops covering every {@code ShopType}.
-   * Each example targets a single concept so users can compare side-by-side and
-   * learn by editing real, working configs.
-   *
-   * <p>All defaults are built directly with the typed sealed hierarchy
-   * ({@link NormalShop}, {@link CategoryShop}, {@link RotationShop}) and serialized
-   * via {@link GsonProvider}. The on-disk JSON is canonical from the first boot —
-   * no legacy → typed migration cycle on first load.</p>
-   */
   private static void createDefaultShops(Path shopDir) {
     List<com.kingpixel.ultrashop.domain.model.shop.Shop> defaults = new ArrayList<>();
     defaults.add(buildStarterBlocks());
@@ -289,7 +264,7 @@ public final class ConfigLoader {
         Files.writeString(file, GsonProvider.gson()
           .toJson(shop, com.kingpixel.ultrashop.domain.model.shop.Shop.class));
       } catch (IOException e) {
-        UltraShop.LOGGER.error(UltraShop.MOD_ID, "Error creating default shop: " + e.getMessage());
+        UltraShop.LOGGER.error("Error creating default shop: " + e.getMessage());
       }
     }
   }
@@ -303,9 +278,8 @@ public final class ConfigLoader {
     }
   }
 
-  // --- Default shop builders (typed) ---
+  // --- Default shop builders (shopLoaded) ---
 
-  /** CATEGORY: top-level menu pointing to every example shop. */
   private static CategoryShop buildMainMenu() {
     CategoryShop shop = new CategoryShop();
     shop.setId("main_menu");
@@ -334,7 +308,6 @@ public final class ConfigLoader {
     return shop;
   }
 
-  /** NORMAL: minimal buy-only shop — the simplest possible configuration. */
   private static NormalShop buildStarterBlocks() {
     NormalShop shop = new NormalShop();
     shop.setId("starter_blocks");
@@ -355,7 +328,6 @@ public final class ConfigLoader {
     return shop;
   }
 
-  /** NORMAL: sell-focused — buy=0 disables purchases, only selling is allowed. */
   private static NormalShop buildFarmMarket() {
     NormalShop shop = new NormalShop();
     shop.setId("farm_market");
@@ -378,7 +350,6 @@ public final class ConfigLoader {
     return shop;
   }
 
-  /** NORMAL: fixed-slot layout — autoPlace=false + slot per product. */
   private static NormalShop buildToolsWorkshop() {
     NormalShop shop = new NormalShop();
     shop.setId("tools_workshop");
@@ -408,7 +379,6 @@ public final class ConfigLoader {
     return shop;
   }
 
-  /** NORMAL: gated by openConditions — requires the permission node to open. */
   private static NormalShop buildVipLounge() {
     NormalShop shop = new NormalShop();
     shop.setId("vip_lounge");
@@ -436,7 +406,6 @@ public final class ConfigLoader {
     return shop;
   }
 
-  /** NORMAL: per-player buy limits via max + cooldown (auto-generates UUID). */
   private static NormalShop buildLimitedDrops() {
     NormalShop shop = new NormalShop();
     shop.setId("limited_drops");
@@ -463,7 +432,6 @@ public final class ConfigLoader {
     return shop;
   }
 
-  /** NORMAL: products priced in multiple currencies via the {@code prices} array. */
   private static NormalShop buildMulticurrencyBazaar() {
     NormalShop shop = new NormalShop();
     shop.setId("multicurrency_bazaar");
@@ -504,7 +472,6 @@ public final class ConfigLoader {
     return shop;
   }
 
-  /** ROTATION (interval): a small subset of the pool, refreshed every hour. */
   private static RotationShop buildHourlyRotation() {
     RotationShop shop = new RotationShop();
     shop.setId("hourly_rotation");
@@ -529,7 +496,6 @@ public final class ConfigLoader {
     return shop;
   }
 
-  /** ROTATION (cron): high-tier weekly drop — Fridays at 18:00 server time. */
   private static RotationShop buildLegendaryRotation() {
     RotationShop shop = new RotationShop();
     shop.setId("legendary_rotation");
@@ -553,7 +519,6 @@ public final class ConfigLoader {
     return shop;
   }
 
-  /** ROTATION (cron): daily refresh at midnight — common "daily deals" pattern. */
   private static RotationShop buildDailySpecials() {
     RotationShop shop = new RotationShop();
     shop.setId("daily_specials");
@@ -617,7 +582,6 @@ public final class ConfigLoader {
 
   /**
    * Generates (or regenerates) the README.md in the config root folder.
-   * Called on every load to keep documentation up to date.
    */
   private static void generateReadme(Path configRoot) {
     try {
@@ -625,11 +589,11 @@ public final class ConfigLoader {
       Path readme = configRoot.resolve("README.md");
       String content = """
         # UltraShop Configuration
-
+        
         Welcome to UltraShop! This folder contains all configuration files for your shop system.
-
+        
         ## Directory Structure
-
+        
         ```
         ultrashop/
         ├── config.json          # Core settings (database, commands, discounts, etc.)
@@ -649,9 +613,9 @@ public final class ConfigLoader {
         │       └── <uuid>.json
         └── README.md            # This file
         ```
-
+        
         ## config.json Fields
-
+        
         | Field | Type | Default | Description |
         |-------|------|---------|-------------|
         | `debug` | boolean | `false` | Enable debug logging |
@@ -667,9 +631,9 @@ public final class ConfigLoader {
         | `transactionPageSize` | int | `10` | Entries shown in /shop transactions |
         | `discounts` | map | `{"group.vip": 2.0}` | Permission-based discount percentages |
         | `dataBase` | object | JSON | Database config (JSON, MySQL, SQLite) |
-
+        
         ## Shop JSON Fields
-
+        
         | Field | Type | Required | Description |
         |-------|------|----------|-------------|
         | `name` | string | yes | Display name of the shop |
@@ -684,11 +648,11 @@ public final class ConfigLoader {
         | `announceRotation` | boolean | no | Broadcast rotation changes |
         | `globalDiscount` | float | no | Shop-wide discount percentage |
         | `discounts` | map | no | Permission-based discounts for this shop |
-
+        
         ## Product JSON Fields
-
+        
         All fields except `product`, `buy`, and `sell` are **nullable** (omit them if not needed).
-
+        
         | Field | Type | Required | Description |
         |-------|------|----------|-------------|
         | `product` | string | yes | Item ID (`minecraft:stone`, `command:give %player% ...`, `pokemon:pikachu`) |
@@ -708,12 +672,12 @@ public final class ConfigLoader {
         | `conditions` | Condition[] | no | Conditions to buy |
         | `visibilityConditions` | Condition[] | no | Conditions to see the product |
         | `CustomModelData` | int | no | Custom model data for display item |
-
+        
         ## Multi-Currency per Product
-
+        
         By default, products use the simple `buy`/`sell` fields and the shop's `economies` list.
         For products that need different prices in different currencies, use the `prices` array:
-
+        
         ### Simple product (most common — uses shop's economies):
         ```json
         {
@@ -722,7 +686,7 @@ public final class ConfigLoader {
           "sell": 50
         }
         ```
-
+        
         ### Multi-currency product (optional — overrides buy/sell):
         ```json
         {
@@ -743,41 +707,41 @@ public final class ConfigLoader {
           ]
         }
         ```
-
+        
         When `prices` is present and non-empty, the player must pay **ALL** listed currencies to buy,
         and receives **ALL** listed currencies when selling. The simple `buy`/`sell` fields are ignored.
-
+        
         ### PriceEntry Fields
-
+        
         | Field | Type | Description |
         |-------|------|-------------|
         | `economy` | EconomyUse | The economy provider (`type` + `currency`) |
         | `buy` | decimal | Buy price in this economy (0 = not charged) |
         | `sell` | decimal | Sell price in this economy (0 = not paid) |
-
+        
         ## Shop Types
-
+        
         Each shop has a `type` field with one of three values:
-
+        
         | Value | Behavior |
         |-------|----------|
         | `NORMAL` | Static catalog. All `products` are always visible. `rotationSchedule` and `subShops` are ignored. |
         | `CATEGORY` | Menu shop. Shows the entries listed in `subShops` (which point to other shops by id). `products` and `rotationSchedule` are ignored. |
         | `ROTATION` | Dynamic catalog. A subset of `products` is rotated based on `rotationSchedule`. |
-
+        
         ```json
         { "type": "ROTATION", "rotationSchedule": { "interval": "12h", "amount": 3 } }
         ```
-
+        
         > **Back-compat:** if `type` is missing, it defaults to `NORMAL`. On load, if
         > `subShops` is non-empty it auto-promotes to `CATEGORY`; if `rotationSchedule`
         > is present it auto-promotes to `ROTATION`. Old configs keep working without
         > edits, but **adding `type` explicitly is strongly recommended**.
-
+        
         ## Dynamic Rotations
-
+        
         Set `type: "ROTATION"` and a `rotationSchedule` on a shop to enable rotating products:
-
+        
         ### Using interval (relative cooldown):
         ```json
         "type": "ROTATION",
@@ -787,7 +751,7 @@ public final class ConfigLoader {
         }
         ```
         Supported intervals: `30m`, `1h`, `6h`, `12h`, `24h`, `7d`, etc.
-
+        
         ### Using cron (fixed schedule):
         ```json
         "type": "ROTATION",
@@ -796,19 +760,19 @@ public final class ConfigLoader {
           "amount": 3
         }
         ```
-
+        
         When `cron` is set, it **overrides** `interval`. The cron expression follows the standard 5-field format:
         `minute hour day-of-month month day-of-week`.
-
+        
         Supported syntax: `*`, `n`, `a-b`, `a,b,c`, `*/n` (step). Day-of-week uses 0=Sunday..6=Saturday (7 also accepted as Sunday).
-
+        
         Examples:
         - `0 18 * * 5` — every Friday at 18:00
         - `0 * * * *` — top of every hour
         - `*/15 * * * *` — every 15 minutes
         - `0 0,12 * * *` — at 00:00 and 12:00 every day
         - `0 9 1 * *` — at 09:00 on the 1st of every month
-
+        
         **Cron examples:**
         | Expression | Description |
         |-----------|-------------|
@@ -817,17 +781,17 @@ public final class ConfigLoader {
         | `0 12 * * 1,3,5` | Mon/Wed/Fri at noon |
         | `0 0 1 * *` | First day of each month at midnight |
         | `30 6 * * *` | Every day at 06:30 |
-
+        
         ## Transaction History
-
+        
         Players can view their purchase/sale history via GUI:
         - `/shop transactions` — Opens a paginated GUI with your transaction history
         - `/shop transactions <player>` (admin) — Opens GUI showing another player's transactions
-
+        
         Each transaction shows: date, action (BUY/SELL), product, amount, price, and currency.
-
+        
         ## Commands
-
+        
         | Command | Permission | Description |
         |---------|-----------|-------------|
         | `/shop` | `ultrashop.base` | Open main shop menu |
@@ -841,8 +805,8 @@ public final class ConfigLoader {
         | `/shop search <query>` | `ultrashop.search.base` | Search products across shops |
         | `/sell hand` | `ultrashop.sell.base` | Sell item in hand |
         | `/sell all` | `ultrashop.sell.base` | Sell all sellable items |
-
-
+        
+        
         ---
         *Auto-generated by UltraShop. This file is regenerated on every reload.*
         """;
@@ -852,4 +816,3 @@ public final class ConfigLoader {
     }
   }
 }
-
