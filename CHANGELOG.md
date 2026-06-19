@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > [!WARNING]
 > Before updating to version 1.5.0, you **must make a backup of your configuration files** (specifically the entire
-`config.json` and all files inside the `shop/` folder).
+> `config.json` and all files inside the `shop/` folder).
 > The mod automatically migrates older configurations to the new formats on boot. Keeping a backup ensures you can
 > safely restore your files in case of any issues.
 
@@ -34,12 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   both JSON files and MongoDB databases.
 - **Web Analytics Dashboard**: Real-time web dashboard to visualize server overview charts, revenue summaries, top
   selling products, and detailed player transaction statistics, protected with credentials and security headers.
-    - Overview tab with cards, daily revenue/payouts chart, revenue by shop doughnut chart, and top 10 products.
-    - Products tab with search, shop filter, sort options, min transactions filter, and pagination.
-    - Players tab with player lookup (by name or UUID), per-player product breakdown, and top players ranking.
-    - Global product statistics cards (most bought, most sold, highest revenue, avg revenue).
-    - Configurable port (`webDashboardPort`) and optional Basic Auth (`webDashboardPassword`).
-    - Auto-refresh every 60 seconds.
+  - Overview tab with cards, daily revenue/payouts chart, revenue by shop doughnut chart, and top 10 products.
+  - Products tab with search, shop filter, sort options, min transactions filter, and pagination.
+  - Players tab with player lookup (by name or UUID), per-player product breakdown, and top players ranking.
+  - Global product statistics cards (most bought, most sold, highest revenue, avg revenue).
+  - Configurable port (`webDashboardPort`) and optional Basic Auth (`webDashboardPassword`).
+  - Auto-refresh every 60 seconds.
 - **Statistics System**: In-game `/shop stats` command with paginated GUI showing server overview, player stats, shop
   breakdown, and top products.
 - **MongoDB Support**: Added `MongoUserRepository` and `MongoTransactionRepository` with automatic index creation and
@@ -76,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   disabling auto-placement and correcting invalid layout coordinates.
 - **Blank Cooldown Tooltips**: Fixed a bug where the cooldown tooltip was displayed blank instead of showing "Ready"
   when a product was not on active cooldown.
+- **Fixed Loggers**: Fixed loggers that were printing the mod id in the logs.
 
 ## [1.0.0] - 2025-12-01
 
