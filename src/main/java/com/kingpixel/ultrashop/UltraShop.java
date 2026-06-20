@@ -1,8 +1,16 @@
 package com.kingpixel.ultrashop;
 
+import com.kingpixel.cobbleutils.util.UtilsFile;
 import com.kingpixel.cobbleutils.util.UtilsLogger;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
+import com.kingpixel.ultrashop.domain.model.shop.CategoryShop;
+import com.kingpixel.ultrashop.domain.model.shop.NormalShop;
+import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
+import com.kingpixel.ultrashop.domain.model.shop.Shop;
+import com.kingpixel.ultrashop.domain.scheduler.Scheduler;
 import com.kingpixel.ultrashop.domain.service.TransactionService;
+import com.kingpixel.ultrashop.infrastructure.serialization.scheduler.SchedulerJsonAdapter;
+import com.kingpixel.ultrashop.infrastructure.serialization.shop.ShopTypeAdapterFactory;
 import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonUserRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoUserRepository;
 import com.kingpixel.ultrashop.presentation.gui.edit.ChatInputManager;
@@ -29,13 +37,26 @@ public class UltraShop implements ModInitializer {
   @Override
   public void onInitialize() {
     // Register custom serializers into the framework file utility
-    com.kingpixel.cobbleutils.util.UtilsFile.registerAdapter(
-      com.kingpixel.ultrashop.domain.model.shop.Shop.class,
-      new com.kingpixel.ultrashop.infrastructure.serialization.shop.ShopTypeAdapterFactory()
+    ShopTypeAdapterFactory shopAdapterFactory = new ShopTypeAdapterFactory();
+    UtilsFile.registerAdapter(
+      Shop.class,
+      shopAdapterFactory
     );
-    com.kingpixel.cobbleutils.util.UtilsFile.registerAdapter(
-      com.kingpixel.ultrashop.domain.scheduler.Scheduler.class,
-      new com.kingpixel.ultrashop.infrastructure.serialization.scheduler.SchedulerJsonAdapter()
+    UtilsFile.registerAdapter(
+      NormalShop.class,
+      shopAdapterFactory
+    );
+    UtilsFile.registerAdapter(
+      RotationShop.class,
+      shopAdapterFactory
+    );
+    UtilsFile.registerAdapter(
+      CategoryShop.class,
+      shopAdapterFactory
+    );
+    UtilsFile.registerAdapter(
+      Scheduler.class,
+      new SchedulerJsonAdapter()
     );
 
     // Initialize context (async, data structures)

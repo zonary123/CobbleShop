@@ -83,14 +83,22 @@ public final class ShopTypeAdapterFactory implements JsonSerializer<Shop>, JsonD
   }
 
   private Shop readNewFormat(JsonObject obj, JsonDeserializationContext ctx) {
-    if (!obj.has(FIELD_TYPE)) {
-      throw new JsonParseException("New-format shop JSON missing 'type' discriminator");
-    }
     ShopType type;
-    try {
-      type = ShopType.valueOf(obj.get(FIELD_TYPE).getAsString());
-    } catch (IllegalArgumentException e) {
-      throw new JsonParseException("Unknown shop type: " + obj.get(FIELD_TYPE), e);
+    if (obj.has(FIELD_TYPE) && !obj.get(FIELD_TYPE).isJsonNull()) {
+      try {
+        type = ShopType.valueOf(obj.get(FIELD_TYPE).getAsString());
+      } catch (IllegalArgumentException e) {
+        throw new JsonParseException("Unknown shop type: " + obj.get(FIELD_TYPE), e);
+      }
+    } else {
+      // Robust fallback: Infer type if missing (e.g. if saved incorrectly)
+      if (obj.has("subShops")) {
+        type = ShopType.CATEGORY;
+      } else if (obj.has("productPool") || obj.has("scheduler") || obj.has("rotationSchedule")) {
+        type = ShopType.ROTATION;
+      } else {
+        type = ShopType.NORMAL;
+      }
     }
     return registry.resolve(type).deserialize(obj, ctx);
   }
