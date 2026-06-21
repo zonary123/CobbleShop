@@ -27,6 +27,8 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import com.kingpixel.cobbleutils.CobbleUtils;
+import com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -34,6 +36,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Command tree registration — clean delegation to services and GUI builders.
@@ -90,7 +93,7 @@ public final class CommandTree {
   private static final DateTimeFormatter TX_FORMAT = DateTimeFormatter.ofPattern("MM/dd HH:mm")
     .withZone(ZoneId.systemDefault());
 
-  private static int showTransactions(ServerCommandSource source, java.util.UUID uuid, String name,
+  private static int showTransactions(ServerCommandSource source, UUID uuid, String name,
                                       ShopOptionsApi options) {
     ShopContext ctx = ShopContext.get();
     ShopConfig config = ctx.getConfigs().get(options.getModId());
@@ -344,7 +347,7 @@ public final class CommandTree {
       return 0;
     }
     try {
-      Path shopPath = com.kingpixel.cobbleutils.CobbleUtils.getPath()
+      Path shopPath = CobbleUtils.getPath()
         .resolve(options.getPath())
         .resolve("shop")
         .resolve(shopId + ".json");
@@ -397,7 +400,7 @@ public final class CommandTree {
             
             // Re-save shop to persist state
             if (shop.getFilePath() == null) {
-              shop.setFilePath(com.kingpixel.cobbleutils.CobbleUtils.getPath()
+              shop.setFilePath(CobbleUtils.getPath()
                 .resolve(options.getPath()).resolve("shop").resolve(shop.getId() + ".json").toString());
             }
             ShopContext.get().replaceShop(options.getModId(), shop);
@@ -423,8 +426,8 @@ public final class CommandTree {
               String title = "Mantenimiento de Tienda: " + shopId;
               String desc = "La tienda **" + shopId + "** (" + cleanShopName + ") ha sido **" + (active ? "CERRADA para mantenimiento" : "ABIERTA al público") + "**.";
               int color = active ? 0xFF0000 : 0x00FF00;
-              String payload = com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper.buildEmbedJson(title, desc, color);
-              com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper.sendWebhook(webhookUrl, payload);
+              String payload = DiscordWebhookHelper.buildEmbedJson(title, desc, color);
+              DiscordWebhookHelper.sendWebhook(webhookUrl, payload);
             }
 
             return 1;

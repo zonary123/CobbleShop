@@ -1,9 +1,11 @@
 package com.kingpixel.ultrashop.domain.model.shop.config;
 
 import com.kingpixel.cobbleutils.Model.EconomyUse;
+import com.kingpixel.cobbleutils.util.economys.providers.ImpactorEconomy;
 import lombok.Builder;
 import lombok.Value;
 
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 
@@ -38,15 +40,12 @@ public class EconomyConfig {
 
     /** Permission-keyed discounts. Never null in canonical state — defaults to empty. */
     @Builder.Default
-    Map<String, Float> discounts = new java.util.HashMap<>();
+    Map<String, Float> discounts = new HashMap<>();
 
     private static LinkedHashSet<EconomyUse> defaultEconomies() {
         LinkedHashSet<EconomyUse> ecos = new LinkedHashSet<>();
-        ecos.add(new EconomyUse(com.kingpixel.cobbleutils.util.economys.providers.ImpactorEconomy.IDENTIFY, "impactor:dollars"));
+        ecos.add(new EconomyUse(ImpactorEconomy.IDENTIFY, "impactor:dollars"));
         return ecos;
     }
 }
-
-
-
 

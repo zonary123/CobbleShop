@@ -8,6 +8,8 @@ import com.kingpixel.ultrashop.domain.model.shop.ShopReference;
 import lombok.Data;
 import net.minecraft.item.ItemStack;
 
+import com.google.gson.annotations.JsonAdapter;
+import com.kingpixel.ultrashop.infrastructure.serialization.CooldownTypeAdapter;
 import java.math.BigDecimal;
 import java.util.*;
 import org.jetbrains.annotations.NotNull;
@@ -48,8 +50,14 @@ public class Product {
   @Nullable private Boolean oneByOne;
   @Nullable private UUID uuid;
   @Nullable private Integer max;
-  @com.google.gson.annotations.JsonAdapter(com.kingpixel.ultrashop.infrastructure.serialization.CooldownTypeAdapter.class)
+  @JsonAdapter(CooldownTypeAdapter.class)
   @Nullable private String cooldown;
+
+  // --- Sell Limit/cooldown (optional) ---
+  @Nullable private UUID sellUuid;
+  @Nullable private Integer sellMax;
+  @JsonAdapter(CooldownTypeAdapter.class)
+  @Nullable private String sellCooldown;
 
   // --- Stock (optional) ---
   @Nullable private StockMode stockMode;
@@ -156,6 +164,13 @@ public class Product {
       if (uuid == null) uuid = UUID.randomUUID();
       if (max == null) max = 1;
       if (cooldown == null) cooldown = "60m";
+    }
+
+    // Auto-generate UUID for products with sell limits
+    if (sellCooldown != null || sellMax != null) {
+      if (sellUuid == null) sellUuid = UUID.randomUUID();
+      if (sellMax == null) sellMax = 1;
+      if (sellCooldown == null) sellCooldown = "60m";
     }
 
     if (stockAmount != null) {

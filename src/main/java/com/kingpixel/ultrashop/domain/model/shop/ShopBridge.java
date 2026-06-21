@@ -72,6 +72,8 @@ public final class ShopBridge {
     legacy.setType(shop.getType());
     legacy.setMaintenance(shop.isMaintenance());
     legacy.setWebhookUrl(shop.getWebhookUrl());
+    legacy.setDailySellLimits(shop.getDailySellLimits());
+    legacy.setDailySellResetCooldown(shop.getDailySellResetCooldown());
 
     applyDisplay(legacy, shop);
     applyEconomy(legacy, shop);
@@ -144,6 +146,8 @@ public final class ShopBridge {
     target.setSoundConfig(legacy.toSoundConfig());
     target.setMaintenance(legacy.isMaintenance());
     target.setWebhookUrl(legacy.getWebhookUrl());
+    target.setDailySellLimits(legacy.getDailySellLimits());
+    target.setDailySellResetCooldown(legacy.getDailySellResetCooldown());
   }
 
   // --- Internal: legacy reconstruction (toLegacy direction) ---------------

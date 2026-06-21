@@ -13,7 +13,9 @@ import com.kingpixel.ultrashop.domain.model.shop.config.SoundConfig;
 import com.kingpixel.ultrashop.domain.scheduler.Scheduler;
 
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Gson adapter for {@link RotationShop}. Writes the four config VOs, the
@@ -38,6 +40,12 @@ public final class RotationShopAdapter implements ShopJsonAdapter<RotationShop> 
     obj.add("scheduler", ctx.serialize(shop.getScheduler(), Scheduler.class));
     obj.addProperty("rotationAmount", shop.getRotationAmount());
     obj.add("productPool", ctx.serialize(shop.getProductPool(), PRODUCT_LIST));
+    if (shop.getDailySellLimits() != null && !shop.getDailySellLimits().isEmpty()) {
+      obj.add("dailySellLimits", ctx.serialize(shop.getDailySellLimits(), new TypeToken<Map<String, BigDecimal>>(){}.getType()));
+    }
+    if (shop.getDailySellResetCooldown() != null) {
+      obj.addProperty("dailySellResetCooldown", shop.getDailySellResetCooldown());
+    }
     return obj;
   }
 
@@ -63,6 +71,12 @@ public final class RotationShopAdapter implements ShopJsonAdapter<RotationShop> 
     }
     if (json.has("productPool")) {
       shop.setProductPool(ctx.deserialize(json.get("productPool"), PRODUCT_LIST));
+    }
+    if (json.has("dailySellLimits")) {
+      shop.setDailySellLimits(ctx.deserialize(json.get("dailySellLimits"), new TypeToken<Map<String, BigDecimal>>(){}.getType()));
+    }
+    if (json.has("dailySellResetCooldown") && !json.get("dailySellResetCooldown").isJsonNull()) {
+      shop.setDailySellResetCooldown(json.get("dailySellResetCooldown").getAsString());
     }
     return shop;
   }

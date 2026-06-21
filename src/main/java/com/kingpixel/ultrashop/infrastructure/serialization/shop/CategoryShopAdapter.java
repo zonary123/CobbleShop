@@ -12,7 +12,9 @@ import com.kingpixel.ultrashop.domain.model.shop.config.EconomyConfig;
 import com.kingpixel.ultrashop.domain.model.shop.config.SoundConfig;
 
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Gson adapter for {@link CategoryShop}. Writes the four config VOs and the
@@ -35,6 +37,12 @@ public final class CategoryShopAdapter implements ShopJsonAdapter<CategoryShop> 
     obj.add("conditionsConfig", ctx.serialize(shop.getConditionsConfig(), ConditionsConfig.class));
     obj.add("soundConfig", ctx.serialize(shop.getSoundConfig(), SoundConfig.class));
     obj.add("subShops", ctx.serialize(shop.getSubShops(), SUBSHOP_LIST));
+    if (shop.getDailySellLimits() != null && !shop.getDailySellLimits().isEmpty()) {
+      obj.add("dailySellLimits", ctx.serialize(shop.getDailySellLimits(), new TypeToken<Map<String, BigDecimal>>(){}.getType()));
+    }
+    if (shop.getDailySellResetCooldown() != null) {
+      obj.addProperty("dailySellResetCooldown", shop.getDailySellResetCooldown());
+    }
     return obj;
   }
 
@@ -56,6 +64,12 @@ public final class CategoryShopAdapter implements ShopJsonAdapter<CategoryShop> 
     shop.setSoundConfig(ctx.deserialize(json.get("soundConfig"), SoundConfig.class));
     if (json.has("subShops")) {
       shop.setSubShops(ctx.deserialize(json.get("subShops"), SUBSHOP_LIST));
+    }
+    if (json.has("dailySellLimits")) {
+      shop.setDailySellLimits(ctx.deserialize(json.get("dailySellLimits"), new TypeToken<Map<String, BigDecimal>>(){}.getType()));
+    }
+    if (json.has("dailySellResetCooldown") && !json.get("dailySellResetCooldown").isJsonNull()) {
+      shop.setDailySellResetCooldown(json.get("dailySellResetCooldown").getAsString());
     }
     return shop;
   }

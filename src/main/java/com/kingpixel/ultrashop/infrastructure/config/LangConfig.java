@@ -21,6 +21,10 @@ public class LangConfig {
   private String messageSell;
   private String messageSimpleSell;
   private String messageYouCantBuyNow;
+  private String messageSimpleBuy;
+  private String messageYouCantSellNow;
+  private String messageShopDailySellLimitReached;
+  private String messageDailySellLimitReached;
   private String messageBuyPriceLessThanSell;
   private String messageNotEnoughSpace;
   private String messageOutOfStock;
@@ -145,6 +149,10 @@ public class LangConfig {
     messageBuyPriceLessThanSell = "%prefix% <#ff6b6b>The buy price is less than the sell price";
     messageSimpleSell = "%prefix% <#2ecc71>You have sold <#ffa502>%amount%x <#2ecc71>and earned <#feca57>%price%";
     messageYouCantBuyNow = "%prefix% <#ff6b6b>You reached your limit of <#ffa502>%limit%x <#ff6b6b>for this product. Cooldown: <#ffa502>%time%s";
+    messageSimpleBuy = "%prefix% <#2ecc71>You have bought <#ffa502>%amount%x %product% <#2ecc71>for <#feca57>%price%";
+    messageYouCantSellNow = "%prefix% <#ff6b6b>You reached your sell limit of <#ffa502>%limit%x <#ff6b6b>for this product. Cooldown: <#ffa502>%time%s";
+    messageShopDailySellLimitReached = "%prefix% <#ff6b6b>You have reached the shop's daily sell limit of <#ffa502>%limit% %currency%<#ff6b6b>!";
+    messageDailySellLimitReached = "%prefix% <#ff6b6b>You have reached your daily sell limit of <#ffa502>%limit% %currency%<#ff6b6b>!";
     formatSell = " <#a0aec0>- <#ffa502>%price%";
     notExtraInfo = "<#a0aec0>No extra information";
     messageInvalidNumber = "%prefix% <#ff6b6b>Invalid number: <#ffa502>%input%";
@@ -275,6 +283,18 @@ public class LangConfig {
     if (prefix == null) prefix = "<#2ecc71>« <#feca57><b>UltraShop</b> <#2ecc71>» §r";
     if (messageShopInMaintenance == null || messageShopInMaintenance.isBlank()) {
       messageShopInMaintenance = "%prefix% <#ff6b6b>The shop <#ffa502>%shop% <#ff6b6b>is currently closed for maintenance.";
+    }
+    if (messageDailySellLimitReached == null || messageDailySellLimitReached.isBlank()) {
+      messageDailySellLimitReached = "%prefix% <#ff6b6b>You have reached your daily sell limit of <#ffa502>%limit% %currency%<#ff6b6b>!";
+    }
+    if (messageSimpleBuy == null || messageSimpleBuy.isBlank()) {
+      messageSimpleBuy = "%prefix% <#2ecc71>You have bought <#ffa502>%amount%x %product% <#2ecc71>for <#feca57>%price%";
+    }
+    if (messageYouCantSellNow == null || messageYouCantSellNow.isBlank()) {
+      messageYouCantSellNow = "%prefix% <#ff6b6b>You reached your sell limit of <#ffa502>%limit%x <#ff6b6b>for this product. Cooldown: <#ffa502>%time%s";
+    }
+    if (messageShopDailySellLimitReached == null || messageShopDailySellLimitReached.isBlank()) {
+      messageShopDailySellLimitReached = "%prefix% <#ff6b6b>You have reached the shop's daily sell limit of <#ffa502>%limit% %currency%<#ff6b6b>!";
     }
     if (cooldownReady == null || cooldownReady.isBlank()) {
       cooldownReady = "<#2ecc71>Ready";

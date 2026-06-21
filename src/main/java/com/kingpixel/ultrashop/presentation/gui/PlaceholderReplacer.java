@@ -16,8 +16,10 @@ import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Replaces placeholder tokens in lore/text strings with actual values.
@@ -61,7 +63,6 @@ public final class PlaceholderReplacer {
       text = text.replace("%discount%", discount > 0f ? discount + "%" : "");
     }
 
-    // Cooldown-limit placeholders (player quota)
     if (text.contains("%limit%") || text.contains("%bought%") || text.contains("%remaining%") || text.contains("%cooldown_time%")) {
       boolean hasLimit = product.getUuid() != null && product.getMax() != null;
       if (hasLimit) {
@@ -89,7 +90,6 @@ public final class PlaceholderReplacer {
       }
     }
 
-    // Dedicated stock placeholders
     if (text.contains("%stock_remaining%") || text.contains("%stock_limit%") || text.contains("%stock_mode%")
         || text.contains("%remaining%") || text.contains("%limit%")) {
       boolean hasStock = product.hasStockControl();
@@ -107,7 +107,6 @@ public final class PlaceholderReplacer {
         text = text.replace("%stock_limit%", String.valueOf(limit));
         text = text.replace("%stock_mode%", mode.name());
 
-        // Backward-compat for templates still using %remaining%/%limit% for stock
         text = text.replace("%remaining%", String.valueOf(remaining));
         text = text.replace("%limit%", String.valueOf(limit));
       } else {
@@ -152,10 +151,8 @@ public final class PlaceholderReplacer {
       float discount = PriceCalculator.getDiscount(product, player, shop, config);
       if (discount <= 0f && line.contains("%removediscount%")) continue;
 
-      // Hide limit lines when product has no limits
       if (!hasLimit && line.contains("%removelimit%")) continue;
 
-      // Hide stock lines when product has no stock control
       if (!hasStock && line.contains("%removestock%")) continue;
 
       if (actionShop != null) {
@@ -175,7 +172,7 @@ public final class PlaceholderReplacer {
   public static String buildBalanceString(Product product, ShopReference shop, ServerPlayerEntity player) {
     StringBuilder sb = new StringBuilder();
     List<PriceEntry> entries = product.getEffectivePrices(shop);
-    java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+    Set<String> seen = new LinkedHashSet<>();
     for (PriceEntry entry : entries) {
       String key = entry.getEconomy().getEconomyId() + ":" + entry.getEconomy().getCurrency();
       if (seen.add(key)) {

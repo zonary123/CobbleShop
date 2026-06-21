@@ -3,10 +3,13 @@ package com.kingpixel.ultrashop.migrate;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.kingpixel.cobbleutils.util.UtilsFile;
 import com.kingpixel.ultrashop.UltraShop;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -31,7 +34,7 @@ public final class V1ToV2Migrator {
   public static void migrateIfNeeded(Path shopDir) {
     if (!Files.exists(shopDir)) return;
 
-    List<Path> jsonFiles = new java.util.ArrayList<>(UtilsFile.getAllJsonFiles(shopDir));
+    List<Path> jsonFiles = new ArrayList<>(UtilsFile.getAllJsonFiles(shopDir));
     jsonFiles.removeIf(file -> {
       Path relative = shopDir.relativize(file);
       for (Path part : relative) {
@@ -50,7 +53,7 @@ public final class V1ToV2Migrator {
         if (content == null || content.isBlank()) {
           continue;
         }
-        JsonObject json = com.google.gson.JsonParser.parseString(content).getAsJsonObject();
+        JsonObject json = JsonParser.parseString(content).getAsJsonObject();
 
         if (isV1Format(json)) {
           UltraShop.LOGGER.info( "Migrating v1 shop: " + file.getFileName());
@@ -59,7 +62,7 @@ public final class V1ToV2Migrator {
           Path backupDir = shopDir.resolve("backup_v1");
           Files.createDirectories(backupDir);
           Files.copy(file, backupDir.resolve(file.getFileName()),
-            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            StandardCopyOption.REPLACE_EXISTING);
 
           // Migrate
           migrateShopJson(json);

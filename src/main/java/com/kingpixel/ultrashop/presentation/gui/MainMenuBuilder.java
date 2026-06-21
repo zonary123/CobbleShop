@@ -1,6 +1,7 @@
 package com.kingpixel.ultrashop.presentation.gui;
 
 import ca.landonjw.gooeylibs2.api.UIManager;
+import ca.landonjw.gooeylibs2.api.button.ButtonAction;
 import ca.landonjw.gooeylibs2.api.button.GooeyButton;
 import ca.landonjw.gooeylibs2.api.page.GooeyPage;
 import ca.landonjw.gooeylibs2.api.template.types.ChestTemplate;
@@ -17,12 +18,15 @@ import com.kingpixel.ultrashop.domain.model.shop.CategoryShop;
 import com.kingpixel.ultrashop.domain.model.shop.Shop;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.LoreComponent;
 import net.minecraft.server.network.ServerPlayerEntity;
-
+ 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Builds and opens the main shop listing menu.
@@ -118,7 +122,7 @@ public final class MainMenuBuilder {
   }
 
   private static GooeyButton getButton(ItemModel model,
-      java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+      Consumer<ButtonAction> onClick) {
     return GooeyButton.builder()
         .display(model.getItemStack())
         .onClick(onClick::accept)
@@ -126,12 +130,12 @@ public final class MainMenuBuilder {
   }
 
   private static GooeyButton getButton(ItemModel model, String title, List<String> lore,
-      java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+      Consumer<ButtonAction> onClick) {
     return GooeyButton.builder()
         .display(model.getItemStack())
-        .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(title))
-        .with(net.minecraft.component.DataComponentTypes.LORE,
-            new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(lore)))
+        .with(DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(title))
+        .with(DataComponentTypes.LORE,
+            new LoreComponent(AdventureTranslator.toNativeL(lore)))
         .onClick(onClick::accept)
         .build();
   }

@@ -6,6 +6,7 @@ import com.kingpixel.cobbleutils.Model.PanelsConfig;
 import com.kingpixel.ultrashop.UltraShop;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +41,10 @@ public class ShopConfig {
   private int webDashboardPort;
   private String webDashboardPassword;
 
+  // --- Daily Sell Limits ---
+  private Map<String, BigDecimal> dailySellLimits;
+  private String dailySellResetCooldown;
+
   public ShopConfig() {
     // ...existing defaults...
     this.debug = false;
@@ -68,6 +73,8 @@ public class ShopConfig {
     this.webDashboardPort = 8095;
     this.webDashboardPassword = "";
     this.webhooks = new WebhooksConfig();
+    this.dailySellLimits = new HashMap<>();
+    this.dailySellResetCooldown = "24h";
   }
 
   public void check() {
@@ -117,6 +124,12 @@ public class ShopConfig {
       panels = List.of(
         new PanelsConfig(new ItemModel("minecraft:gray_stained_glass_pane"), rows <= 0 ? 6 : rows)
       );
+    }
+    if (dailySellLimits == null) {
+      dailySellLimits = new HashMap<>();
+    }
+    if (dailySellResetCooldown == null || dailySellResetCooldown.isBlank()) {
+      dailySellResetCooldown = "24h";
     }
   }
 }

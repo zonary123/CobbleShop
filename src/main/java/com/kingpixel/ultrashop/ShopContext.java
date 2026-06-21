@@ -1,8 +1,12 @@
 package com.kingpixel.ultrashop;
 
+import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.util.async.AsyncContext;
 import com.kingpixel.cobbleutils.util.async.UtilsAsync;
+import com.kingpixel.ultrashop.domain.model.DataShop;
 import com.kingpixel.ultrashop.domain.model.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.ShopBridge;
+import com.kingpixel.ultrashop.domain.model.shop.ShopVisitor;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import com.kingpixel.ultrashop.infrastructure.index.SellProductIndex;
@@ -11,9 +15,13 @@ import com.kingpixel.ultrashop.infrastructure.web.DashboardHttpServer;
 import lombok.Data;
 import lombok.Getter;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Function;
 
 /**
  * Central context for UltraShop — replaces all static mutable state.
@@ -48,7 +56,7 @@ public final class ShopContext {
   private volatile LangConfig lang;
 
   @Getter
-  private volatile com.kingpixel.ultrashop.domain.model.DataShop dataShop;
+  private volatile DataShop dataShop;
 
   @Getter
   private volatile SellProductIndex sellIndex;
@@ -57,11 +65,11 @@ public final class ShopContext {
   @lombok.Setter
   private volatile RepositoryFactory repositories;
 
-  private final ConcurrentHashMap<java.util.UUID, Object> transactionLocks = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<UUID, Object> transactionLocks = new ConcurrentHashMap<>();
 
   private volatile DashboardHttpServer dashboardServer;
 
-  public Object getTransactionLock(java.util.UUID uuid) {
+  public Object getTransactionLock(UUID uuid) {
     return transactionLocks.computeIfAbsent(uuid, k -> new Object());
   }
 
@@ -76,7 +84,7 @@ public final class ShopContext {
    * Initialize the async context. Called once during mod init.
    */
   public void init() {
-    this.dataShop = new com.kingpixel.ultrashop.domain.model.DataShop();
+    this.dataShop = new DataShop();
     this.sellIndex = new SellProductIndex();
     this.lang = new LangConfig();
   }
@@ -86,8 +94,8 @@ public final class ShopContext {
    * Run a task on the server main thread. Safe for inventory modifications.
    */
   public void runOnServer(Runnable task) {
-    if (com.kingpixel.cobbleutils.CobbleUtils.server != null) {
-      com.kingpixel.cobbleutils.CobbleUtils.server.execute(task);
+    if (CobbleUtils.server != null) {
+      CobbleUtils.server.execute(task);
     }
   }
 
@@ -144,10 +152,10 @@ public final class ShopContext {
 
   /**
    * Get shops for a specific mod in the new sealed hierarchy.
-   * Use this when consuming shops via {@link com.kingpixel.ultrashop.domain.model.shop.ShopVisitor}.
+   * Use this when consuming shops via {@link ShopVisitor}.
    */
   public List<com.kingpixel.ultrashop.domain.model.shop.Shop> getTypedShops(String modId) {
-    return typedShops.getOrDefault(modId, java.util.Collections.emptyList());
+    return typedShops.getOrDefault(modId, Collections.emptyList());
   }
 
   // --- Typed shop mutators ------------------------------------------------
@@ -165,11 +173,11 @@ public final class ShopContext {
   public boolean replaceShop(String modId, com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
     List<com.kingpixel.ultrashop.domain.model.shop.Shop> typedList =
       typedShops.computeIfAbsent(modId,
-        k -> new java.util.concurrent.CopyOnWriteArrayList<com.kingpixel.ultrashop.domain.model.shop.Shop>());
+        k -> new CopyOnWriteArrayList<com.kingpixel.ultrashop.domain.model.shop.Shop>());
     boolean replacedTyped = replaceById(typedList, shop, com.kingpixel.ultrashop.domain.model.shop.Shop::getId);
 
-    var legacyList = shops.computeIfAbsent(modId, k -> new java.util.concurrent.CopyOnWriteArrayList<>());
-    var legacyShop = com.kingpixel.ultrashop.domain.model.shop.ShopBridge.toLegacy(shop);
+    var legacyList = shops.computeIfAbsent(modId, k -> new CopyOnWriteArrayList<>());
+    var legacyShop = ShopBridge.toLegacy(shop);
     replaceById(legacyList, legacyShop, com.kingpixel.ultrashop.domain.model.Shop::getId);
 
     return replacedTyped;
@@ -181,9 +189,9 @@ public final class ShopContext {
    */
   public void addTypedShop(String modId, com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
     typedShops.computeIfAbsent(modId,
-      k -> new java.util.concurrent.CopyOnWriteArrayList<com.kingpixel.ultrashop.domain.model.shop.Shop>()).add(shop);
-    shops.computeIfAbsent(modId, k -> new java.util.concurrent.CopyOnWriteArrayList<>())
-      .add(com.kingpixel.ultrashop.domain.model.shop.ShopBridge.toLegacy(shop));
+      k -> new CopyOnWriteArrayList<com.kingpixel.ultrashop.domain.model.shop.Shop>()).add(shop);
+    shops.computeIfAbsent(modId, k -> new CopyOnWriteArrayList<>())
+      .add(ShopBridge.toLegacy(shop));
   }
 
   /**
@@ -204,7 +212,7 @@ public final class ShopContext {
     return removed;
   }
 
-  private static <T> boolean replaceById(List<T> list, T incoming, java.util.function.Function<T, String> idFn) {
+  private static <T> boolean replaceById(List<T> list, T incoming, Function<T, String> idFn) {
     String id = idFn.apply(incoming);
     for (int i = 0; i < list.size(); i++) {
       if (id.equals(idFn.apply(list.get(i)))) {

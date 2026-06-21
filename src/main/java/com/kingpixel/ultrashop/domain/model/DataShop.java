@@ -12,6 +12,7 @@ import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
 import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
 import com.kingpixel.ultrashop.domain.scheduler.Scheduler;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
+import com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper;
 import lombok.Data;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -22,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Stores the state of dynamic product rotations across all shops.
@@ -223,8 +225,8 @@ public class DataShop {
             }
             String title = "Rotación de Tienda: " + shopName;
             String desc = "La tienda **" + shopName + "** ha rotado su catálogo. Nuevos productos disponibles:\n\n" + prodList.toString();
-            String payload = com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper.buildEmbedJson(title, desc, 0x00FFFF);
-            com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper.sendWebhook(webhookUrl, payload);
+            String payload = DiscordWebhookHelper.buildEmbedJson(title, desc, 0x00FFFF);
+            DiscordWebhookHelper.sendWebhook(webhookUrl, payload);
           }
         });
         return snapshot;
@@ -286,7 +288,7 @@ public class DataShop {
     if (pool == null || pool.isEmpty() || amount <= 0) return picked;
 
     List<Product> available = new ArrayList<>(pool);
-    java.util.concurrent.ThreadLocalRandom rand = java.util.concurrent.ThreadLocalRandom.current();
+    ThreadLocalRandom rand = ThreadLocalRandom.current();
     int target = Math.min(amount, available.size());
 
     for (int i = 0; i < target && !available.isEmpty(); i++) {

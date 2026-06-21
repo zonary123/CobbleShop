@@ -12,6 +12,7 @@ import lombok.Data;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.math.BigDecimal;
 import java.util.*;
 
 /**
@@ -86,6 +87,10 @@ public class Shop implements com.kingpixel.ultrashop.domain.model.shop.ShopRefer
   private boolean maintenance;
   private String webhookUrl;
 
+  // --- Shop Sell Limits ---
+  private Map<String, BigDecimal> dailySellLimits;
+  private String dailySellResetCooldown;
+
 
   public Shop() {
     this.autoPlace = true;
@@ -119,6 +124,8 @@ public class Shop implements com.kingpixel.ultrashop.domain.model.shop.ShopRefer
     this.panels = List.of(
       new PanelsConfig(new ItemModel("minecraft:gray_stained_glass_pane"), rows)
     );
+    this.dailySellLimits = new HashMap<>();
+    this.dailySellResetCooldown = "24h";
   }
 
   /**
@@ -163,6 +170,8 @@ public class Shop implements com.kingpixel.ultrashop.domain.model.shop.ShopRefer
     if (discounts == null) discounts = new HashMap<>();
     if (products == null) products = new ArrayList<>();
     if (panels == null) panels = List.of(new PanelsConfig(new ItemModel("minecraft:gray_stained_glass_pane"), rows));
+    if (dailySellLimits == null) dailySellLimits = new HashMap<>();
+    if (dailySellResetCooldown == null || dailySellResetCooldown.isBlank()) dailySellResetCooldown = "24h";
 
     // Auto-promote legacy configs (no explicit type)
     if (type == null) type = ShopType.NORMAL;

@@ -20,6 +20,11 @@ import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import ca.landonjw.gooeylibs2.api.button.ButtonAction;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.LoreComponent;
+import java.util.function.Consumer;
+
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -59,7 +64,6 @@ public final class TransactionMenuBuilder {
 
         ChestTemplate template = ChestTemplate.builder(6).build();
 
-        // Close button
         ItemModel closeItem = lang.getGlobalItemClose();
         template.set(49, getButton(closeItem, action -> {
           if (config != null) {
@@ -69,7 +73,6 @@ public final class TransactionMenuBuilder {
           }
         }));
 
-        // Pagination
         ItemModel prev = lang.getGlobalItemPrevious();
         template.set(45, LinkedPageButton.builder()
           .display(prev.getItemStack()).linkType(LinkType.Previous).build());
@@ -111,10 +114,10 @@ public final class TransactionMenuBuilder {
 
     return GooeyButton.builder()
       .display(new ItemModel(item).getItemStack())
-      .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME,
+      .with(DataComponentTypes.CUSTOM_NAME,
         AdventureTranslator.toNative(actionLabel + " §7- " + transaction.getProductId()))
-      .with(net.minecraft.component.DataComponentTypes.LORE,
-        new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(lore)))
+      .with(DataComponentTypes.LORE,
+        new LoreComponent(AdventureTranslator.toNativeL(lore)))
       .build();
   }
 
@@ -126,7 +129,7 @@ public final class TransactionMenuBuilder {
     return template.replace("%value%", value);
   }
 
-  private static GooeyButton getButton(ItemModel model, java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+  private static GooeyButton getButton(ItemModel model, Consumer<ButtonAction> onClick) {
     return GooeyButton.builder()
       .display(model.getItemStack())
       .onClick(onClick::accept)

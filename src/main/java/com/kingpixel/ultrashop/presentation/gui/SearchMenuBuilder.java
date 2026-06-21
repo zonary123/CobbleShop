@@ -26,6 +26,10 @@ import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import ca.landonjw.gooeylibs2.api.button.ButtonAction;
+import com.kingpixel.cobbleutils.Model.Rectangle;
+import java.util.function.Consumer;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -48,14 +52,11 @@ public final class SearchMenuBuilder {
         List<Button> buttons = new ArrayList<>();
         String queryLower = query.toLowerCase();
 
-        // Collect matching products from all shops
         List<Shop> shops = ctx.getTypedShops(modId);
         for (Shop shop : shops) {
-          // Check permissions
           if (!PermissionApi.hasPermission(player, shop.getPermission(modId), 4)) {
             continue;
           }
-          // Check open conditions
           ConditionsConfig conditionsCfg = shop.getConditionsConfig();
           var openConditions = conditionsCfg != null ? conditionsCfg.getOpenConditions() : null;
           if (openConditions != null && !openConditions.isEmpty()
@@ -63,13 +64,11 @@ public final class SearchMenuBuilder {
             continue;
           }
 
-          // Fetch active products (dynamically resolves rotational shops)
           List<Product> activeProducts = ShopProducts.activeProducts(shop, modId);
 
           for (Product product : activeProducts) {
             if (product.hasErrors()) continue;
 
-            // Match against the resolved display name only (same logic as SearchCommand suggestions)
             String matchName = resolveSearchName(product);
             boolean matches = matchName != null && matchName.toLowerCase().contains(queryLower);
 
@@ -91,14 +90,11 @@ public final class SearchMenuBuilder {
           return;
         }
 
-        // Build generic 6-row template
         ChestTemplate template = ChestTemplate.builder(6).build();
 
-        // Close button
         ItemModel closeItem = lang.getGlobalItemClose();
         template.set(49, getButton(closeItem, action -> MainMenuBuilder.open(player, config, modId)));
 
-        // Pagination buttons
         ItemModel prev = lang.getGlobalItemPrevious();
         template.set(45, LinkedPageButton.builder()
           .display(prev.getItemStack()).linkType(LinkType.Previous).build());
@@ -107,8 +103,7 @@ public final class SearchMenuBuilder {
         template.set(53, LinkedPageButton.builder()
           .display(next.getItemStack()).linkType(LinkType.Next).build());
 
-        // Fill slots 0 to 44
-        com.kingpixel.cobbleutils.Model.Rectangle bounds = new com.kingpixel.cobbleutils.Model.Rectangle(0, 0, 5, 9);
+        Rectangle bounds = new Rectangle(0, 0, 5, 9);
         bounds.apply(template);
 
         LinkedPage.Builder linkedPage = LinkedPage.builder()
@@ -132,7 +127,6 @@ public final class SearchMenuBuilder {
   private static String resolveSearchName(Product product) {
     String id = product.getProduct();
 
-    // Pokemon — extract species name
     if (id.startsWith("pokemon:")) {
       String rest = id.substring("pokemon:".length()).trim();
       String species = rest.split("\\s+")[0];
@@ -142,12 +136,10 @@ public final class SearchMenuBuilder {
       return null;
     }
 
-    // Commands — match by displayname only
     if (id.startsWith("command:")) {
       return product.getDisplayname();
     }
 
-    // Regular items — translated ItemStack name
     try {
       ItemStack stack = new ItemChance(id, 0).getItemStack();
       if (stack != null && !stack.isEmpty()) {
@@ -157,14 +149,12 @@ public final class SearchMenuBuilder {
         }
       }
     } catch (Exception ignored) {
-      // fallback
     }
 
-    // Last resort: displayname
     return product.getDisplayname();
   }
 
-  private static GooeyButton getButton(ItemModel model, java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+  private static GooeyButton getButton(ItemModel model, Consumer<ButtonAction> onClick) {
     return GooeyButton.builder()
       .display(model.getItemStack())
       .onClick(onClick::accept)

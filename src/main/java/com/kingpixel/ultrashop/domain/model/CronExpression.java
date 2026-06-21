@@ -1,5 +1,6 @@
 package com.kingpixel.ultrashop.domain.model;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.BitSet;
@@ -102,7 +103,7 @@ public final class CronExpression {
    */
   public long nextFireTime(long afterEpochMs) {
     ZoneId zone = ZoneId.systemDefault();
-    LocalDateTime now = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(afterEpochMs), zone);
+    LocalDateTime now = LocalDateTime.ofInstant(Instant.ofEpochMilli(afterEpochMs), zone);
     // Start from next full minute
     LocalDateTime cursor = now.withSecond(0).withNano(0).plusMinutes(1);
     LocalDateTime limit = cursor.plusDays(366);

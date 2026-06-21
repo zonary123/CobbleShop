@@ -22,6 +22,9 @@ import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.LoreComponent;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import ca.landonjw.gooeylibs2.api.button.ButtonAction;
+import java.util.function.Consumer;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +51,6 @@ public final class StatsMenuBuilder {
         LangConfig lang = ctx.getLang();
         ChestTemplate template = ChestTemplate.builder(6).build();
 
-        // --- Server totals (slot 4 - top center) ---
         StatsService.ServerTotals totals = StatsService.getServerTotals(MAX_DAYS);
         template.set(4, GooeyButton.builder()
           .display(new ItemModel("minecraft:nether_star").getItemStack())
@@ -66,7 +68,6 @@ public final class StatsMenuBuilder {
           ))))
           .build());
 
-        // --- Player stats (slot 0 - player head) ---
         StatsService.PlayerAggregate playerStats = StatsService.getPlayerStats(player.getUuid(), MAX_DAYS);
         template.set(0, GooeyButton.builder()
           .display(new ItemModel("minecraft:player_head").getItemStack())
@@ -82,7 +83,6 @@ public final class StatsMenuBuilder {
           ))))
           .build());
 
-        // --- Shop breakdown (slot 8 - right) ---
         Map<String, StatsService.ShopAggregate> shopStats = StatsService.getShopStats(MAX_DAYS);
         List<String> shopLore = new ArrayList<>();
         shopLore.add("§8─────────────────────");
@@ -104,7 +104,6 @@ public final class StatsMenuBuilder {
           .with(DataComponentTypes.LORE, new LoreComponent(AdventureTranslator.toNativeL(shopLore)))
           .build());
 
-        // --- Top products (paginated area) ---
         List<ProductStats> topProducts = StatsService.getProductStats(MAX_DAYS);
         List<Button> buttons = new ArrayList<>();
 
@@ -143,11 +142,9 @@ public final class StatsMenuBuilder {
             .build());
         }
 
-        // Close button
         ItemModel closeItem = lang.getGlobalItemClose();
         template.set(49, getButton(closeItem, action -> UIManager.closeUI(player)));
 
-        // Pagination
         ItemModel prev = lang.getGlobalItemPrevious();
         template.set(45, LinkedPageButton.builder()
           .display(prev.getItemStack()).linkType(LinkType.Previous).build());
@@ -177,7 +174,7 @@ public final class StatsMenuBuilder {
     return template.replace("%value%", value);
   }
 
-  private static GooeyButton getButton(ItemModel model, java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+  private static GooeyButton getButton(ItemModel model, Consumer<ButtonAction> onClick) {
     return GooeyButton.builder()
       .display(model.getItemStack())
       .onClick(onClick::accept)

@@ -6,6 +6,8 @@ import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.ultrashop.ShopContext;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import ca.landonjw.gooeylibs2.api.UIManager;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,7 +30,7 @@ public final class ChatInputManager {
    * Closes any open GUI and prompts the player to type.
    */
   public static void requestInput(ServerPlayerEntity player, String prompt, Consumer<String> callback) {
-    ca.landonjw.gooeylibs2.api.UIManager.closeUI(player);
+    UIManager.closeUI(player);
     pendingInputs.put(player.getUuid(), new PendingInput(callback, System.currentTimeMillis()));
 
     PlayerUtils.sendMessage(player,
@@ -46,7 +48,6 @@ public final class ChatInputManager {
     PendingInput pending = pendingInputs.remove(player.getUuid());
     if (pending == null) return false;
 
-    // Expire after 60 seconds
     if (System.currentTimeMillis() - pending.timestamp > 60_000) return false;
 
     if (message.equalsIgnoreCase("cancel")) {

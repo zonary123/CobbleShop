@@ -15,10 +15,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Shared base for all {@link Shop} implementations. Holds the four config Value
@@ -50,6 +52,8 @@ public abstract class AbstractShop {
   protected SoundConfig soundConfig;
   protected boolean maintenance;
   protected String webhookUrl;
+  protected Map<String, BigDecimal> dailySellLimits = new HashMap<>();
+  protected String dailySellResetCooldown = "24h";
 
   public void checkConfigs() {
     if (displayConfig == null) {
@@ -130,6 +134,12 @@ public abstract class AbstractShop {
     }
     if (soundConfig.getSoundClose() == null) {
       soundConfig = soundConfig.toBuilder().soundClose("minecraft:block.chest.close").build();
+    }
+    if (dailySellLimits == null) {
+      dailySellLimits = new HashMap<>();
+    }
+    if (dailySellResetCooldown == null || dailySellResetCooldown.isBlank()) {
+      dailySellResetCooldown = "24h";
     }
   }
 }

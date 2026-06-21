@@ -2,6 +2,7 @@ package com.kingpixel.ultrashop.presentation.gui;
 
 import ca.landonjw.gooeylibs2.api.UIManager;
 import ca.landonjw.gooeylibs2.api.button.Button;
+import ca.landonjw.gooeylibs2.api.button.ButtonAction;
 import ca.landonjw.gooeylibs2.api.button.GooeyButton;
 import ca.landonjw.gooeylibs2.api.button.linked.LinkType;
 import ca.landonjw.gooeylibs2.api.button.linked.LinkedPageButton;
@@ -26,11 +27,15 @@ import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
 import com.kingpixel.ultrashop.domain.model.shop.config.SoundConfig;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.LoreComponent;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Builds and opens a shop menu (products or categories).
@@ -65,14 +70,14 @@ public final class ShopMenuBuilder {
       try {
         String modId = ctx.getConfigs().entrySet().stream()
           .filter(e -> e.getValue() == config)
-          .map(java.util.Map.Entry::getKey)
+          .map(Map.Entry::getKey)
           .findFirst().orElse(UltraShop.MOD_ID);
 
         DisplayConfig displayCfg = shop.getDisplayConfig();
         ConditionsConfig conditionsCfg = shop.getConditionsConfig();
         SoundConfig soundCfg = shop.getSoundConfig();
 
-        // Check maintenance mode
+
         if (shop.isMaintenance() && !PermissionApi.hasPermission(player, modId + ".admin", 2)
             && !PermissionApi.hasPermission(player, UltraShop.MOD_ID + ".admin", 2)) {
           String shopName = displayCfg != null && displayCfg.getName() != null ? displayCfg.getName() : shop.getId();
@@ -82,7 +87,7 @@ public final class ShopMenuBuilder {
           return;
         }
 
-        // Check permission
+
         if (!PermissionApi.hasPermission(player, shop.getPermission(modId), 4)) {
           PlayerUtils.sendMessage(player,
             ctx.getLang().getMessageNotHavePermission()
@@ -92,7 +97,7 @@ public final class ShopMenuBuilder {
           return;
         }
 
-        // Check open conditions
+
         var openConditions = conditionsCfg != null ? conditionsCfg.getOpenConditions() : null;
         if (openConditions != null && !openConditions.isEmpty()
             && !ConditionUtils.check(openConditions, player)) {
@@ -109,14 +114,14 @@ public final class ShopMenuBuilder {
           PanelsConfig.applyConfig(template, displayCfg.getPanels(), rows);
         }
 
-        com.kingpixel.cobbleutils.Model.Rectangle rectangle =
+        Rectangle rectangle =
           displayCfg != null ? displayCfg.getRectangle() : null;
         int totalSlots = rectangle != null ? rectangle.getLength() * rectangle.getWidth() : rows * 9;
         List<Button> buttons = new ArrayList<>();
         boolean hasPagination;
 
         if (!(shop instanceof CategoryShop categoryShop)) {
-          // Products mode
+
           List<Product> products = ShopProducts.activeProducts(shop, modId);
           boolean autoPlace = displayCfg != null && displayCfg.isAutoPlace();
           boolean needsPagination = products.size() > totalSlots || autoPlace;
@@ -140,7 +145,7 @@ public final class ShopMenuBuilder {
             }
           }
         } else {
-          // Categories mode
+
           boolean autoPlace = displayCfg != null && displayCfg.isAutoPlace();
           boolean needsPagination = autoPlace || categoryShop.getSubShops().size() > totalSlots;
           hasPagination = needsPagination;
@@ -158,13 +163,13 @@ public final class ShopMenuBuilder {
           }
         }
 
-        // Shop info button
+
         applyInfoButton(template, shop, displayCfg, lang, modId, rows);
 
-        // Balance button
+
         applyBalanceButton(template, shop, displayCfg, lang, player, rows);
 
-        // Close button
+
         ItemModel itemCloseRaw = displayCfg != null ? displayCfg.getItemClose() : null;
         if (itemCloseRaw != null && UIUtils.isInside(itemCloseRaw.getSlot(), rows) && withClose) {
           ItemModel closeItem = LangConfig.resolve(itemCloseRaw, lang.getGlobalItemClose());
@@ -174,7 +179,7 @@ public final class ShopMenuBuilder {
               PlayerUtils.executeCommand(closeCommand, player);
               return;
             }
-            // Go back
+
             Shop parent = nav.goBack();
             if (parent != null) {
               openShop(player, parent, nav, config, withClose);
@@ -184,10 +189,10 @@ public final class ShopMenuBuilder {
           }));
         }
 
-        // Build page (with or without pagination)
+
 
         if (hasPagination) {
-          // Pagination navigation
+
           ItemModel itemPrevRaw = displayCfg != null ? displayCfg.getItemPrevious() : null;
           if (itemPrevRaw != null && UIUtils.isInside(itemPrevRaw.getSlot(), rows)) {
             ItemModel prev = LangConfig.resolve(itemPrevRaw, lang.getGlobalItemPrevious());
@@ -237,7 +242,7 @@ public final class ShopMenuBuilder {
     openShop(player, target, nav, config, withClose);
   }
 
-  // --- Private helpers ---
+
 
   private static String titleOf(DisplayConfig displayCfg) {
     if (displayCfg == null) return "";
@@ -310,7 +315,7 @@ public final class ShopMenuBuilder {
     ItemModel balanceItem = LangConfig.resolve(balanceRaw, lang.getGlobalItemBalance());
     StringBuilder formatSb = new StringBuilder();
     StringBuilder currencySb = new StringBuilder();
-    for (com.kingpixel.cobbleutils.Model.EconomyUse eco : shop.getEconomies()) {
+    for (EconomyUse eco : shop.getEconomies()) {
         BigDecimal bal = EconomyApi.getBalance(player.getUuid(), eco);
         formatSb.append(EconomyApi.formatMoney(bal, eco)).append(" ");
         currencySb.append(eco.getCurrency()).append(" ");
@@ -330,7 +335,7 @@ public final class ShopMenuBuilder {
     }));
   }
 
-  private static GooeyButton getButton(ItemModel model, java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+  private static GooeyButton getButton(ItemModel model, Consumer<ButtonAction> onClick) {
     return GooeyButton.builder()
       .display(model.getItemStack())
       .onClick(onClick::accept)
@@ -338,11 +343,11 @@ public final class ShopMenuBuilder {
   }
 
   private static GooeyButton getButton(ItemModel model, String title, List<String> lore,
-                                       java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+                                       Consumer<ButtonAction> onClick) {
     return GooeyButton.builder()
       .display(model.getItemStack())
-      .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(title))
-      .with(net.minecraft.component.DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(lore)))
+      .with(DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(title))
+      .with(DataComponentTypes.LORE, new LoreComponent(AdventureTranslator.toNativeL(lore)))
       .onClick(onClick::accept)
       .build();
   }

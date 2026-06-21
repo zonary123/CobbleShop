@@ -1,12 +1,5 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
 ## [1.5.0] - 2026-06-17
 
 ### ⚠️ IMPORTANT: BACKUP & TEST THE MOD!
@@ -21,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > This version is a complete rework of the mod. It is crucial to test it thoroughly before deploying it to production. Please report any issues or bugs you find!
 
 ### Added
+
+- **Multi-Level Sell Limits**: Configurable sell limits at three distinct levels with custom cooldowns to prevent market exploits:
+  - **Product-Level Limits**: Set a limit on how much of a single product a player can sell using `sellMax` and `sellCooldown`.
+  - **Shop-Level Limits**: Set daily sell earnings limits per shop using `dailySellLimits` (currency map) and `dailySellResetCooldown`.
+  - **Transaction Scaledown**: Automatically scales down sales to only sell up to the remaining limit instead of completely blocking them.
+- **Interactive Sell GUI**: Added a chest-based drop-and-sell GUI accessible via `/sell` or `/sell gui` that automatically processes items on close and returns unsold contents safely to the player.
+- **Purchase Transaction Feedback**: Added `messageSimpleBuy` to notify players in chat when they buy a product.
+- **MongoDB Persistence**: Updated serialization to save and restore player-specific product and shop sell limits in MongoDB.
 
 - **Discord Webhooks (Integration)**: Link Discord channels to your shops using Webhooks! The mod now automatically
   posts rich embeds in Discord when a shop rotates its stock or when its maintenance status changes.

@@ -11,6 +11,7 @@ import com.kingpixel.ultrashop.domain.model.shop.config.SoundConfig;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Sealed root of the Shop type hierarchy. Replaces the god-object
@@ -122,11 +123,11 @@ public sealed interface Shop extends ShopReference
   }
 
   @Override
-  default java.util.Map<String, Float> getDiscounts() {
+  default Map<String, Float> getDiscounts() {
     EconomyConfig eco = getEconomyConfig();
     return eco != null && eco.getDiscounts() != null
       ? eco.getDiscounts()
-      : java.util.Map.of();
+      : Map.of();
   }
 }
 

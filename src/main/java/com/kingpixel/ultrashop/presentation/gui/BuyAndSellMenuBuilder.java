@@ -1,6 +1,7 @@
 package com.kingpixel.ultrashop.presentation.gui;
 
 import ca.landonjw.gooeylibs2.api.UIManager;
+import ca.landonjw.gooeylibs2.api.button.ButtonAction;
 import ca.landonjw.gooeylibs2.api.button.GooeyButton;
 import ca.landonjw.gooeylibs2.api.page.GooeyPage;
 import ca.landonjw.gooeylibs2.api.template.types.ChestTemplate;
@@ -14,12 +15,15 @@ import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.domain.model.ActionShop;
 import com.kingpixel.ultrashop.domain.model.Product;
+import com.kingpixel.ultrashop.domain.model.UserInfo;
 import com.kingpixel.ultrashop.domain.model.shop.Shop;
 import com.kingpixel.ultrashop.domain.service.TransactionService;
 import com.kingpixel.ultrashop.infrastructure.config.BuyAndSellConfig;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import net.minecraft.server.network.ServerPlayerEntity;
+
+import java.util.function.Consumer;
 
 /**
  * Builds and opens the buy/sell confirmation menu.
@@ -175,9 +179,9 @@ public final class BuyAndSellMenuBuilder {
     if (request.product().getUuid() == null || maxLimit == null) {
       return buyAmount;
     }
-    com.kingpixel.ultrashop.domain.model.UserInfo userInfo = ctx.getRepositories().getUserRepository().findByUuid(request.player().getUuid());
+    UserInfo userInfo = ctx.getRepositories().getUserRepository().findByUuid(request.player().getUuid());
     if (userInfo == null) {
-      userInfo = new com.kingpixel.ultrashop.domain.model.UserInfo(request.player().getUuid(), request.player().getGameProfile().getName());
+      userInfo = new UserInfo(request.player().getUuid(), request.player().getGameProfile().getName());
     }
     int actual = userInfo.getActualProductLimit(request.product());
     if (actual >= maxLimit) {
@@ -219,7 +223,7 @@ public final class BuyAndSellMenuBuilder {
     }));
   }
 
-  private static GooeyButton getButton(ItemModel model, java.util.function.Consumer<ca.landonjw.gooeylibs2.api.button.ButtonAction> onClick) {
+  private static GooeyButton getButton(ItemModel model, Consumer<ButtonAction> onClick) {
     return GooeyButton.builder()
       .display(model.getItemStack())
       .onClick(onClick::accept)

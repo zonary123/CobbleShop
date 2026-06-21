@@ -2,6 +2,7 @@ package com.kingpixel.ultrashop.domain.model.shop;
 
 import com.kingpixel.cobbleutils.Model.EconomyUse;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.Map;
 
@@ -39,5 +40,15 @@ public interface ShopReference {
 
   /** Permission-keyed discount overrides ({@code "group.vip" -> 2.0f}). */
   Map<String, Float> getDiscounts();
+
+  /** Shop-level daily sell limits. */
+  default Map<String, BigDecimal> getDailySellLimits() {
+    return Map.of();
+  }
+
+  /** Shop-level daily sell reset cooldown. */
+  default String getDailySellResetCooldown() {
+    return "24h";
+  }
 }
 

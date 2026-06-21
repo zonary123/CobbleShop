@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -17,6 +18,11 @@ public class UserInfo {
   private UUID uuid;
   private String name;
   private Map<UUID, ProductLimit> cooldownProduct = new HashMap<>();
+  private Map<String, BigDecimal> dailySellEarnings = new HashMap<>();
+  private long dailySellReset = 0L;
+  private Map<UUID, ProductLimit> cooldownProductSell = new HashMap<>();
+  private Map<String, Map<String, BigDecimal>> shopDailySellEarnings = new HashMap<>();
+  private Map<String, Long> shopDailySellReset = new HashMap<>();
 
   public UserInfo() {
   }
@@ -100,6 +106,131 @@ public class UserInfo {
     if (product.getUuid() == null) return System.currentTimeMillis();
     ProductLimit limit = cooldownProduct.get(product.getUuid());
     return limit == null ? System.currentTimeMillis() : limit.getCooldown();
+  }
+
+  public void checkDailySellReset(String cooldownStr) {
+    if (dailySellEarnings == null) {
+      dailySellEarnings = new HashMap<>();
+    }
+    if (System.currentTimeMillis() >= dailySellReset) {
+      dailySellEarnings.clear();
+      long expiration = System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1);
+      try {
+        expiration = parseCooldown(cooldownStr).toNextEpochMillis(Instant.now());
+      } catch (Exception ignored) {
+      }
+      dailySellReset = expiration;
+    }
+  }
+
+  public BigDecimal getDailySellEarnings(String currency) {
+    if (dailySellEarnings == null) {
+      dailySellEarnings = new HashMap<>();
+    }
+    return dailySellEarnings.getOrDefault(currency, BigDecimal.ZERO);
+  }
+
+  public void addDailySellEarnings(String currency, BigDecimal amount, String cooldownStr) {
+    checkDailySellReset(cooldownStr);
+    BigDecimal current = dailySellEarnings.getOrDefault(currency, BigDecimal.ZERO);
+    dailySellEarnings.put(currency, current.add(amount));
+  }
+
+  /**
+   * Returns the current sell count for a product.
+   */
+  public int getActualProductSellLimit(Product product) {
+    if (product.getSellUuid() == null || product.getSellMax() == null) return 0;
+    if (cooldownProductSell == null) cooldownProductSell = new HashMap<>();
+    ProductLimit limit = cooldownProductSell.get(product.getSellUuid());
+    if (limit == null) return 0;
+    if (limit.getCooldown() <= System.currentTimeMillis()) {
+      cooldownProductSell.remove(product.getSellUuid());
+      return 0;
+    }
+    return limit.getAmount();
+  }
+
+  /**
+   * Adds a sale to the product sell limit tracker.
+   */
+  public void addDailyProductSellLimit(Product product, int amount) {
+    if (product.getSellUuid() == null || product.getSellMax() == null || product.getSellCooldown() == null) return;
+    if (cooldownProductSell == null) cooldownProductSell = new HashMap<>();
+    ProductLimit limit = cooldownProductSell.computeIfAbsent(product.getSellUuid(), k -> {
+      ProductLimit pl = new ProductLimit();
+      pl.setUuid(product.getSellUuid());
+      long expiration = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(60);
+      try {
+        expiration = parseCooldown(product.getSellCooldown()).toNextEpochMillis(Instant.now());
+      } catch (Exception ignored) {
+      }
+      pl.setCooldown(expiration);
+      pl.setAmount(0);
+      return pl;
+    });
+    limit.setAmount(limit.getAmount() + amount);
+  }
+
+  /**
+   * Whether the player can sell a limited product.
+   */
+  public boolean canSellProduct(Product product) {
+    if (product.getSellUuid() == null || product.getSellMax() == null) return true;
+    if (cooldownProductSell == null) cooldownProductSell = new HashMap<>();
+
+    ProductLimit limit = cooldownProductSell.get(product.getSellUuid());
+    if (limit == null) return true;
+
+    boolean onCooldown = limit.getCooldown() > System.currentTimeMillis();
+    if (!onCooldown) {
+      cooldownProductSell.remove(product.getSellUuid());
+      return true;
+    }
+
+    return limit.getAmount() < product.getSellMax();
+  }
+
+  /**
+   * Returns the sell cooldown expiration time for a product.
+   */
+  public long getProductSellCooldown(Product product) {
+    if (product.getSellUuid() == null) return System.currentTimeMillis();
+    if (cooldownProductSell == null) cooldownProductSell = new HashMap<>();
+    ProductLimit limit = cooldownProductSell.get(product.getSellUuid());
+    return limit == null ? System.currentTimeMillis() : limit.getCooldown();
+  }
+
+  // --- Shop Sell Limits Helpers ---
+
+  public void checkShopDailySellReset(String shopId, String cooldownStr) {
+    if (shopDailySellEarnings == null) shopDailySellEarnings = new HashMap<>();
+    if (shopDailySellReset == null) shopDailySellReset = new HashMap<>();
+
+    long resetTime = shopDailySellReset.getOrDefault(shopId, 0L);
+    if (System.currentTimeMillis() >= resetTime) {
+      shopDailySellEarnings.remove(shopId);
+      long expiration = System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1);
+      try {
+        expiration = parseCooldown(cooldownStr).toNextEpochMillis(Instant.now());
+      } catch (Exception ignored) {
+      }
+      shopDailySellReset.put(shopId, expiration);
+    }
+  }
+
+  public BigDecimal getShopDailySellEarnings(String shopId, String currency) {
+    if (shopDailySellEarnings == null) shopDailySellEarnings = new HashMap<>();
+    Map<String, BigDecimal> shopEarnings = shopDailySellEarnings.get(shopId);
+    if (shopEarnings == null) return BigDecimal.ZERO;
+    return shopEarnings.getOrDefault(currency, BigDecimal.ZERO);
+  }
+
+  public void addShopDailySellEarnings(String shopId, String currency, BigDecimal amount, String cooldownStr) {
+    checkShopDailySellReset(shopId, cooldownStr);
+    Map<String, BigDecimal> shopEarnings = shopDailySellEarnings.computeIfAbsent(shopId, k -> new HashMap<>());
+    BigDecimal current = shopEarnings.getOrDefault(currency, BigDecimal.ZERO);
+    shopEarnings.put(currency, current.add(amount));
   }
 
   /**
