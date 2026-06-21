@@ -23,6 +23,7 @@ import com.kingpixel.ultrashop.domain.model.PriceEntry;
 import com.kingpixel.ultrashop.domain.model.StockMode;
 import com.kingpixel.ultrashop.domain.model.RotationSchedule;
 import com.kingpixel.ultrashop.domain.model.shop.Shop;
+import com.kingpixel.ultrashop.domain.model.shop.AbstractShop;
 import com.kingpixel.ultrashop.domain.model.shop.NormalShop;
 import com.kingpixel.ultrashop.domain.model.shop.CategoryShop;
 import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
@@ -51,9 +52,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.LinkedHashSet;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -481,6 +484,10 @@ public final class ShopEditMenuBuilder {
     if (product.getMax() != null) {
       previewLore.add("  §7Limit: §f" + product.getMax() + " §7every §f" + product.getCooldown());
       previewLore.add("  §7UUID: §8" + (product.getUuid() != null ? product.getUuid().toString().substring(0, 8) + "..." : "none"));
+    }
+    if (product.getSellMax() != null) {
+      previewLore.add("  §7Sell Limit: §f" + product.getSellMax() + " §7every §f" + product.getSellCooldown());
+      previewLore.add("  §7Sell UUID: §8" + (product.getSellUuid() != null ? product.getSellUuid().toString().substring(0, 8) + "..." : "none"));
     }
     if (product.hasStockControl()) {
       previewLore.add("  §7Stock: §f" + product.getStockAmount() + " §8(" + product.getStockMode() + ")");
@@ -978,6 +985,92 @@ public final class ShopEditMenuBuilder {
 
 
     template.set(45, backBtn(lang, a -> openProductList(player, shop, config, modId)));
+
+    template.set(46, button(new ItemStack(Items.HOPPER), "§6⏱ Max Sales (Limit)",
+      List.of(SEP,
+        "§7Max Sales: §f" + (product.getSellMax() != null ? product.getSellMax() : "§8unlimited"),
+        "§7Cooldown: §f" + (product.getSellCooldown() != null ? product.getSellCooldown() : "§8none"),
+        "§7UUID: §8" + (product.getSellUuid() != null ? product.getSellUuid().toString().substring(0, 8) + "..." : "auto-generated"),
+        "",
+        "§7Limits how many times a player can sell.",
+        "§7Resets after the cooldown period.",
+        SEP,
+        "§a▶ Left §7→ +1",
+        "§c▶ Right §7→ -1",
+        "§a▶ Shift+Left §7→ +10",
+        "§c▶ Shift+Right §7→ Clear (unlimited)"),
+      a -> {
+        switch (a.getClickType()) {
+          case SHIFT_RIGHT_CLICK -> {
+            product.setSellMax(null);
+            product.setSellCooldown(null);
+            product.setSellUuid(null);
+            ConfigLoader.saveShop(shop);
+            openProductEditor(player, shop, product, config, modId);
+          }
+          case SHIFT_LEFT_CLICK -> {
+            product.setSellMax((product.getSellMax() != null ? product.getSellMax() : 0) + 10);
+            if (product.getSellCooldown() == null) product.setSellCooldown("60m");
+            if (product.getSellUuid() == null) product.setSellUuid(UUID.randomUUID());
+            ConfigLoader.saveShop(shop);
+            openProductEditor(player, shop, product, config, modId);
+          }
+          case LEFT_CLICK -> {
+            product.setSellMax((product.getSellMax() != null ? product.getSellMax() : 0) + 1);
+            if (product.getSellCooldown() == null) product.setSellCooldown("60m");
+            if (product.getSellUuid() == null) product.setSellUuid(UUID.randomUUID());
+            ConfigLoader.saveShop(shop);
+            openProductEditor(player, shop, product, config, modId);
+          }
+          default -> {
+            if (product.getSellMax() != null && product.getSellMax() > 1) {
+              product.setSellMax(product.getSellMax() - 1);
+            } else {
+              product.setSellMax(null);
+              product.setSellCooldown(null);
+              product.setSellUuid(null);
+            }
+            ConfigLoader.saveShop(shop);
+            openProductEditor(player, shop, product, config, modId);
+          }
+        }
+      }));
+
+    template.set(47, button(new ItemStack(Items.CLOCK), "§6⏱ Sell Cooldown (duration/cron)",
+      List.of(SEP,
+        "§7Current: §f" + (product.getSellCooldown() != null ? product.getSellCooldown() : "§8none"),
+        "",
+        "§7Time before the sell limit resets.",
+        "§7Requires §fMax Sales §7to be set.",
+        SEP,
+        "§a▶ Left §7→ +10m",
+        "§c▶ Right §7→ -10m",
+        "§e▶ Shift §7→ Set exact via chat"),
+      a -> {
+        switch (a.getClickType()) {
+          case SHIFT_LEFT_CLICK, SHIFT_RIGHT_CLICK ->
+            ChatInputManager.requestInput(player, "Enter sell cooldown (e.g. 60m, 1d, 0 0 * * *):", input -> {
+              if (input == null || input.isBlank() || input.equalsIgnoreCase("none")) {
+                product.setSellCooldown(null);
+              } else {
+                product.setSellCooldown(input.trim());
+              }
+              ConfigLoader.saveShop(shop);
+              ctx.runOnServer(() -> openProductEditor(player, shop, product, config, modId));
+            });
+          case LEFT_CLICK -> {
+            product.setSellCooldown(addMinutesToCooldown(product.getSellCooldown(), 10));
+            ConfigLoader.saveShop(shop);
+            openProductEditor(player, shop, product, config, modId);
+          }
+          default -> {
+            product.setSellCooldown(addMinutesToCooldown(product.getSellCooldown(), -10));
+            ConfigLoader.saveShop(shop);
+            openProductEditor(player, shop, product, config, modId);
+          }
+        }
+      }));
+
     template.set(49, closeBtn(lang, player));
 
     GooeyPage page = GooeyPage.builder().template(template)
@@ -992,6 +1085,7 @@ public final class ShopEditMenuBuilder {
     ShopContext ctx = ShopContext.get();
     LangConfig lang = ctx.getLang();
     ChestTemplate template = ChestTemplate.builder(4).build();
+    AbstractShop absShop = (AbstractShop) shop;
 
 
     template.set(0, button(new ItemStack(Items.NAME_TAG), "§e✎ Name",
@@ -1423,6 +1517,90 @@ public final class ShopEditMenuBuilder {
 
 
     template.set(27, backBtn(lang, a -> openShopList(player, config, modId)));
+
+    {
+      String dailyCooldown = absShop.getDailySellResetCooldown() != null ? absShop.getDailySellResetCooldown() : "24h";
+      template.set(19, button(new ItemStack(Items.CLOCK), "§e⚙ Daily Sell Reset Cooldown",
+        List.of(SEP,
+          "§7Current: §f" + dailyCooldown,
+          "",
+          "§7Time or cron expression before daily sell limits reset.",
+          "§7Examples: §f24h§7, §f12h§7, or §f0 0 * * * §7(midnight).",
+          SEP,
+          "§a▶ Click §7→ Set via chat"),
+        a -> ChatInputManager.requestInput(player, "Enter daily sell reset cooldown (e.g. 24h, 12h, 0 0 * * *):", input -> {
+          if (input != null && !input.isBlank()) {
+            absShop.setDailySellResetCooldown(input.trim());
+            ctx.replaceShop(modId, shop);
+            ConfigLoader.saveShop(shop);
+          }
+          ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
+        })));
+    }
+
+    {
+      var dailyLimits = absShop.getDailySellLimits() != null ? absShop.getDailySellLimits() : Map.<String, BigDecimal>of();
+      List<String> limitsLore = new ArrayList<>();
+      limitsLore.add(SEP);
+      if (dailyLimits.isEmpty()) {
+        limitsLore.add("§7No daily sell limits configured.");
+      } else {
+        for (var entry : dailyLimits.entrySet()) {
+          limitsLore.add("§7• §f" + entry.getKey() + " §8→ §a" + fmt(entry.getValue()));
+        }
+      }
+      limitsLore.add("");
+      limitsLore.add("§7Configure max total sales per player per day.");
+      limitsLore.add("§7Supports any configured economy/currency.");
+      limitsLore.add(SEP);
+      limitsLore.add("§a▶ Click §7→ Add/Update limit via chat");
+      limitsLore.add("§c▶ Shift+Click §7→ Clear all limits");
+
+      template.set(20, button(new ItemStack(Items.CHEST_MINECART), "§e⚙ Daily Sell Limits §7(" + dailyLimits.size() + ")",
+        limitsLore,
+        a -> {
+          if (a.getClickType().name().contains("SHIFT")) {
+            if (absShop.getDailySellLimits() != null) {
+              absShop.getDailySellLimits().clear();
+            }
+            ctx.replaceShop(modId, shop);
+            ConfigLoader.saveShop(shop);
+            openShopSettings(player, shop, config, modId);
+          } else {
+            ChatInputManager.requestInput(player, "Enter limit (format: economy:limit or economy:currency:limit, e.g. dollars:5000):", input -> {
+              if (input != null && !input.isBlank()) {
+                String[] parts = input.split(":");
+                if (parts.length >= 2) {
+                  try {
+                    String limitStr = parts[parts.length - 1].trim();
+                    BigDecimal limitVal = new BigDecimal(limitStr);
+                    StringBuilder keyBuilder = new StringBuilder();
+                    for (int idx = 0; idx < parts.length - 1; idx++) {
+                      if (idx > 0) keyBuilder.append(":");
+                      keyBuilder.append(parts[idx].trim());
+                    }
+                    String limitKey = keyBuilder.toString();
+                    if (!limitKey.isEmpty()) {
+                      if (absShop.getDailySellLimits() == null) {
+                        absShop.setDailySellLimits(new HashMap<>());
+                      }
+                      absShop.getDailySellLimits().put(limitKey, limitVal);
+                      ctx.replaceShop(modId, shop);
+                      ConfigLoader.saveShop(shop);
+                    }
+                  } catch (Exception e) {
+                    PlayerUtils.sendMessage(player, "§cInvalid format or number: " + input, lang.getPrefix(), TypeMessage.CHAT);
+                  }
+                } else {
+                  PlayerUtils.sendMessage(player, "§cInvalid format. Use key:value.", lang.getPrefix(), TypeMessage.CHAT);
+                }
+              }
+              ctx.runOnServer(() -> openShopSettings(player, shop, config, modId));
+            });
+          }
+        }));
+    }
+
     template.set(31, closeBtn(lang, player));
 
     GooeyPage page = GooeyPage.builder().template(template)

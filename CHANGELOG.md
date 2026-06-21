@@ -19,6 +19,7 @@
   - **Product-Level Limits**: Set a limit on how much of a single product a player can sell using `sellMax` and `sellCooldown`.
   - **Shop-Level Limits**: Set daily sell earnings limits per shop using `dailySellLimits` (currency map) and `dailySellResetCooldown`.
   - **Transaction Scaledown**: Automatically scales down sales to only sell up to the remaining limit instead of completely blocking them.
+  - **GUI Editor Integration**: Allows dynamically configuring product sell limits and shop daily sell limits within the `/shop editor` settings menus.
 - **Interactive Sell GUI**: Added a chest-based drop-and-sell GUI accessible via `/sell` or `/sell gui` that automatically processes items on close and returns unsold contents safely to the player.
 - **Purchase Transaction Feedback**: Added `messageSimpleBuy` to notify players in chat when they buy a product.
 - **MongoDB Persistence**: Updated serialization to save and restore player-specific product and shop sell limits in MongoDB.
