@@ -159,7 +159,7 @@ public final class DashboardHttpServer {
           "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; " +
           "font-src 'self' https://fonts.gstatic.com; " +
           "img-src 'self' https://mc-heads.net data:; " +
-          "connect-src 'self'"
+          "connect-src 'self' https://cdn.jsdelivr.net"
       );
       chain.doFilter(request, response);
     });
