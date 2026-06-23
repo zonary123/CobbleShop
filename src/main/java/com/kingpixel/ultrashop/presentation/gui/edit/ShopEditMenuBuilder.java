@@ -64,6 +64,10 @@ import java.util.regex.Pattern;
 import ca.landonjw.gooeylibs2.api.button.ButtonAction;
 import com.kingpixel.cobbleutils.adapter.ConditionAdapter;
 import com.kingpixel.cobbleutils.Model.EconomyUse;
+import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.kingpixel.cobbleutils.ui.PartyPcMenu;
+import com.kingpixel.cobbleutils.ui.builds.PartyPcMenuBuilder;
+import com.kingpixel.cobbleutils.CobbleUtils;
 
 /**
  * Admin GUI for editing shops and products in-game.
@@ -220,7 +224,7 @@ public final class ShopEditMenuBuilder {
 
 
 
-  private static List<Product> getEditableProducts(Shop shop) {
+  public static List<Product> getEditableProducts(Shop shop) {
     if (shop instanceof NormalShop normal) {
       return normal.getProducts();
     } else if (shop instanceof RotationShop rotation) {
@@ -365,26 +369,14 @@ public final class ShopEditMenuBuilder {
     template.set(47, button(new ItemStack(Items.ENDER_EYE), "§b§l+ Add Pokémon", List.of(
       SEP,
       "§7Add a Pokémon as a product.",
-      "§7Type the species in chat after clicking.",
-      "",
-      "§7Examples:",
-      "§f  pikachu",
-      "§f  pikachu level:50 shiny:true",
+      "§7You can choose between typing it in chat",
+      "§7with suggestions, or selecting it directly",
+      "§7from your Party or PC.",
       "",
       "§7Default: §aBuy 1000 §7/ §cSell 0 §7/ OneByOne",
       SEP,
-      "§a▶ Click §7→ Enter via chat"
-    ), a -> ChatInputManager.requestInput(player, "Enter Pokémon ID (e.g. pikachu, pikachu level:50 shiny:true):", input -> {
-      Product p = new Product();
-      p.setProduct("pokemon:" + input);
-      p.setBuy(BigDecimal.valueOf(1000));
-      p.setSell(BigDecimal.ZERO);
-      p.setOneByOne(true);
-      products.add(p);
-      ctx.replaceShop(modId, shop);
-      ConfigLoader.saveShop(shop);
-      ctx.runOnServer(() -> openProductList(player, shop, config, modId));
-    })));
+      "§a▶ Click §7→ Choose option"
+    ), a -> openPokemonAddOptions(player, shop, products, config, modId)));
 
 
     template.set(48, button(new ItemStack(Items.COMMAND_BLOCK), "§d§l+ Add Command", List.of(
@@ -2249,4 +2241,123 @@ public final class ShopEditMenuBuilder {
     int newMinutes = Math.max(0, totalMinutes + minutesToAdd);
     return newMinutes + "m";
   }
+
+  public static void openPokemonAddOptions(ServerPlayerEntity player, Shop shop, List<Product> products, ShopConfig config, String modId) {
+    ChestTemplate template = ChestTemplate.builder(3).build();
+    ShopContext ctx = ShopContext.get();
+    LangConfig lang = ctx.getLang();
+
+    // Chat Option Button
+    ItemStack chatIcon = new ItemStack(Items.WRITABLE_BOOK);
+    List<String> chatLore = List.of(
+      SEP,
+      "§7Add a Pokémon by typing it in chat.",
+      "§7This will suggest Pokémon names, levels,",
+      "§7shininess, and other properties as you type.",
+      SEP,
+      "§a▶ Click §7→ Click the chat link"
+    );
+    template.set(11, button(chatIcon, "§b§lChat Input with Suggestions", chatLore, action -> {
+      UIManager.closeUI(player);
+      net.minecraft.text.MutableText text = net.minecraft.text.Text.literal("§6[UltraShop Editor] §fClick ");
+      net.minecraft.text.MutableText link = net.minecraft.text.Text.literal("§b§nHERE§r");
+      link.setStyle(link.getStyle().withClickEvent(new net.minecraft.text.ClickEvent(
+        net.minecraft.text.ClickEvent.Action.SUGGEST_COMMAND,
+        "/ultrashop addpokemon " + shop.getId() + " "
+      )));
+      link.setStyle(link.getStyle().withHoverEvent(new net.minecraft.text.HoverEvent(
+        net.minecraft.text.HoverEvent.Action.SHOW_TEXT,
+        net.minecraft.text.Text.literal("§7Click to suggest command in chat bar")
+      )));
+      text.append(link);
+      text.append(net.minecraft.text.Text.literal(" §fto enter the Pokémon properties with suggestions."));
+      player.sendMessage(text, false);
+    }));
+
+    // Party/PC Selection Option Button
+    ItemStack pokeballIcon = null;
+    try {
+      pokeballIcon = new ItemModel("cobblemon:poke_ball").getItemStack();
+    } catch (Exception ignored) {}
+    if (pokeballIcon == null || pokeballIcon.isEmpty()) {
+      pokeballIcon = new ItemStack(Items.ENDER_EYE);
+    }
+    List<String> partyLore = List.of(
+      SEP,
+      "§7Choose a Pokémon directly from your",
+      "§7Party or PC to add as a product.",
+      SEP,
+      "§a▶ Click §7→ Open Party/PC menu"
+    );
+    template.set(15, button(pokeballIcon, "§a§lParty / PC Selection", partyLore, action -> {
+      try {
+        var builder = PartyPcMenu.builder()
+          .setPlayer(player)
+          .setPokemonAction(pokemonAction -> {
+            Pokemon pokemon = pokemonAction.getPokemon();
+            String propertiesStr = getPokemonPropertiesString(pokemon);
+            
+            Product p = new Product();
+            p.setProduct("pokemon:" + propertiesStr);
+            p.setBuy(BigDecimal.valueOf(1000));
+            p.setSell(BigDecimal.ZERO);
+            p.setOneByOne(true);
+
+            products.add(p);
+            ctx.replaceShop(modId, shop);
+            ConfigLoader.saveShop(shop);
+
+            player.sendMessage(net.minecraft.text.Text.literal("§aAdded Pokémon from Party/PC: pokemon:" + propertiesStr));
+            ctx.runOnServer(() -> openProductList(player, shop, config, modId));
+          })
+          .setCloseAction(closeAction -> {
+            ctx.runOnServer(() -> openProductList(player, shop, config, modId));
+          })
+          .build();
+        PartyPcMenu.openDefaultParty(builder);
+      } catch (Exception e) {
+        player.sendMessage(net.minecraft.text.Text.literal("§cError opening Party/PC menu: " + e.getMessage()));
+        ctx.runOnServer(() -> openProductList(player, shop, config, modId));
+      }
+    }));
+
+    // Back Button
+    template.set(22, backBtn(lang, a -> openProductList(player, shop, config, modId)));
+
+    GooeyPage page = GooeyPage.builder()
+      .title(AdventureTranslator.toNative("§bAdd Pokémon Options"))
+      .template(template)
+      .build();
+    ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
+  }
+
+  public static String getPokemonPropertiesString(Pokemon pokemon) {
+    StringBuilder sb = new StringBuilder();
+    sb.append(pokemon.getSpecies().showdownId());
+
+    if (pokemon.getShiny()) {
+      sb.append(" shiny=yes");
+    }
+
+    sb.append(" level=").append(pokemon.getLevel());
+
+    if (pokemon.getForm() != null && !pokemon.getForm().getName().equalsIgnoreCase("normal")) {
+      sb.append(" form=").append(pokemon.getForm().getName().toLowerCase());
+    }
+
+    if (pokemon.getGender() != null) {
+      sb.append(" gender=").append(pokemon.getGender().getShowdownName().toLowerCase());
+    }
+
+    if (pokemon.getNature() != null) {
+      sb.append(" nature=").append(pokemon.getNature().getName().getPath().toLowerCase());
+    }
+
+    if (pokemon.getAbility() != null) {
+      sb.append(" ability=").append(pokemon.getAbility().getName().toLowerCase());
+    }
+
+    return sb.toString();
+  }
 }
+

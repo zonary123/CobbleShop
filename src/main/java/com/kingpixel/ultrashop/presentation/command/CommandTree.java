@@ -18,6 +18,8 @@ import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
 import com.kingpixel.ultrashop.presentation.gui.*;
 import com.kingpixel.ultrashop.presentation.gui.edit.ShopEditMenuBuilder;
+import com.kingpixel.ultrashop.domain.model.Product;
+import com.cobblemon.mod.common.command.argument.PokemonPropertiesArgumentType;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -85,6 +87,7 @@ public final class CommandTree {
     registerTransactions(base, modId, options);
     registerDelete(base, modId, options);
     registerEdit(base, modId, options);
+    registerAddPokemon(base, modId, options);
     registerStats(base, modId, options);
     registerMaintenance(base, modId, options);
     return base;
@@ -290,6 +293,61 @@ public final class CommandTree {
         ShopEditMenuBuilder.openShopList(player, config, options.getModId());
         return 1;
       }));
+  }
+
+  private static void registerAddPokemon(LiteralArgumentBuilder<ServerCommandSource> base, String modId,
+                                         ShopOptionsApi options) {
+    base.then(CommandManager.literal("addpokemon")
+      .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ADMIN_PERMISSION_SUFFIX), 2))
+      .then(CommandManager.argument("shopId", StringArgumentType.string())
+        .suggests((ctx, builder) -> {
+          ShopContext.get().getTypedShops(options.getModId()).forEach(shop -> builder.suggest(shop.getId()));
+          return builder.buildFuture();
+        })
+        .then(CommandManager.argument("properties", PokemonPropertiesArgumentType.Companion.properties())
+          .executes(ctx -> {
+            if (!ctx.getSource().isExecutedByPlayer()) return 0;
+            ServerPlayerEntity player = ctx.getSource().getPlayer();
+            if (player == null) return 0;
+
+            String shopId = StringArgumentType.getString(ctx, "shopId");
+            Shop shop = findTypedShop(options, shopId);
+            if (shop == null) {
+              player.sendMessage(net.minecraft.text.Text.literal("§cShop not found: " + shopId));
+              return 0;
+            }
+
+            String input = ctx.getInput();
+            int shopIdIndex = input.indexOf(shopId);
+            if (shopIdIndex == -1) {
+              player.sendMessage(net.minecraft.text.Text.literal("§cError parsing command arguments."));
+              return 0;
+            }
+            String propertiesStr = input.substring(shopIdIndex + shopId.length()).trim();
+            if (propertiesStr.isEmpty()) {
+              player.sendMessage(net.minecraft.text.Text.literal("§cProperties cannot be empty."));
+              return 0;
+            }
+
+            Product p = new Product();
+            p.setProduct("pokemon:" + propertiesStr);
+            p.setBuy(java.math.BigDecimal.valueOf(1000));
+            p.setSell(java.math.BigDecimal.ZERO);
+            p.setOneByOne(true);
+
+            List<Product> products = ShopEditMenuBuilder.getEditableProducts(shop);
+            products.add(p);
+
+            ShopContext.get().replaceShop(options.getModId(), shop);
+            ConfigLoader.saveShop(shop);
+
+            player.sendMessage(net.minecraft.text.Text.literal("§aAdded Pokémon: pokemon:" + propertiesStr + " to shop: " + shopId));
+            
+            // Re-open product list GUI
+            ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
+            ShopContext.get().runOnServer(() -> ShopEditMenuBuilder.openProductList(player, shop, config, options.getModId()));
+            return 1;
+          }))));
   }
 
   private static void registerStats(LiteralArgumentBuilder<ServerCommandSource> base, String modId,

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1] - 2026-06-23
+
+### Added
+
+- **Improved Pokémon Selection in Editor**: Added two options when adding a Pokémon product in the admin GUI editor:
+  - **Chat Option**: Sends a clickable link that pre-fills a command with tab completions/suggestions from Cobblemon's `/pokegive` system (species, level, shiny status, ability, form, gender, nature, etc.).
+  - **Party/PC Option**: Opens a GUI menu of the player's Party or PC (using `PartyPcMenu` from CobbleUtils) to select a Pokémon directly.
+
 ## [1.5.0] - 2026-06-17
 
 ### ⚠️ IMPORTANT: BACKUP & TEST THE MOD!
