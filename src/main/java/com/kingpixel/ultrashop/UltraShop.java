@@ -9,10 +9,10 @@ import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
 import com.kingpixel.ultrashop.domain.model.shop.Shop;
 import com.kingpixel.ultrashop.domain.scheduler.Scheduler;
 import com.kingpixel.ultrashop.domain.service.TransactionService;
-import com.kingpixel.ultrashop.infrastructure.serialization.scheduler.SchedulerJsonAdapter;
-import com.kingpixel.ultrashop.infrastructure.serialization.shop.ShopTypeAdapterFactory;
 import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonUserRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoUserRepository;
+import com.kingpixel.ultrashop.infrastructure.serialization.scheduler.SchedulerJsonAdapter;
+import com.kingpixel.ultrashop.infrastructure.serialization.shop.ShopTypeAdapterFactory;
 import com.kingpixel.ultrashop.presentation.gui.edit.ChatInputManager;
 import dev.architectury.event.events.common.CommandRegistrationEvent;
 import dev.architectury.event.events.common.LifecycleEvent;
@@ -71,10 +71,6 @@ public class UltraShop implements ModInitializer {
       .modId(MOD_ID)
       .path(PATH)
       .build();
-
-    // Server loaded — optionally setup server-specific config
-    LifecycleEvent.SERVER_LEVEL_LOAD.register(level -> {
-    });
 
     // Server stopping — save data, shutdown async
     LifecycleEvent.SERVER_STOPPING.register(event -> {

@@ -1,5 +1,6 @@
 package com.kingpixel.ultrashop.api;
 
+import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.domain.model.shop.Shop;
 import com.kingpixel.ultrashop.domain.service.TransactionService;
@@ -30,7 +31,7 @@ public final class ShopApi {
    */
   public static void register(ShopOptionsApi options, CommandDispatcher<ServerCommandSource> dispatcher) {
     // Run migrations before loading
-    Path shopDir = com.kingpixel.cobbleutils.CobbleUtils.getPath().resolve(options.getPath()).resolve("shop");
+    Path shopDir = CobbleUtils.getPath().resolve(options.getPath()).resolve("shop");
     V1ToV2Migrator.migrateIfNeeded(shopDir);
 
     // Load everything

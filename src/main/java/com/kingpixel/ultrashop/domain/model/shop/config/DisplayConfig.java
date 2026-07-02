@@ -42,33 +42,35 @@ import java.util.List;
 @Builder(toBuilder = true)
 public class DisplayConfig {
 
-    String name;
+  String name;
 
-    @Nullable
-    String title;
+  @Nullable
+  String title;
 
-    boolean autoPlace;
+  boolean autoPlace;
 
-    int rows;
+  int rows;
 
-    @Nullable
-    String colorProduct;
+  @Nullable
+  String colorProduct;
 
-    @Nullable
-    Rectangle rectangle;
+  @Nullable
+  Rectangle rectangle;
 
-    /** Icon representing the shop itself (the "display" field on legacy Shop). */
-    @Nullable
-    ItemModel displayItem;
+  /**
+   * Icon representing the shop itself (the "display" field on legacy Shop).
+   */
+  @Nullable
+  ItemModel displayItem;
 
-    @Nullable ItemModel itemInfoShop;
-    @Nullable ItemModel itemBalance;
-    @Nullable ItemModel itemPrevious;
-    @Nullable ItemModel itemClose;
-    @Nullable ItemModel itemNext;
+  @Nullable ItemModel itemInfoShop;
+  @Nullable ItemModel itemBalance;
+  @Nullable ItemModel itemPrevious;
+  @Nullable ItemModel itemClose;
+  @Nullable ItemModel itemNext;
 
-    @Nullable
-    List<PanelsConfig> panels;
+  @Nullable
+  List<PanelsConfig> panels;
 }
 
 

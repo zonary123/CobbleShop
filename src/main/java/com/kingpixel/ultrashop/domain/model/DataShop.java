@@ -1,10 +1,10 @@
 package com.kingpixel.ultrashop.domain.model;
 
 import com.kingpixel.cobbleutils.CobbleUtils;
+import com.kingpixel.cobbleutils.Model.ItemChance;
 import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.cobbleutils.util.UtilsFile;
-import com.kingpixel.cobbleutils.Model.ItemChance;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -49,7 +50,9 @@ public class DataShop {
 
   private static final Path LEGACY_FILE = BASE_PATH.resolve("dataShop.json");
 
-  /** Tolerance when comparing persisted vs recomputed schedule timestamps. */
+  /**
+   * Tolerance when comparing persisted vs recomputed schedule timestamps.
+   */
   private static final long SCHEDULE_DRIFT_TOLERANCE_MS = 60_000L;
 
   public void init() {
@@ -57,7 +60,7 @@ public class DataShop {
       migrateFromLegacy();
       loadAllRotations();
     } catch (Exception e) {
-      UltraShop.LOGGER.error( "Error loading DataShop: " + e.getMessage());
+      UltraShop.LOGGER.error("Error loading DataShop: " + e.getMessage());
       this.products = new ConcurrentHashMap<>();
     }
   }
@@ -77,7 +80,7 @@ public class DataShop {
             Files.createDirectories(file.getParent());
             UtilsFile.write(file, rotation);
           } catch (IOException e) {
-            UltraShop.LOGGER.error( "Error migrating rotation " + modId + "/" + shopId + ": " + e.getMessage());
+            UltraShop.LOGGER.error("Error migrating rotation " + modId + "/" + shopId + ": " + e.getMessage());
           }
         }));
         UltraShop.LOGGER.info("Migrated dataShop.json to per-shop rotation files.");
@@ -88,7 +91,7 @@ public class DataShop {
       Files.move(LEGACY_FILE, backup);
       UltraShop.LOGGER.info("Legacy dataShop.json backed up to dataShop.json.bak");
     } catch (Exception e) {
-      UltraShop.LOGGER.error( "Error during legacy migration: " + e.getMessage());
+      UltraShop.LOGGER.error("Error during legacy migration: " + e.getMessage());
     }
   }
 
@@ -113,18 +116,18 @@ public class DataShop {
                   shopMap.put(shopId, rotation);
                 }
               } catch (Exception e) {
-                UltraShop.LOGGER.error( "Error loading rotation " + file + ": " + e.getMessage());
+                UltraShop.LOGGER.error("Error loading rotation " + file + ": " + e.getMessage());
               }
             }
           } catch (Exception e) {
-            UltraShop.LOGGER.error( "Error scanning rotations for " + modId + ": " + e.getMessage());
+            UltraShop.LOGGER.error("Error scanning rotations for " + modId + ": " + e.getMessage());
           }
           if (!shopMap.isEmpty()) {
             products.put(modId, shopMap);
           }
         });
     } catch (IOException e) {
-      UltraShop.LOGGER.error( "Error scanning rotations directory: " + e.getMessage());
+      UltraShop.LOGGER.error("Error scanning rotations directory: " + e.getMessage());
     }
   }
 
@@ -141,17 +144,16 @@ public class DataShop {
    */
   private void writeShopRotation(String modId, String shopId, DynamicRotation rotation) {
     Path file = ROTATIONS_DIR.resolve(modId).resolve(shopId + ".json");
+
     try {
-      Files.createDirectories(file.getParent());
+      Path parentDir = file.getParent();
+      if (parentDir != null && parentDir.toFile().mkdirs()) {
+        UltraShop.LOGGER.info("Created rotation directory for mod: " + modId);
+      }
+      UtilsFile.write(file, rotation);
     } catch (IOException e) {
-      UltraShop.LOGGER.error( "Error creating rotation dir: " + e.getMessage());
-      return;
+      UltraShop.LOGGER.error("Error writing rotation " + modId + "/" + shopId + ": ", e);
     }
-    UtilsFile.writeAsync(file, rotation)
-      .exceptionally(e -> {
-        UltraShop.LOGGER.error( "Error writing rotation " + modId + "/" + shopId + ": " + e.getMessage());
-        return null;
-      });
   }
 
   /**
@@ -161,18 +163,25 @@ public class DataShop {
    * @param shop  rotation shop being inspected
    * @param modId owning mod id (used as rotation namespace on disk)
    * @param force if {@code true}, rotate immediately regardless of schedule
+   *
    * @return the (possibly newly rotated) products visible right now
    */
   public List<Product> updateDynamicProducts(RotationShop shop, String modId, boolean force) {
     Scheduler scheduler = shop.getScheduler();
-    if (scheduler == null) {
-      return shop.activeProducts();
-    }
+    if (scheduler == null) return shop.activeProducts();
+
 
     products.computeIfAbsent(modId, k -> new ConcurrentHashMap<>())
       .computeIfAbsent(shop.getId(), k -> new DynamicRotation());
 
+    if (shop.getProductPool().isEmpty()) return Collections.emptyList();
+    
     DynamicRotation rotation = products.get(modId).get(shop.getId());
+
+    if (shop.getProductPool().size() < shop.getRotationAmount()) {
+      UltraShop.LOGGER.warn("Rotation shop " + modId + "/" + shop.getId() + " has fewer products in pool than rotation amount. Adjusting rotation amount to " + shop.getProductPool().size());
+      shop.setRotationAmount(shop.getProductPool().size());
+    }
 
     synchronized (rotation) {
       long now = System.currentTimeMillis();

@@ -31,7 +31,9 @@ public final class CategoryShop extends AbstractShop implements Shop {
     return ShopType.CATEGORY;
   }
 
-  /** Categories never expose products directly — clients must navigate sub-shops. */
+  /**
+   * Categories never expose products directly — clients must navigate sub-shops.
+   */
   @Override
   public List<Product> activeProducts() {
     return List.of();
@@ -46,7 +48,7 @@ public final class CategoryShop extends AbstractShop implements Shop {
   public void check() {
     checkConfigs();
     if (displayConfig != null && displayConfig.isAutoPlace()) {
-      displayConfig = displayConfig.toBuilder().autoPlace(false).build();
+      displayConfig = displayConfig.toBuilder().autoPlace(true).build();
     }
     if (subShops == null) subShops = new ArrayList<>();
   }
