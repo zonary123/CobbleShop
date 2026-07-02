@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.reflect.TypeToken;
 import com.kingpixel.ultrashop.domain.model.Product;
+import com.kingpixel.ultrashop.domain.model.RotationScope;
 import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
 import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
 import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
@@ -39,6 +40,12 @@ public final class RotationShopAdapter implements ShopJsonAdapter<RotationShop> 
     obj.add("soundConfig", ctx.serialize(shop.getSoundConfig(), SoundConfig.class));
     obj.add("scheduler", ctx.serialize(shop.getScheduler(), Scheduler.class));
     obj.addProperty("rotationAmount", shop.getRotationAmount());
+    if (shop.getRotationScope() != null && shop.getRotationScope() != RotationScope.GLOBAL) {
+      obj.addProperty("rotationScope", shop.getRotationScope().name());
+    }
+    if (shop.getRotationSlots() != null && !shop.getRotationSlots().isEmpty()) {
+      obj.add("rotationSlots", ctx.serialize(shop.getRotationSlots(), new TypeToken<List<Integer>>(){}.getType()));
+    }
     obj.add("productPool", ctx.serialize(shop.getProductPool(), PRODUCT_LIST));
     if (shop.getDailySellLimits() != null && !shop.getDailySellLimits().isEmpty()) {
       obj.add("dailySellLimits", ctx.serialize(shop.getDailySellLimits(), new TypeToken<Map<String, BigDecimal>>(){}.getType()));
@@ -68,6 +75,12 @@ public final class RotationShopAdapter implements ShopJsonAdapter<RotationShop> 
     shop.setScheduler(ctx.deserialize(json.get("scheduler"), Scheduler.class));
     if (json.has("rotationAmount") && !json.get("rotationAmount").isJsonNull()) {
       shop.setRotationAmount(json.get("rotationAmount").getAsInt());
+    }
+    if (json.has("rotationScope") && !json.get("rotationScope").isJsonNull()) {
+      shop.setRotationScope(RotationScope.valueOf(json.get("rotationScope").getAsString().toUpperCase()));
+    }
+    if (json.has("rotationSlots") && !json.get("rotationSlots").isJsonNull()) {
+      shop.setRotationSlots(ctx.deserialize(json.get("rotationSlots"), new TypeToken<List<Integer>>(){}.getType()));
     }
     if (json.has("productPool")) {
       shop.setProductPool(ctx.deserialize(json.get("productPool"), PRODUCT_LIST));

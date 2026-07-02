@@ -23,6 +23,8 @@ public class UserInfo {
   private Map<UUID, ProductLimit> cooldownProductSell = new HashMap<>();
   private Map<String, Map<String, BigDecimal>> shopDailySellEarnings = new HashMap<>();
   private Map<String, Long> shopDailySellReset = new HashMap<>();
+  /** Per-shop dynamic rotation state when the shop uses {@code rotationScope: PLAYER}. */
+  private Map<String, DynamicRotation> rotationShops = new HashMap<>();
 
   public UserInfo() {
   }
@@ -231,6 +233,13 @@ public class UserInfo {
     Map<String, BigDecimal> shopEarnings = shopDailySellEarnings.computeIfAbsent(shopId, k -> new HashMap<>());
     BigDecimal current = shopEarnings.getOrDefault(currency, BigDecimal.ZERO);
     shopEarnings.put(currency, current.add(amount));
+  }
+
+  public DynamicRotation getOrCreateRotation(String shopId) {
+    if (rotationShops == null) {
+      rotationShops = new HashMap<>();
+    }
+    return rotationShops.computeIfAbsent(shopId, k -> new DynamicRotation());
   }
 
   /**

@@ -122,8 +122,10 @@ public final class ShopMenuBuilder {
 
         if (!(shop instanceof CategoryShop categoryShop)) {
 
-          List<Product> products = ShopProducts.activeProducts(shop, modId);
-          boolean autoPlace = displayCfg != null && displayCfg.isAutoPlace();
+          List<Product> products = ShopProducts.activeProducts(shop, modId, player);
+          boolean hasRotationSlots = shop instanceof RotationShop rs
+            && rs.getRotationSlots() != null && !rs.getRotationSlots().isEmpty();
+          boolean autoPlace = !hasRotationSlots && displayCfg != null && displayCfg.isAutoPlace();
           boolean needsPagination = products.size() > totalSlots || autoPlace;
           hasPagination = needsPagination;
 
@@ -164,7 +166,7 @@ public final class ShopMenuBuilder {
         }
 
 
-        applyInfoButton(template, shop, displayCfg, lang, modId, rows);
+        applyInfoButton(template, shop, displayCfg, lang, modId, rows, player);
 
 
         applyBalanceButton(template, shop, displayCfg, lang, player, rows);
@@ -276,7 +278,8 @@ public final class ShopMenuBuilder {
   }
 
   private static void applyInfoButton(ChestTemplate template, Shop shop, DisplayConfig displayCfg,
-                                      LangConfig lang, String modId, int rows) {
+                                      LangConfig lang, String modId, int rows,
+                                      ServerPlayerEntity player) {
     ItemModel infoRaw = displayCfg != null ? displayCfg.getItemInfoShop() : null;
     if (infoRaw == null || !UIUtils.isInside(infoRaw.getSlot(), rows)) return;
 
@@ -289,10 +292,10 @@ public final class ShopMenuBuilder {
 
     if (isDynamic) {
       RotationShop rotShop = (RotationShop) shop;
-      long cooldownTimestamp = ctx.getDataShop().getActualCooldown(modId, rotShop.getId());
+      long cooldownTimestamp = ctx.getDataShop().getActualCooldown(rotShop, modId, player.getUuid());
       String cooldownStr = cooldownTimestamp > System.currentTimeMillis()
         ? PlayerUtils.getCooldown(cooldownTimestamp)
-        : "Rotating...";
+        : rotShop.isPlayerScoped() ? "Your rotation is refreshing..." : "Rotating...";
       int amount = rotShop.getRotationAmount();
       int totalProducts = rotShop.getProductPool() != null ? rotShop.getProductPool().size() : 0;
 

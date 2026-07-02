@@ -12,6 +12,7 @@ import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
 import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
 import com.kingpixel.ultrashop.domain.scheduler.Scheduler;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
+import com.kingpixel.ultrashop.infrastructure.persistence.UserRepository;
 import com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper;
 import lombok.Data;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -22,6 +23,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -160,100 +162,172 @@ public class DataShop {
    * Updates dynamic products for a {@link RotationShop}, rotating if the cooldown
    * expired or the persisted schedule drifted past the next fire moment.
    *
-   * @param shop  rotation shop being inspected
-   * @param modId owning mod id (used as rotation namespace on disk)
-   * @param force if {@code true}, rotate immediately regardless of schedule
+   * @param shop   rotation shop being inspected
+   * @param modId  owning mod id (used as rotation namespace on disk)
+   * @param player viewer for {@link RotationScope#PLAYER} shops; required in that mode
+   * @param force  if {@code true}, rotate immediately regardless of schedule
    *
    * @return the (possibly newly rotated) products visible right now
    */
-  public List<Product> updateDynamicProducts(RotationShop shop, String modId, boolean force) {
+  public List<Product> updateDynamicProducts(RotationShop shop, String modId,
+                                             ServerPlayerEntity player, boolean force) {
+    if (shop.isPlayerScoped()) {
+      if (player == null) return List.of();
+      return updatePlayerRotation(shop, modId, player, force);
+    }
+    return updateGlobalRotation(shop, modId, force);
+  }
+
+  private List<Product> updateGlobalRotation(RotationShop shop, String modId, boolean force) {
     Scheduler scheduler = shop.getScheduler();
     if (scheduler == null) return shop.activeProducts();
-
 
     products.computeIfAbsent(modId, k -> new ConcurrentHashMap<>())
       .computeIfAbsent(shop.getId(), k -> new DynamicRotation());
 
     if (shop.getProductPool().isEmpty()) return Collections.emptyList();
-    
-    DynamicRotation rotation = products.get(modId).get(shop.getId());
 
-    if (shop.getProductPool().size() < shop.getRotationAmount()) {
-      UltraShop.LOGGER.warn("Rotation shop " + modId + "/" + shop.getId() + " has fewer products in pool than rotation amount. Adjusting rotation amount to " + shop.getProductPool().size());
-      shop.setRotationAmount(shop.getProductPool().size());
-    }
+    DynamicRotation rotation = products.get(modId).get(shop.getId());
+    clampRotationAmount(shop, modId);
 
     synchronized (rotation) {
-      long now = System.currentTimeMillis();
-      boolean needsUpdate = force
-        || rotation.getTimeToUpdate() < now
-        || rotation.getProducts().isEmpty()
-        || rotation.getProducts().size() != shop.getRotationAmount()
-        || isScheduleStale(scheduler, rotation, now);
-
-      if (needsUpdate) {
+      RotationUpdateResult result = rotateIfNeeded(shop, scheduler, rotation, force);
+      if (result.updated()) {
         ShopContext ctx = ShopContext.get();
-        long refreshNow = System.currentTimeMillis();
-        rotation.setTimeToUpdate(scheduler.nextFireTime(refreshNow));
-        rotation.setProducts(pickWeighted(shop.getProductPool(), shop.getRotationAmount()));
-
-        List<Product> snapshot = List.copyOf(rotation.getProducts());
+        List<Product> snapshot = List.copyOf(result.products());
         ctx.getAsyncContext().runAsync(() -> {
-          announceRotationIfEnabled(shop, ctx);
+          announceRotationIfEnabled(shop, ctx, null);
           writeShopRotation(modId, shop.getId(), rotation);
           ctx.getSellIndex().rebuild(ctx.getTypedShops());
-
-          // Send Discord webhook notification
-          ShopConfig config = ctx.getConfigs().get(modId);
-          String webhookUrl = shop.getWebhookUrl();
-          if (webhookUrl == null || webhookUrl.isBlank()) {
-            if (config != null && config.getWebhooks() != null) {
-              webhookUrl = config.getWebhooks().getRotationWebhookUrl();
-            }
-          }
-          if (webhookUrl != null && !webhookUrl.isBlank()) {
-            String shopName = shop.getDisplayConfig() != null && shop.getDisplayConfig().getName() != null
-              ? shop.getDisplayConfig().getName() : shop.getId();
-            shopName = shopName.replaceAll("(?i)§[0-9a-fk-or]", "").replaceAll("(?i)&[0-9a-fk-or]", "");
-
-            StringBuilder prodList = new StringBuilder();
-            for (Product p : snapshot) {
-              String title = p.getDisplayname();
-              if (title == null || title.isBlank()) {
-                String finalDisplay = p.getDisplay() != null ? p.getDisplay() : p.getProduct();
-                ItemChance itemChance = new ItemChance(finalDisplay, 0);
-                String resolvedTitle = itemChance.getTitle();
-                if (resolvedTitle != null && !resolvedTitle.isBlank() && !resolvedTitle.startsWith("<lang:")) {
-                  title = resolvedTitle;
-                } else {
-                  title = getCleanNameFromId(p.getProduct());
-                }
-              }
-              title = title.replaceAll("(?i)§[0-9a-fk-or]", "").replaceAll("(?i)&[0-9a-fk-or]", "");
-              prodList.append("- ").append(title).append("\n");
-            }
-            String title = "Rotación de Tienda: " + shopName;
-            String desc = "La tienda **" + shopName + "** ha rotado su catálogo. Nuevos productos disponibles:\n\n" + prodList.toString();
-            String payload = DiscordWebhookHelper.buildEmbedJson(title, desc, 0x00FFFF);
-            DiscordWebhookHelper.sendWebhook(webhookUrl, payload);
-          }
+          sendRotationWebhook(shop, modId, snapshot, ctx);
         });
-        return snapshot;
+        return applyRotationSlots(shop, snapshot);
       }
     }
 
-    return rotation.getProducts();
+    return applyRotationSlots(shop, rotation.getProducts());
+  }
+
+  private List<Product> updatePlayerRotation(RotationShop shop, String modId,
+                                             ServerPlayerEntity player, boolean force) {
+    Scheduler scheduler = shop.getScheduler();
+    if (scheduler == null) return List.of();
+
+    if (shop.getProductPool().isEmpty()) return Collections.emptyList();
+
+    UserRepository userRepo = ShopContext.get().getRepositories().getUserRepository();
+    UserInfo user = userRepo.findByUuid(player.getUuid());
+    if (user == null) {
+      user = new UserInfo(player.getUuid(), player.getGameProfile().getName());
+    }
+
+    clampRotationAmount(shop, modId);
+    DynamicRotation rotation = user.getOrCreateRotation(shop.getId());
+
+    synchronized (rotation) {
+      RotationUpdateResult result = rotateIfNeeded(shop, scheduler, rotation, force);
+      if (result.updated()) {
+        userRepo.save(user);
+        announceRotationIfEnabled(shop, ShopContext.get(), player);
+        return applyRotationSlots(shop, List.copyOf(result.products()));
+      }
+    }
+
+    return applyRotationSlots(shop, rotation.getProducts());
+  }
+
+  private static void clampRotationAmount(RotationShop shop, String modId) {
+    if (shop.getProductPool().size() < shop.getRotationAmount()) {
+      UltraShop.LOGGER.warn("Rotation shop " + modId + "/" + shop.getId()
+        + " has fewer products in pool than rotation amount. Adjusting rotation amount to "
+        + shop.getProductPool().size());
+      shop.setRotationAmount(shop.getProductPool().size());
+    }
+  }
+
+  private record RotationUpdateResult(boolean updated, List<Product> products) {
+  }
+
+  private static RotationUpdateResult rotateIfNeeded(RotationShop shop, Scheduler scheduler,
+                                                     DynamicRotation rotation, boolean force) {
+    long now = System.currentTimeMillis();
+    boolean needsUpdate = force
+      || rotation.getTimeToUpdate() < now
+      || rotation.getProducts().isEmpty()
+      || rotation.getProducts().size() != shop.getRotationAmount()
+      || isScheduleStale(scheduler, rotation, now);
+
+    if (!needsUpdate) {
+      return new RotationUpdateResult(false, rotation.getProducts());
+    }
+
+    rotation.setTimeToUpdate(scheduler.nextFireTime(now));
+    rotation.setProducts(pickWeighted(shop.getProductPool(), shop.getRotationAmount()));
+    return new RotationUpdateResult(true, rotation.getProducts());
+  }
+
+  private static void sendRotationWebhook(RotationShop shop, String modId,
+                                          List<Product> snapshot, ShopContext ctx) {
+    ShopConfig config = ctx.getConfigs().get(modId);
+    String webhookUrl = shop.getWebhookUrl();
+    if (webhookUrl == null || webhookUrl.isBlank()) {
+      if (config != null && config.getWebhooks() != null) {
+        webhookUrl = config.getWebhooks().getRotationWebhookUrl();
+      }
+    }
+    if (webhookUrl == null || webhookUrl.isBlank()) {
+      return;
+    }
+
+    String shopName = shop.getDisplayConfig() != null && shop.getDisplayConfig().getName() != null
+      ? shop.getDisplayConfig().getName() : shop.getId();
+    shopName = shopName.replaceAll("(?i)§[0-9a-fk-or]", "").replaceAll("(?i)&[0-9a-fk-or]", "");
+
+    StringBuilder prodList = new StringBuilder();
+    for (Product p : snapshot) {
+      String title = p.getDisplayname();
+      if (title == null || title.isBlank()) {
+        String finalDisplay = p.getDisplay() != null ? p.getDisplay() : p.getProduct();
+        ItemChance itemChance = new ItemChance(finalDisplay, 0);
+        String resolvedTitle = itemChance.getTitle();
+        if (resolvedTitle != null && !resolvedTitle.isBlank() && !resolvedTitle.startsWith("<lang:")) {
+          title = resolvedTitle;
+        } else {
+          title = getCleanNameFromId(p.getProduct());
+        }
+      }
+      title = title.replaceAll("(?i)§[0-9a-fk-or]", "").replaceAll("(?i)&[0-9a-fk-or]", "");
+      prodList.append("- ").append(title).append("\n");
+    }
+    String title = "Rotación de Tienda: " + shopName;
+    String desc = "La tienda **" + shopName + "** ha rotado su catálogo. Nuevos productos disponibles:\n\n" + prodList;
+    String payload = DiscordWebhookHelper.buildEmbedJson(title, desc, 0x00FFFF);
+    DiscordWebhookHelper.sendWebhook(webhookUrl, payload);
   }
 
   /**
-   * Returns the cooldown expiration timestamp for a shop's rotation. Identified
-   * by ids only — DataShop never needs the full shop instance to read state.
+   * Returns the cooldown expiration timestamp for a global rotation shop.
    */
   public long getActualCooldown(String modId, String shopId) {
     return products
       .computeIfAbsent(modId, k -> new ConcurrentHashMap<>())
       .computeIfAbsent(shopId, k -> new DynamicRotation())
       .getTimeToUpdate();
+  }
+
+  /**
+   * Returns the cooldown for the given viewer. For {@link RotationScope#PLAYER} shops
+   * reads the player's persisted rotation state.
+   */
+  public long getActualCooldown(RotationShop shop, String modId, UUID playerId) {
+    if (shop.isPlayerScoped()) {
+      if (playerId == null) return 0L;
+      UserInfo user = ShopContext.get().getRepositories().getUserRepository().findByUuid(playerId);
+      if (user == null || user.getRotationShops() == null) return 0L;
+      DynamicRotation rotation = user.getRotationShops().get(shop.getId());
+      return rotation != null ? rotation.getTimeToUpdate() : 0L;
+    }
+    return getActualCooldown(modId, shop.getId());
   }
 
   // --- private helpers ---
@@ -272,19 +346,52 @@ public class DataShop {
     }
   }
 
-  private static void announceRotationIfEnabled(RotationShop shop, ShopContext ctx) {
+  private static void announceRotationIfEnabled(RotationShop shop, ShopContext ctx,
+                                                ServerPlayerEntity player) {
     ConditionsConfig cond = shop.getConditionsConfig();
     if (cond == null || !cond.isAnnounceRotation()) return;
 
     DisplayConfig display = shop.getDisplayConfig();
     String shopName = display != null && display.getName() != null ? display.getName() : shop.getId();
+    String message = ctx.getLang().getMessageShopRotated().replace("%shop%", shopName);
+
+    if (shop.isPlayerScoped()) {
+      if (player == null) return;
+      PlayerUtils.sendMessage(player, message, ctx.getLang().getPrefix(), TypeMessage.CHAT);
+      return;
+    }
 
     PlayerUtils.sendMessage(
-      (ServerPlayerEntity) null,
-      ctx.getLang().getMessageShopRotated().replace("%shop%", shopName),
+      (UUID) null,
+      message,
       ctx.getLang().getPrefix(),
       TypeMessage.BROADCAST
     );
+  }
+
+  /**
+   * Copies picked pool products and assigns {@link RotationShop#getRotationSlots()}
+   * when configured, so pool entries are not mutated.
+   */
+  private static List<Product> applyRotationSlots(RotationShop shop, List<Product> picked) {
+    List<Integer> slots = shop.getRotationSlots();
+    if (slots == null || slots.isEmpty()) {
+      return picked;
+    }
+
+    List<Product> result = new ArrayList<>(picked.size());
+    for (int i = 0; i < picked.size(); i++) {
+      Product copy = copyProduct(picked.get(i));
+      if (i < slots.size()) {
+        copy.setSlot(slots.get(i));
+      }
+      result.add(copy);
+    }
+    return result;
+  }
+
+  private static Product copyProduct(Product source) {
+    return UtilsFile.getGson().fromJson(UtilsFile.getGson().toJson(source), Product.class);
   }
 
   /**

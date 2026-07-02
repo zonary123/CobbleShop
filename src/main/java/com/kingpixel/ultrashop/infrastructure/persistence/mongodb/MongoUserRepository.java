@@ -1,6 +1,8 @@
 package com.kingpixel.ultrashop.infrastructure.persistence.mongodb;
 
 import com.kingpixel.ultrashop.UltraShop;
+import com.kingpixel.cobbleutils.util.UtilsFile;
+import com.kingpixel.ultrashop.domain.model.DynamicRotation;
 import com.kingpixel.ultrashop.domain.model.ProductLimit;
 import com.kingpixel.ultrashop.domain.model.UserInfo;
 import com.kingpixel.ultrashop.infrastructure.persistence.UserRepository;
@@ -10,6 +12,8 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.ReplaceOptions;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.bson.Document;
+
+import com.google.gson.reflect.TypeToken;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -149,6 +153,10 @@ public class MongoUserRepository implements UserRepository {
     }
     doc.append("shopDailySellReset", shopSellReset);
 
+    if (info.getRotationShops() != null && !info.getRotationShops().isEmpty()) {
+      doc.append("rotationShops", Document.parse(UtilsFile.getGson().toJson(info.getRotationShops())));
+    }
+
     return doc;
   }
 
@@ -243,6 +251,12 @@ public class MongoUserRepository implements UserRepository {
         }
       }
       info.setShopDailySellReset(map);
+    }
+
+    Document rotationShops = doc.get("rotationShops", Document.class);
+    if (rotationShops != null) {
+      java.lang.reflect.Type type = new TypeToken<Map<String, DynamicRotation>>() {}.getType();
+      info.setRotationShops(UtilsFile.getGson().fromJson(rotationShops.toJson(), type));
     }
 
     return info;

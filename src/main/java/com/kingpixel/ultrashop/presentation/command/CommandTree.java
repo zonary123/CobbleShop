@@ -250,7 +250,13 @@ public final class CommandTree {
           String shopId = StringArgumentType.getString(ctx, ARG_SHOP);
           Shop shop = findTypedShop(options, shopId);
           if (shop instanceof RotationShop rotationShop) {
-            ShopContext.get().getDataShop().updateDynamicProducts(rotationShop, options.getModId(), true);
+            if (rotationShop.isPlayerScoped()) {
+              sendConfiguredMessage(ctx.getSource(),
+                ShopContext.get().getLang().getCommandDynamicShopInvalid()
+                  .replace("%shop%", shopId + " (PLAYER scope — rotations are per-player)"));
+              return 1;
+            }
+            ShopContext.get().getDataShop().updateDynamicProducts(rotationShop, options.getModId(), null, true);
             sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandDynamicShopRestarted().replace("%shop%", shopId));
           } else {
             sendConfiguredMessage(ctx.getSource(), ShopContext.get().getLang().getCommandDynamicShopInvalid().replace("%shop%", shopId));

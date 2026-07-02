@@ -17,6 +17,7 @@ import com.kingpixel.cobbleutils.util.PlayerUtils;
 import com.kingpixel.cobbleutils.util.TypeMessage;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.domain.model.Product;
+import com.kingpixel.ultrashop.domain.model.RotationScope;
 import com.kingpixel.ultrashop.domain.model.SubShop;
 import com.kingpixel.ultrashop.domain.model.UserInfo;
 import com.kingpixel.ultrashop.domain.model.PriceEntry;
@@ -133,6 +134,10 @@ public final class ShopEditMenuBuilder {
           lore.add("  §7Interval: §f" + dur.getDuration());
         }
         lore.add("  §7Amount: §f" + r.getRotationAmount() + " products");
+        lore.add("  §7Scope: §f" + (r.getRotationScope() != null ? r.getRotationScope() : RotationScope.GLOBAL));
+        if (r.getRotationSlots() != null && !r.getRotationSlots().isEmpty()) {
+          lore.add("  §7Slots: §f" + r.getRotationSlots());
+        }
         lore.add("  §7Announce: " + boolIcon(shop.getConditionsConfig() != null && shop.getConditionsConfig().isAnnounceRotation()));
       }
 
@@ -663,38 +668,39 @@ public final class ShopEditMenuBuilder {
         openProductEditor(player, shop, product, config, modId);
       }));
 
-    template.set(31, button(new ItemStack(Items.RABBIT_FOOT), "§d⟳ Rotation Chance",
-      List.of(SEP,
-        "§7Current: §d" + (product.getChance() != null ? product.getChance() + "%" : "§f100% §8(default)"),
-        "",
-        "§7Weight for dynamic rotation selection.",
-        "§7Higher = more likely to appear.",
-        "§7Only relevant if the shop has rotation.",
-        SEP,
-        "§a▶ Left §7→ +10",
-        "§c▶ Right §7→ -10",
-        "§e▶ Shift §7→ Clear (100%)"),
-      a -> {
-        switch (a.getClickType()) {
-          case SHIFT_LEFT_CLICK, SHIFT_RIGHT_CLICK -> {
-            product.setChance(null);
-            ConfigLoader.saveShop(shop);
-            openProductEditor(player, shop, product, config, modId);
+    if (shop instanceof RotationShop) {
+      template.set(31, button(new ItemStack(Items.RABBIT_FOOT), "§d⟳ Rotation Chance",
+        List.of(SEP,
+          "§7Current: §d" + (product.getChance() != null ? product.getChance() + "%" : "§f100% §8(default)"),
+          "",
+          "§7Weight for dynamic rotation selection.",
+          "§7Higher = more likely to appear.",
+          SEP,
+          "§a▶ Left §7→ +10",
+          "§c▶ Right §7→ -10",
+          "§e▶ Shift §7→ Clear (100%)"),
+        a -> {
+          switch (a.getClickType()) {
+            case SHIFT_LEFT_CLICK, SHIFT_RIGHT_CLICK -> {
+              product.setChance(null);
+              ConfigLoader.saveShop(shop);
+              openProductEditor(player, shop, product, config, modId);
+            }
+            case LEFT_CLICK -> {
+              int c = product.getChance() != null ? product.getChance() : 100;
+              product.setChance(c + 10);
+              ConfigLoader.saveShop(shop);
+              openProductEditor(player, shop, product, config, modId);
+            }
+            default -> {
+              int c = product.getChance() != null ? product.getChance() : 100;
+              product.setChance(Math.max(c - 10, 1));
+              ConfigLoader.saveShop(shop);
+              openProductEditor(player, shop, product, config, modId);
+            }
           }
-          case LEFT_CLICK -> {
-            int c = product.getChance() != null ? product.getChance() : 100;
-            product.setChance(c + 10);
-            ConfigLoader.saveShop(shop);
-            openProductEditor(player, shop, product, config, modId);
-          }
-          default -> {
-            int c = product.getChance() != null ? product.getChance() : 100;
-            product.setChance(Math.max(c - 10, 1));
-            ConfigLoader.saveShop(shop);
-            openProductEditor(player, shop, product, config, modId);
-          }
-        }
-      }));
+        }));
+    }
 
 
     template.set(36, button(new ItemStack(Items.IRON_DOOR), "§6⏱ Max Purchases",
@@ -1230,18 +1236,23 @@ public final class ShopEditMenuBuilder {
       }));
 
     boolean announceRot = shop.getConditionsConfig() != null && shop.getConditionsConfig().isAnnounceRotation();
-    template.set(12, button(new ItemStack(announceRot ? Items.BELL : Items.GRAY_DYE),
-      "§e📢 Announce Rotation: " + boolIcon(announceRot),
-      List.of(SEP, "§7Current: " + boolIcon(announceRot), "",
-        "§7Broadcasts a message to all players when",
-        "§7the shop's products rotate.", SEP,
-        "§a▶ Click §7→ Toggle"),
-      a -> {
-        shop.setConditionsConfig(shop.getConditionsConfig().toBuilder().announceRotation(!announceRot).build());
-        ctx.replaceShop(modId, shop);
-        ConfigLoader.saveShop(shop);
-        openShopSettings(player, shop, config, modId);
-      }));
+    if (shop instanceof RotationShop rotationForAnnounce) {
+      boolean playerScoped = rotationForAnnounce.isPlayerScoped();
+      template.set(12, button(new ItemStack(announceRot ? Items.BELL : Items.GRAY_DYE),
+        "§e📢 Announce Rotation: " + boolIcon(announceRot),
+        List.of(SEP, "§7Current: " + boolIcon(announceRot), "",
+          playerScoped
+            ? "§7Notifies §fthis player §7when their personal catalog rotates."
+            : "§7Broadcasts a message to all players when the shop rotates.",
+          SEP,
+          "§a▶ Click §7→ Toggle"),
+        a -> {
+          shop.setConditionsConfig(shop.getConditionsConfig().toBuilder().announceRotation(!announceRot).build());
+          ctx.replaceShop(modId, shop);
+          ConfigLoader.saveShop(shop);
+          openShopSettings(player, shop, config, modId);
+        }));
+    }
 
     String colorProduct = shop.getDisplayConfig() != null ? shop.getDisplayConfig().getColorProduct() : "";
     template.set(13, button(new ItemStack(Items.SPYGLASS), "§e🎨 Color Prefix",
@@ -1361,11 +1372,12 @@ public final class ShopEditMenuBuilder {
     }
 
 
-    {
+    if (shop instanceof NormalShop || shop instanceof RotationShop) {
       List<String> rotLore = new ArrayList<>();
       rotLore.add(SEP);
       rotLore.add("§7Type: §f" + shop.getType());
       if (shop instanceof RotationShop r) {
+        rotLore.add("§7Scope: §f" + (r.getRotationScope() != null ? r.getRotationScope() : RotationScope.GLOBAL));
         Scheduler scheduler = r.getScheduler();
         if (scheduler instanceof CronScheduler cron) {
           rotLore.add("§7Cron: §f" + cron.getExpression() + " §8(priority)");
@@ -1375,12 +1387,21 @@ public final class ShopEditMenuBuilder {
           rotLore.add("§7Interval: §f" + dur.getDuration());
         }
         rotLore.add("§7Amount: §f" + r.getRotationAmount() + " products per rotation");
-        long next = ShopContext.get().getDataShop().getActualCooldown(modId, shop.getId());
+        if (r.getRotationSlots() != null && !r.getRotationSlots().isEmpty()) {
+          rotLore.add("§7Slots: §f" + r.getRotationSlots());
+        } else {
+          rotLore.add("§7Slots: §8auto / product slot");
+        }
+        long next = shop instanceof RotationShop rs && !rs.isPlayerScoped()
+          ? ShopContext.get().getDataShop().getActualCooldown(modId, shop.getId())
+          : 0L;
         if (next > 0) {
           rotLore.add("§7Next rotation: §f" + java.time.Instant.ofEpochMilli(next));
+        } else if (shop instanceof RotationShop rs && rs.isPlayerScoped()) {
+          rotLore.add("§7Next rotation: §8per player");
         }
       } else {
-        rotLore.add("§7No rotation — type is " + shop.getType() + ".");
+        rotLore.add("§7Not a rotation shop yet.");
       }
       rotLore.add(SEP);
       rotLore.add("§a▶ Left §7→ Set interval (e.g. 30m, 1h, 7d)");
@@ -1416,21 +1437,9 @@ public final class ShopEditMenuBuilder {
                   ctx.replaceShop(modId, r);
                   ConfigLoader.saveShop(r);
                   ctx.runOnServer(() -> openShopSettings(player, r, config, modId));
-                } else {
-                  RotationShop rotation = new RotationShop();
-                  rotation.setId(shop.getId());
-                  rotation.setFilePath(shop.getFilePath());
-                  rotation.setDisplayConfig(shop.getDisplayConfig());
-                  rotation.setEconomyConfig(shop.getEconomyConfig());
-                  rotation.setConditionsConfig(shop.getConditionsConfig());
-                  rotation.setSoundConfig(shop.getSoundConfig());
-                  rotation.setMaintenance(shop.isMaintenance());
-                  rotation.setWebhookUrl(shop.getWebhookUrl());
-                  if (shop instanceof NormalShop n) {
-                    rotation.setProductPool(new ArrayList<>(n.getProducts()));
-                  }
+                } else if (shop instanceof NormalShop n) {
+                  RotationShop rotation = newRotationFrom(shop, n.getProducts());
                   rotation.setRotationAmount(amt);
-                  rotation.setScheduler(Scheduler.defaultScheduler());
                   ctx.replaceShop(modId, rotation);
                   ConfigLoader.saveShop(rotation);
                   ctx.runOnServer(() -> openShopSettings(player, rotation, config, modId));
@@ -1451,20 +1460,8 @@ public final class ShopEditMenuBuilder {
                 ctx.replaceShop(modId, r);
                 ConfigLoader.saveShop(r);
                 ctx.runOnServer(() -> openShopSettings(player, r, config, modId));
-              } else {
-                RotationShop rotation = new RotationShop();
-                rotation.setId(shop.getId());
-                rotation.setFilePath(shop.getFilePath());
-                rotation.setDisplayConfig(shop.getDisplayConfig());
-                rotation.setEconomyConfig(shop.getEconomyConfig());
-                rotation.setConditionsConfig(shop.getConditionsConfig());
-                rotation.setSoundConfig(shop.getSoundConfig());
-                rotation.setMaintenance(shop.isMaintenance());
-                rotation.setWebhookUrl(shop.getWebhookUrl());
-                if (shop instanceof NormalShop n) {
-                  rotation.setProductPool(new ArrayList<>(n.getProducts()));
-                }
-                rotation.setRotationAmount(3);
+              } else if (shop instanceof NormalShop n) {
+                RotationShop rotation = newRotationFrom(shop, n.getProducts());
                 rotation.setScheduler(new CronScheduler(input));
                 ctx.replaceShop(modId, rotation);
                 ConfigLoader.saveShop(rotation);
@@ -1483,26 +1480,102 @@ public final class ShopEditMenuBuilder {
                 ctx.replaceShop(modId, r);
                 ConfigLoader.saveShop(r);
                 ctx.runOnServer(() -> openShopSettings(player, r, config, modId));
-              } else {
-                RotationShop rotation = new RotationShop();
-                rotation.setId(shop.getId());
-                rotation.setFilePath(shop.getFilePath());
-                rotation.setDisplayConfig(shop.getDisplayConfig());
-                rotation.setEconomyConfig(shop.getEconomyConfig());
-                rotation.setConditionsConfig(shop.getConditionsConfig());
-                rotation.setSoundConfig(shop.getSoundConfig());
-                rotation.setMaintenance(shop.isMaintenance());
-                rotation.setWebhookUrl(shop.getWebhookUrl());
-                if (shop instanceof NormalShop n) {
-                  rotation.setProductPool(new ArrayList<>(n.getProducts()));
-                }
-                rotation.setRotationAmount(3);
+              } else if (shop instanceof NormalShop n) {
+                RotationShop rotation = newRotationFrom(shop, n.getProducts());
                 rotation.setScheduler(new DurationScheduler(input));
                 ctx.replaceShop(modId, rotation);
                 ConfigLoader.saveShop(rotation);
                 ctx.runOnServer(() -> openShopSettings(player, rotation, config, modId));
               }
             });
+          }
+        }));
+    }
+
+    if (shop instanceof RotationShop rotationShop) {
+      RotationScope scope = rotationShop.getRotationScope() != null
+        ? rotationShop.getRotationScope() : RotationScope.GLOBAL;
+      template.set(16, button(new ItemStack(scope == RotationScope.GLOBAL ? Items.CLOCK : Items.PLAYER_HEAD),
+        "§b⟳ Rotation Scope: §f" + scope,
+        List.of(SEP,
+          "§7Current: §f" + scope,
+          "",
+          "§fGLOBAL §7— everyone sees the same rotating catalog.",
+          "§fPLAYER §7— each player has their own rotation timer.",
+          SEP,
+          "§a▶ Click §7→ Toggle GLOBAL / PLAYER"),
+        a -> {
+          rotationShop.setRotationScope(scope == RotationScope.GLOBAL
+            ? RotationScope.PLAYER : RotationScope.GLOBAL);
+          ctx.replaceShop(modId, rotationShop);
+          ConfigLoader.saveShop(rotationShop);
+          openShopSettings(player, rotationShop, config, modId);
+        }));
+
+      int maxSlot = rows * 9 - 1;
+      List<Integer> currentSlots = rotationShop.getRotationSlots() != null
+        ? rotationShop.getRotationSlots() : List.of();
+      List<String> slotsLore = new ArrayList<>();
+      slotsLore.add(SEP);
+      if (currentSlots.isEmpty()) {
+        slotsLore.add("§7No fixed slots — uses AutoPlace or per-product slots.");
+      } else {
+        slotsLore.add("§7Current: §f" + currentSlots);
+        slotsLore.add("§7Products rotate into these slots in order.");
+      }
+      slotsLore.add("");
+      slotsLore.add("§7Define where rotated products appear.");
+      slotsLore.add("§7List length should match rotation amount.");
+      slotsLore.add(SEP);
+      slotsLore.add("§a▶ Click §7→ Set via chat §8(10,11,12)");
+      slotsLore.add("§e▶ Right §7→ Add one slot");
+      slotsLore.add("§c▶ Shift §7→ Clear all slots");
+
+      template.set(17, button(new ItemStack(Items.ITEM_FRAME), "§b⊞ Rotation Slots §7(" + currentSlots.size() + ")",
+        slotsLore,
+        a -> {
+          switch (a.getClickType()) {
+            case SHIFT_LEFT_CLICK, SHIFT_RIGHT_CLICK -> {
+              rotationShop.setRotationSlots(new ArrayList<>());
+              ctx.replaceShop(modId, rotationShop);
+              ConfigLoader.saveShop(rotationShop);
+              ctx.runOnServer(() -> openShopSettings(player, rotationShop, config, modId));
+            }
+            case RIGHT_CLICK -> ChatInputManager.requestInput(player,
+              "Enter slot to add (0-" + maxSlot + "):", input -> {
+                try {
+                  int slot = Integer.parseInt(input.trim());
+                  if (slot < 0 || slot > maxSlot) {
+                    sendConfiguredMessage(player, lang.getMessageInvalidNumber().replace("%input%", input));
+                    return;
+                  }
+                  List<Integer> slots = rotationShop.getRotationSlots() != null
+                    ? new ArrayList<>(rotationShop.getRotationSlots())
+                    : new ArrayList<>();
+                  slots.add(slot);
+                  rotationShop.setRotationSlots(slots);
+                  ctx.replaceShop(modId, rotationShop);
+                  ConfigLoader.saveShop(rotationShop);
+                  ctx.runOnServer(() -> openShopSettings(player, rotationShop, config, modId));
+                } catch (NumberFormatException e) {
+                  sendConfiguredMessage(player, lang.getMessageInvalidNumber().replace("%input%", input));
+                }
+              });
+            default -> ChatInputManager.requestInput(player,
+              "Enter rotation slots (comma-separated, e.g. 10,11,12,19,20):", input -> {
+                List<Integer> slots = parseSlotList(input, maxSlot);
+                if (slots == null) {
+                  sendConfiguredMessage(player, lang.getMessageInvalidNumber().replace("%input%", input));
+                  return;
+                }
+                rotationShop.setRotationSlots(slots);
+                if (!slots.isEmpty()) {
+                  rotationShop.setRotationAmount(slots.size());
+                }
+                ctx.replaceShop(modId, rotationShop);
+                ConfigLoader.saveShop(rotationShop);
+                ctx.runOnServer(() -> openShopSettings(player, rotationShop, config, modId));
+              });
           }
         }));
     }
@@ -2358,6 +2431,40 @@ public final class ShopEditMenuBuilder {
     }
 
     return sb.toString();
+  }
+
+  private static RotationShop newRotationFrom(Shop shop, List<Product> pool) {
+    RotationShop rotation = new RotationShop();
+    rotation.setId(shop.getId());
+    rotation.setFilePath(shop.getFilePath());
+    rotation.setDisplayConfig(shop.getDisplayConfig());
+    rotation.setEconomyConfig(shop.getEconomyConfig());
+    rotation.setConditionsConfig(shop.getConditionsConfig());
+    rotation.setSoundConfig(shop.getSoundConfig());
+    rotation.setMaintenance(shop.isMaintenance());
+    rotation.setWebhookUrl(shop.getWebhookUrl());
+    rotation.setProductPool(new ArrayList<>(pool));
+    rotation.setRotationAmount(3);
+    rotation.setScheduler(Scheduler.defaultScheduler());
+    return rotation;
+  }
+
+  private static List<Integer> parseSlotList(String input, int maxSlot) {
+    if (input == null || input.isBlank()) {
+      return List.of();
+    }
+    List<Integer> slots = new ArrayList<>();
+    for (String part : input.split("[,;\\s]+")) {
+      if (part.isBlank()) continue;
+      try {
+        int slot = Integer.parseInt(part.trim());
+        if (slot < 0 || slot > maxSlot) return null;
+        slots.add(slot);
+      } catch (NumberFormatException e) {
+        return null;
+      }
+    }
+    return slots;
   }
 }
 

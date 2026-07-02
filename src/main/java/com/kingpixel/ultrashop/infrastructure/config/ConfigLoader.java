@@ -10,8 +10,9 @@ import com.kingpixel.cobbleutils.util.economys.providers.ImpactorEconomy;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
-import com.kingpixel.ultrashop.domain.model.PriceEntry;
 import com.kingpixel.ultrashop.domain.model.Product;
+import com.kingpixel.ultrashop.domain.model.PriceEntry;
+import com.kingpixel.ultrashop.domain.model.RotationScope;
 import com.kingpixel.ultrashop.domain.model.Shop;
 import com.kingpixel.ultrashop.domain.model.SubShop;
 import com.kingpixel.ultrashop.domain.model.shop.*;
@@ -468,10 +469,11 @@ public final class ConfigLoader {
       " §7A pool of rotating items refreshed hourly.",
       " §7New deals appear dynamically.",
       "§8─────────────────────────────────"
-    )));
+    )).toBuilder().autoPlace(false).build());
     shop.setConditionsConfig(ConditionsConfig.builder().announceRotation(true).build());
     shop.setScheduler(SchedulerFactory.fromInterval("1h"));
     shop.setRotationAmount(4);
+    shop.setRotationSlots(new ArrayList<>(List.of(10, 11, 12, 13)));
     shop.setProductPool(new ArrayList<>(List.of(
       weightedProduct("minecraft:redstone", 30, 15, 100),
       weightedProduct("minecraft:lapis_lazuli", 25, 12, 100),
@@ -518,6 +520,7 @@ public final class ConfigLoader {
     )));
     shop.setScheduler(SchedulerFactory.fromCron("0 0 * * *"));
     shop.setRotationAmount(6);
+    shop.setRotationScope(RotationScope.PLAYER);
     shop.setProductPool(new ArrayList<>(List.of(
       weightedProduct("minecraft:iron_ingot", 50, 25, 100),
       weightedProduct("minecraft:gold_ingot", 80, 40, 100),
@@ -632,6 +635,7 @@ public final class ConfigLoader {
         | `products` | Product[] | yes | List of products |
         | `subShops` | SubShop[] | no | Category navigation links |
         | `rotationSchedule` | object | no | Dynamic rotation config (see below) |
+        | `rotationSlots` | int[] | no | Fixed GUI slots for rotated products (`ROTATION` shops only) |
         | `openConditions` | Condition[] | no | When the shop is accessible |
         | `announceRotation` | boolean | no | Broadcast rotation changes |
         | `globalDiscount` | float | no | Shop-wide discount percentage |
@@ -769,6 +773,62 @@ public final class ConfigLoader {
         | `0 12 * * 1,3,5` | Mon/Wed/Fri at noon |
         | `0 0 1 * *` | First day of each month at midnight |
         | `30 6 * * *` | Every day at 06:30 |
+        
+        ### Rotation shop fields (typed format)
+        
+        | Field | Type | Required | Description |
+        |-------|------|----------|-------------|
+        | `scheduler` | object | yes | When to rotate (`duration` or `cron`; see examples above) |
+        | `rotationAmount` | int | yes | How many products are picked from `productPool` each rotation |
+        | `rotationScope` | string | no | `GLOBAL` (default) or `PLAYER`. `GLOBAL` shares one catalog; `PLAYER` keeps a separate rotation per player. |
+        | `rotationSlots` | int[] | no | Fixed GUI slots for rotated products, in order. The 1st picked product uses `rotationSlots[0]`, the 2nd uses `rotationSlots[1]`, etc. When set, overrides `autoPlace` for the active rotation. |
+        | `productPool` | Product[] | yes | Full pool from which products are weighted-randomly selected |
+        
+        ### Fixed slots for rotated products
+        
+        By default, rotated products use `autoPlace` or per-product `slot` values from the pool.
+        To pin each rotated product to specific chest slots, set `rotationSlots` with the same
+        length as `rotationAmount`:
+        
+        ```json
+        {
+          "id": "hourly_rotation",
+          "scheduler": { "type": "duration", "duration": "1h" },
+          "rotationAmount": 4,
+          "rotationSlots": [10, 11, 12, 13],
+          "displayConfig": {
+            "name": "Hourly Rotation",
+            "autoPlace": false,
+            "rows": 6
+          },
+          "productPool": [
+            { "product": "minecraft:redstone", "buy": 30, "sell": 15, "chance": 100 },
+            { "product": "minecraft:lapis_lazuli", "buy": 25, "sell": 12, "chance": 100 }
+          ]
+        }
+        ```
+        
+        Slot numbers follow the chest GUI grid (0–53 for a 6-row menu). Invalid slots outside
+        `rows * 9` are stripped on load. Configure slots in-game via the editor:
+        **Shop Settings → ⊞ Rotation Slots**.
+        
+        ### Per-player rotations (`rotationScope: PLAYER`)
+        
+        Use `PLAYER` when each player should get their own rotation timer and product
+        selection instead of sharing one global catalog:
+        
+        ```json
+        {
+          "id": "daily_specials",
+          "scheduler": { "type": "duration", "duration": "24h" },
+          "rotationAmount": 6,
+          "rotationScope": "PLAYER",
+          "productPool": [ ... ]
+        }
+        ```
+        
+        Player rotation state is stored in each player's user data file. Discord webhooks
+        and `/shop restartShop` only apply to `GLOBAL` rotations.
         
         ## Transaction History
         

@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.5.2] - 2026-07-02
+
+### Added
+
+- **Rotation Scope (`GLOBAL` / `PLAYER`)**: ROTATION shops now support `rotationScope` to choose how the catalog rotates:
+  - **GLOBAL** (default) — one shared rotation for the entire server, persisted under `data/rotations/`.
+  - **PLAYER** — each player gets their own rotation timer and product selection, persisted in their user data.
+- **Rotation Scope Editor**: Added a **⟳ Rotation Scope** toggle in shop settings to switch between `GLOBAL` and `PLAYER` in-game.
+- **Rotation Slots for Dynamic Shops**: ROTATION shops now support a `rotationSlots` list (`int[]`) to pin each rotated product to a fixed GUI slot. The 1st picked product uses `rotationSlots[0]`, the 2nd uses `rotationSlots[1]`, and so on. When set, fixed slots take priority over `autoPlace`.
+- **Rotation Slots Editor**: Added a **⊞ Rotation Slots** button in the admin shop settings GUI (`/shop edit` → right-click shop → Shop Settings) to configure, add, or clear rotation slots in-game.
+- **Config Documentation**: Documented `rotationSlots` and `rotationScope` in the embedded shop README. Default examples: `hourly_rotation` (GLOBAL + fixed slots) and `daily_specials` (`PLAYER`).
+
+### Changed
+
+- **Context-Aware Shop Editor**: Shop settings and product editor menus now only show options relevant to the shop type (e.g. rotation schedule, slots, scope, and announce only for `ROTATION`; rotation chance only in rotation shop pools; rotation schedule hidden for `CATEGORY`).
+- **PLAYER Rotation Announcements**: When `rotationScope` is `PLAYER` and announce rotation is enabled, only the affected player is notified instead of broadcasting server-wide.
+- **Web Dashboard Frontend**: Refactored the embedded analytics dashboard into modular JavaScript (`api.js`, `state.js`, `ui.js`, `charts.js`, `app.js`) with improved layout, styling, and client-side state management.
+
+### Fixed
+
+- **Dynamic Shop Rotation**: Fixed rotation state persistence by writing rotation files synchronously instead of asynchronously, preventing lost or stale rotation data on shutdown.
+- **Dynamic Shop Pool Validation**: Empty `productPool` now returns no products instead of attempting a rotation. If the pool is smaller than `rotationAmount`, the amount is automatically adjusted with a warning.
+- **Category Shop Layout**: Fixed category shops incorrectly forcing `autoPlace` off during config validation, which could break sub-shop pagination.
+
 ## [1.5.1] - 2026-06-23
 
 ### Added

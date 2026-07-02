@@ -64,7 +64,7 @@ public final class SearchMenuBuilder {
             continue;
           }
 
-          List<Product> activeProducts = ShopProducts.activeProducts(shop, modId);
+          List<Product> activeProducts = ShopProducts.activeProducts(shop, modId, player);
 
           for (Product product : activeProducts) {
             if (product.hasErrors()) continue;
