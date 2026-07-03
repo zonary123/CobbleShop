@@ -171,11 +171,78 @@ public class DataShop {
    */
   public List<Product> updateDynamicProducts(RotationShop shop, String modId,
                                              ServerPlayerEntity player, boolean force) {
+    if (shop.getRotationScope() == RotationScope.GUILD) {
+      if (player == null) return List.of();
+      return updateGuildRotation(shop, modId, player, force);
+    }
     if (shop.isPlayerScoped()) {
       if (player == null) return List.of();
       return updatePlayerRotation(shop, modId, player, force);
     }
     return updateGlobalRotation(shop, modId, force);
+  }
+
+  private static String getGuildNameReflective(UUID uuid) {
+    try {
+      Class<?> guildAPIClazz = Class.forName("com.kingpixel.cobbleutils.api.GuildAPI");
+      java.lang.reflect.Field companionField = guildAPIClazz.getField("Companion");
+      Object companion = companionField.get(null);
+      java.lang.reflect.Method getGuildNameMethod = companion.getClass().getMethod("getGuildName", UUID.class);
+      Object name = getGuildNameMethod.invoke(companion, uuid);
+      if (name instanceof String) {
+        return (String) name;
+      }
+    } catch (Throwable ignored) {
+    }
+    return null;
+  }
+
+  private List<Product> updateGuildRotation(RotationShop shop, String modId,
+                                            ServerPlayerEntity player, boolean force) {
+    Scheduler scheduler = shop.getScheduler();
+    if (scheduler == null) return List.of();
+
+    if (shop.getProducts().isEmpty()) return Collections.emptyList();
+
+    String guildName = getGuildNameReflective(player.getUuid());
+
+    if (guildName == null || guildName.isBlank()) {
+      return updatePlayerRotation(shop, modId, player, force);
+    }
+
+    clampRotationAmount(shop, modId);
+
+    String key = shop.getId() + "_guild_" + guildName;
+    products.computeIfAbsent(modId, k -> new ConcurrentHashMap<>())
+      .computeIfAbsent(key, k -> {
+        Path file = ROTATIONS_DIR.resolve(modId).resolve(key + ".json");
+        if (Files.exists(file)) {
+          try {
+            DynamicRotation rot = UtilsFile.read(file, DynamicRotation.class);
+            if (rot != null) return rot;
+          } catch (Exception ignored) {}
+        }
+        return new DynamicRotation();
+      });
+
+    DynamicRotation rotation = products.get(modId).get(key);
+
+    synchronized (rotation) {
+      RotationUpdateResult result = rotateIfNeeded(shop, scheduler, rotation, force);
+      if (result.updated()) {
+        ShopContext ctx = ShopContext.get();
+        List<Product> snapshot = List.copyOf(result.products());
+        ctx.getAsyncContext().runAsync(() -> {
+          announceRotationIfEnabled(shop, ctx, player);
+          writeShopRotation(modId, key, rotation);
+          ctx.getSellIndex().rebuild(ctx.getTypedShops());
+          sendRotationWebhook(shop, modId, snapshot, ctx);
+        });
+        return applyRotationSlots(shop, snapshot);
+      }
+    }
+
+    return applyRotationSlots(shop, rotation.getProducts());
   }
 
   private List<Product> updateGlobalRotation(RotationShop shop, String modId, boolean force) {
@@ -185,7 +252,7 @@ public class DataShop {
     products.computeIfAbsent(modId, k -> new ConcurrentHashMap<>())
       .computeIfAbsent(shop.getId(), k -> new DynamicRotation());
 
-    if (shop.getProductPool().isEmpty()) return Collections.emptyList();
+    if (shop.getProducts().isEmpty()) return Collections.emptyList();
 
     DynamicRotation rotation = products.get(modId).get(shop.getId());
     clampRotationAmount(shop, modId);
@@ -213,7 +280,7 @@ public class DataShop {
     Scheduler scheduler = shop.getScheduler();
     if (scheduler == null) return List.of();
 
-    if (shop.getProductPool().isEmpty()) return Collections.emptyList();
+    if (shop.getProducts().isEmpty()) return Collections.emptyList();
 
     UserRepository userRepo = ShopContext.get().getRepositories().getUserRepository();
     UserInfo user = userRepo.findByUuid(player.getUuid());
@@ -237,11 +304,11 @@ public class DataShop {
   }
 
   private static void clampRotationAmount(RotationShop shop, String modId) {
-    if (shop.getProductPool().size() < shop.getRotationAmount()) {
+    if (shop.getProducts().size() < shop.getRotationAmount()) {
       UltraShop.LOGGER.warn("Rotation shop " + modId + "/" + shop.getId()
         + " has fewer products in pool than rotation amount. Adjusting rotation amount to "
-        + shop.getProductPool().size());
-      shop.setRotationAmount(shop.getProductPool().size());
+        + shop.getProducts().size());
+      shop.setRotationAmount(shop.getProducts().size());
     }
   }
 
@@ -262,7 +329,7 @@ public class DataShop {
     }
 
     rotation.setTimeToUpdate(scheduler.nextFireTime(now));
-    rotation.setProducts(pickWeighted(shop.getProductPool(), shop.getRotationAmount()));
+    rotation.setProducts(pickWeighted(shop.getProducts(), shop.getRotationAmount()));
     return new RotationUpdateResult(true, rotation.getProducts());
   }
 
@@ -320,6 +387,19 @@ public class DataShop {
    * reads the player's persisted rotation state.
    */
   public long getActualCooldown(RotationShop shop, String modId, UUID playerId) {
+    if (shop.getRotationScope() == RotationScope.GUILD) {
+      if (playerId == null) return 0L;
+      String guildName = getGuildNameReflective(playerId);
+      if (guildName == null || guildName.isBlank()) {
+        UserInfo user = ShopContext.get().getRepositories().getUserRepository().findByUuid(playerId);
+        if (user == null || user.getRotationShops() == null) return 0L;
+        DynamicRotation rotation = user.getRotationShops().get(shop.getId());
+        return rotation != null ? rotation.getTimeToUpdate() : 0L;
+      }
+      DynamicRotation rotation = products.computeIfAbsent(modId, k -> new ConcurrentHashMap<>())
+        .get(shop.getId() + "_guild_" + guildName);
+      return rotation != null ? rotation.getTimeToUpdate() : 0L;
+    }
     if (shop.isPlayerScoped()) {
       if (playerId == null) return 0L;
       UserInfo user = ShopContext.get().getRepositories().getUserRepository().findByUuid(playerId);

@@ -26,7 +26,7 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 public final class RotationShop extends AbstractShop implements Shop {
 
-  private List<Product> productPool;
+  private List<Product> products;
   private Scheduler scheduler;
   private int rotationAmount;
 
@@ -47,7 +47,7 @@ public final class RotationShop extends AbstractShop implements Shop {
 
   public RotationShop() {
     super();
-    this.productPool = new ArrayList<>();
+    this.products = new ArrayList<>();
     this.rotationAmount = 3;
     this.rotationSlots = new ArrayList<>();
     this.rotationScope = RotationScope.GLOBAL;
@@ -74,8 +74,8 @@ public final class RotationShop extends AbstractShop implements Shop {
   @Override
   public void check() {
     checkConfigs();
-    if (productPool == null) productPool = new ArrayList<>();
-    productPool.forEach(p -> p.check(legacyView()));
+    if (products == null) products = new ArrayList<>();
+    products.forEach(p -> p.check(legacyView()));
     if (rotationAmount < 1) rotationAmount = 1;
     if (rotationSlots == null) rotationSlots = new ArrayList<>();
     if (rotationScope == null) rotationScope = RotationScope.GLOBAL;

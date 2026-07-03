@@ -8,5 +8,7 @@ public enum RotationScope {
   /** One rotation state for the whole server (default). */
   GLOBAL,
   /** Each player has their own rotation timer and product selection. */
-  PLAYER
+  PLAYER,
+  /** Shared rotation catalog per guild. */
+  GUILD
 }

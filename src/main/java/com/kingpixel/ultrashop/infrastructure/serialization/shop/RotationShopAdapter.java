@@ -46,7 +46,7 @@ public final class RotationShopAdapter implements ShopJsonAdapter<RotationShop> 
     if (shop.getRotationSlots() != null && !shop.getRotationSlots().isEmpty()) {
       obj.add("rotationSlots", ctx.serialize(shop.getRotationSlots(), new TypeToken<List<Integer>>(){}.getType()));
     }
-    obj.add("productPool", ctx.serialize(shop.getProductPool(), PRODUCT_LIST));
+    obj.add("products", ctx.serialize(shop.getProducts(), PRODUCT_LIST));
     if (shop.getDailySellLimits() != null && !shop.getDailySellLimits().isEmpty()) {
       obj.add("dailySellLimits", ctx.serialize(shop.getDailySellLimits(), new TypeToken<Map<String, BigDecimal>>(){}.getType()));
     }
@@ -82,8 +82,10 @@ public final class RotationShopAdapter implements ShopJsonAdapter<RotationShop> 
     if (json.has("rotationSlots") && !json.get("rotationSlots").isJsonNull()) {
       shop.setRotationSlots(ctx.deserialize(json.get("rotationSlots"), new TypeToken<List<Integer>>(){}.getType()));
     }
-    if (json.has("productPool")) {
-      shop.setProductPool(ctx.deserialize(json.get("productPool"), PRODUCT_LIST));
+    if (json.has("products")) {
+      shop.setProducts(ctx.deserialize(json.get("products"), PRODUCT_LIST));
+    } else if (json.has("productPool")) {
+      shop.setProducts(ctx.deserialize(json.get("productPool"), PRODUCT_LIST));
     }
     if (json.has("dailySellLimits")) {
       shop.setDailySellLimits(ctx.deserialize(json.get("dailySellLimits"), new TypeToken<Map<String, BigDecimal>>(){}.getType()));

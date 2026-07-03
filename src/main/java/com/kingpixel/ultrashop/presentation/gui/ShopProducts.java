@@ -60,7 +60,7 @@ public final class ShopProducts {
         return List.of();
       }
       @Override public List<Product> visit(RotationShop s) {
-        return s.getProductPool();
+        return s.getProducts();
       }
     });
   }

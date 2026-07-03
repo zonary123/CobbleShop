@@ -28,7 +28,7 @@ public final class ShopTypeConverter {
   public static RotationShop promoteToRotation(NormalShop source, Scheduler scheduler, int amount) {
     RotationShop rotation = new RotationShop();
     copyCommon(source, rotation);
-    rotation.setProductPool(source.getProducts());
+    rotation.setProducts(source.getProducts());
     rotation.setScheduler(scheduler);
     rotation.setRotationAmount(Math.max(1, amount));
     return rotation;
@@ -36,7 +36,7 @@ public final class ShopTypeConverter {
 
   /**
    * Converts a {@link RotationShop} back into a {@link NormalShop}, exposing its
-   * full {@code productPool} as the static catalog.
+   * full {@code products} as the static catalog.
    *
    * @param source non-null shop being demoted
    * @return a new {@link NormalShop} carrying the same id and config VOs
@@ -44,7 +44,7 @@ public final class ShopTypeConverter {
   public static NormalShop demoteToNormal(RotationShop source) {
     NormalShop normal = new NormalShop();
     copyCommon(source, normal);
-    normal.setProducts(source.getProductPool());
+    normal.setProducts(source.getProducts());
     return normal;
   }
 

@@ -85,7 +85,7 @@ public final class ShopBridge {
     } else if (shop instanceof CategoryShop c) {
       legacy.setSubShops(c.getSubShops());
     } else if (shop instanceof RotationShop r) {
-      legacy.setProducts(r.getProductPool());
+      legacy.setProducts(r.getProducts());
       legacy.setRotationSchedule(toLegacyRotationSchedule(r));
     }
 
@@ -126,7 +126,7 @@ public final class ShopBridge {
   private static RotationShop buildRotation(com.kingpixel.ultrashop.domain.model.Shop legacy) {
     RotationShop shop = new RotationShop();
     copyCommonFields(legacy, shop);
-    shop.setProductPool(legacy.getProducts());
+    shop.setProducts(legacy.getProducts());
 
     RotationSchedule legacySched = legacy.getRotationSchedule();
     shop.setScheduler(SchedulerFactory.fromLegacy(legacySched));

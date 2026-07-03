@@ -474,7 +474,7 @@ public final class ConfigLoader {
     shop.setScheduler(SchedulerFactory.fromInterval("1h"));
     shop.setRotationAmount(4);
     shop.setRotationSlots(new ArrayList<>(List.of(10, 11, 12, 13)));
-    shop.setProductPool(new ArrayList<>(List.of(
+    shop.setProducts(new ArrayList<>(List.of(
       weightedProduct("minecraft:redstone", 30, 15, 100),
       weightedProduct("minecraft:lapis_lazuli", 25, 12, 100),
       weightedProduct("minecraft:quartz", 35, 17, 80),
@@ -498,7 +498,7 @@ public final class ConfigLoader {
     shop.setConditionsConfig(ConditionsConfig.builder().announceRotation(true).build());
     shop.setScheduler(SchedulerFactory.fromCron("0 18 * * 5"));
     shop.setRotationAmount(2);
-    shop.setProductPool(new ArrayList<>(List.of(
+    shop.setProducts(new ArrayList<>(List.of(
       weightedProduct("minecraft:elytra", 25000, 10000, 30),
       weightedProduct("minecraft:netherite_block", 15000, 7500, 50),
       weightedProduct("minecraft:beacon", 20000, 10000, 40),
@@ -521,7 +521,7 @@ public final class ConfigLoader {
     shop.setScheduler(SchedulerFactory.fromCron("0 0 * * *"));
     shop.setRotationAmount(6);
     shop.setRotationScope(RotationScope.PLAYER);
-    shop.setProductPool(new ArrayList<>(List.of(
+    shop.setProducts(new ArrayList<>(List.of(
       weightedProduct("minecraft:iron_ingot", 50, 25, 100),
       weightedProduct("minecraft:gold_ingot", 80, 40, 100),
       weightedProduct("minecraft:copper_ingot", 30, 15, 100),

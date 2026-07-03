@@ -297,7 +297,7 @@ public final class ShopMenuBuilder {
         ? PlayerUtils.getCooldown(cooldownTimestamp)
         : rotShop.isPlayerScoped() ? "Your rotation is refreshing..." : "Rotating...";
       int amount = rotShop.getRotationAmount();
-      int totalProducts = rotShop.getProductPool() != null ? rotShop.getProductPool().size() : 0;
+      int totalProducts = rotShop.getProducts() != null ? rotShop.getProducts().size() : 0;
 
       lore.replaceAll(s -> s
         .replace("%cooldown%", cooldownStr)
