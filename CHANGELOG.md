@@ -7,6 +7,10 @@
 - **MongoDB Shop Template Persistence**: Added central synchronization for shop configurations, templates, products, and categories across cross-server setups using MongoDB.
 - **Admin/Replica Server Mode**: Introduced `adminServer` config setting. A designated admin server loads shops from local JSON files, updates MongoDB, and broadcasts changes, while replica servers read directly from MongoDB.
 
+### Fixed
+
+- **Shop Loading Initialization Order**: Fixed a critical initialization bug where shops were not detected or loaded on startup (affecting JSON and MongoDB databases) because `loadShops` was executed before the repositories factory was initialized.
+
 ## [1.5.3] - 2026-07-03
 
 ### Added

@@ -58,11 +58,11 @@ public final class ConfigLoader {
       loadLang(config);
     }
 
-    // 3. Load shops
-    loadShops(options);
-
-    // 4. Initialize repositories
+    // 3. Initialize repositories
     ctx.setRepositories(new RepositoryFactory(config.getDataBase()));
+
+    // 4. Load shops
+    loadShops(options);
 
     // 5. Initialize DataShop
     ctx.getDataShop().init();
