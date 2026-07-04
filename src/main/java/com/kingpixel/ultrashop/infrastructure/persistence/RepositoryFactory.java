@@ -7,9 +7,11 @@ import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonTransactionRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonUserRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonStockRepository;
+import com.kingpixel.ultrashop.infrastructure.persistence.json.JsonShopRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoTransactionRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoUserRepository;
 import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoStockRepository;
+import com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoShopRepository;
 import com.mongodb.client.MongoDatabase;
 import lombok.Getter;
 
@@ -29,6 +31,7 @@ public class RepositoryFactory {
   private final UserRepository userRepository;
   private final TransactionRepository transactionRepository;
   private final StockRepository stockRepository;
+  private final ShopRepository shopRepository;
 
   public RepositoryFactory(DataBaseConfig config) {
     switch (config.getType()) {
@@ -36,6 +39,7 @@ public class RepositoryFactory {
         UserRepository userRepo;
         TransactionRepository txRepo;
         StockRepository stockRepo;
+        ShopRepository sRepo;
         try {
           MongoDBManager manager = MongoDBService.getOrCreateManager(config);
           String dbName = (config.getDatabase() != null && !config.getDatabase().isBlank())
@@ -46,6 +50,7 @@ public class RepositoryFactory {
           userRepo = new MongoUserRepository(database);
           txRepo = new MongoTransactionRepository(database);
           stockRepo = new MongoStockRepository(database);
+          sRepo = new MongoShopRepository(database);
           UltraShop.LOGGER.info("Connected to MongoDB '{}' via CobbleUtils shared pool (active pools: {})",
             dbName, MongoDBService.getActiveConnections());
         } catch (Exception e) {
@@ -53,16 +58,19 @@ public class RepositoryFactory {
           userRepo = new JsonUserRepository();
           txRepo = new JsonTransactionRepository();
           stockRepo = new JsonStockRepository();
+          sRepo = new JsonShopRepository();
         }
         this.userRepository = userRepo;
         this.transactionRepository = txRepo;
         this.stockRepository = stockRepo;
+        this.shopRepository = sRepo;
       }
       default -> {
-        // JSON fallback for all other types until SQL backend is implemented
+        // JSON fallback for all other types
         this.userRepository = new JsonUserRepository();
         this.transactionRepository = new JsonTransactionRepository();
         this.stockRepository = new JsonStockRepository();
+        this.shopRepository = new JsonShopRepository();
       }
     }
   }
@@ -76,5 +84,3 @@ public class RepositoryFactory {
     // intentionally empty — see class-level Javadoc.
   }
 }
-
-

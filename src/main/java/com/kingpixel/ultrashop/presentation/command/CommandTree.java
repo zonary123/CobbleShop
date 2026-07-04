@@ -411,11 +411,9 @@ public final class CommandTree {
       return 0;
     }
     try {
-      Path shopPath = CobbleUtils.getPath()
-        .resolve(options.getPath())
-        .resolve("shop")
-        .resolve(shopId + ".json");
-      Files.deleteIfExists(shopPath);
+      if (ShopContext.get().getRepositories() != null) {
+        ShopContext.get().getRepositories().getShopRepository().delete(typedShop);
+      }
       ShopContext.get().removeTypedShop(options.getModId(), shopId);
       ShopContext.get().getSellIndex().rebuild(ShopContext.get().getTypedShops());
       sendConfiguredMessage(source, ShopContext.get().getLang().getCommandShopDeleted().replace("%shop%", shopId));

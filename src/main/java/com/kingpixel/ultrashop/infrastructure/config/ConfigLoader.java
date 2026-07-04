@@ -114,69 +114,66 @@ public final class ConfigLoader {
    */
   public static void loadShops(ShopOptionsApi options) {
     ShopContext ctx = ShopContext.get();
-    Path shopDir = CobbleUtils.getPath().resolve(options.getPath()).resolve("shop");
 
-    try {
-      boolean createDefaults = false;
-      if (!Files.exists(shopDir)) {
-        Files.createDirectories(shopDir);
-        createDefaults = true;
-      } else {
-        try (var stream = Files.list(shopDir)) {
-          if (!stream.findAny().isPresent()) {
-            createDefaults = true;
+    if (ctx.getRepositories() != null && ctx.getRepositories().getShopRepository() instanceof com.kingpixel.ultrashop.infrastructure.persistence.json.JsonShopRepository) {
+      Path shopDir = CobbleUtils.getPath().resolve(options.getPath()).resolve("shop");
+      try {
+        boolean createDefaults = false;
+        if (!Files.exists(shopDir)) {
+          Files.createDirectories(shopDir);
+          createDefaults = true;
+        } else {
+          try (var stream = Files.list(shopDir)) {
+            if (!stream.findAny().isPresent()) {
+              createDefaults = true;
+            }
           }
         }
+        if (createDefaults) {
+          createDefaultShops(shopDir);
+        }
+      } catch (IOException e) {
+        UltraShop.LOGGER.error("Error ensuring JSON default shops: " + e.getMessage());
       }
-      if (createDefaults) {
-        createDefaultShops(shopDir);
+    }
+
+    try {
+      List<com.kingpixel.ultrashop.domain.model.shop.Shop> loaded = ctx.getRepositories() != null
+        ? ctx.getRepositories().getShopRepository().loadAllShops(options)
+        : new ArrayList<>();
+
+      if (ctx.getRepositories() != null && ctx.getRepositories().getShopRepository() instanceof com.kingpixel.ultrashop.infrastructure.persistence.mongodb.MongoShopRepository && loaded.isEmpty()) {
+        List<com.kingpixel.ultrashop.domain.model.shop.Shop> defaults = new ArrayList<>();
+        defaults.add(buildStarterBlocks());
+        defaults.add(buildFarmMarket());
+        defaults.add(buildMainMenu());
+        for (com.kingpixel.ultrashop.domain.model.shop.Shop defaultShop : defaults) {
+          defaultShop.setFilePath("mongodb:" + defaultShop.getId());
+          defaultShop.check();
+          ctx.getRepositories().getShopRepository().save(defaultShop);
+          loaded.add(defaultShop);
+        }
       }
 
       List<com.kingpixel.ultrashop.domain.model.shop.Shop> typedShops = new ArrayList<>();
       List<Shop> legacyShops = new ArrayList<>();
-      List<Path> jsonFiles = new ArrayList<>(UtilsFile.getAllJsonFiles(shopDir));
-      jsonFiles.removeIf(file -> {
-        Path relative = shopDir.relativize(file);
-        for (Path part : relative) {
-          String name = part.toString().toLowerCase();
-          if (name.startsWith("_") || name.contains("backup")) {
-            return true;
-          }
-        }
-        return false;
-      });
 
-      for (Path file : jsonFiles) {
+      for (com.kingpixel.ultrashop.domain.model.shop.Shop shopLoaded : loaded) {
         try {
-          com.kingpixel.ultrashop.domain.model.shop.Shop shopLoaded = UtilsFile.read(file, com.kingpixel.ultrashop.domain.model.shop.Shop.class);
-          if (shopLoaded == null) continue;
-
-          String shopId = file.getFileName().toString().replace(".json", "");
-          if (shopLoaded instanceof com.kingpixel.ultrashop.domain.model.shop.AbstractShop a) {
-            a.setId(shopId);
-          }
-          shopLoaded.setFilePath(file.toString());
-          shopLoaded.check();
-
-          // Rewrite in canonical shopLoaded format (migrates legacy files in-place).
-          UtilsFile.write(file, shopLoaded);
-
-          // Mirror to legacy view for the editor and check() side-effects.
           Shop legacy = ShopBridge.toLegacy(shopLoaded);
-          legacy.setFilePath(file.toString());
+          legacy.setFilePath(shopLoaded.getFilePath());
           legacy.check();
 
           typedShops.add(shopLoaded);
           legacyShops.add(legacy);
         } catch (Exception e) {
-          UltraShop.LOGGER.error("Error loading shop " + file, e);
-          backupIncompatibleShop(shopDir, file);
+          UltraShop.LOGGER.error("Error loading shop " + shopLoaded.getId(), e);
         }
       }
 
       ctx.getShops().put(options.getModId(), legacyShops);
       ctx.getTypedShops().put(options.getModId(), typedShops);
-    } catch (IOException e) {
+    } catch (Exception e) {
       UltraShop.LOGGER.error("Error loading shops: " + e.getMessage());
       ctx.getShops().put(options.getModId(), new ArrayList<>());
       ctx.getTypedShops().put(options.getModId(), new ArrayList<>());
@@ -203,12 +200,9 @@ public final class ConfigLoader {
    * Saves a single shop to disk in the canonical shopLoaded JSON format.
    */
   public static void saveShop(com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
-    if (shop.getFilePath() == null) return;
-    Path path = Path.of(shop.getFilePath());
-    UtilsFile.writeAsync(path, shop).exceptionally(ex -> {
-      UltraShop.LOGGER.error("Error saving shop " + shop.getId(), ex);
-      return null;
-    });
+    if (ShopContext.get().getRepositories() != null) {
+      ShopContext.get().getRepositories().getShopRepository().save(shop);
+    }
   }
 
   /**
@@ -216,14 +210,16 @@ public final class ConfigLoader {
    */
   public static void createShop(ShopOptionsApi options, com.kingpixel.ultrashop.domain.model.shop.Shop shop) {
     shop.check();
-    Path shopDir = CobbleUtils.getPath().resolve(options.getPath()).resolve("shop");
-    Path filePath = shopDir.resolve(shop.getId() + ".json");
-    try {
-      UtilsFile.write(filePath, shop);
-      shop.setFilePath(filePath.toString());
+    if (ShopContext.get().getRepositories() != null) {
+      if (ShopContext.get().getRepositories().getShopRepository() instanceof com.kingpixel.ultrashop.infrastructure.persistence.json.JsonShopRepository) {
+        Path shopDir = CobbleUtils.getPath().resolve(options.getPath()).resolve("shop");
+        Path filePath = shopDir.resolve(shop.getId() + ".json");
+        shop.setFilePath(filePath.toString());
+      } else {
+        shop.setFilePath("mongodb:" + shop.getId());
+      }
+      ShopContext.get().getRepositories().getShopRepository().save(shop);
       load(options); // Reload everything
-    } catch (IOException e) {
-      UltraShop.LOGGER.error("Error creating shop: " + e.getMessage());
     }
   }
 
