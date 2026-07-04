@@ -2,6 +2,7 @@ package com.kingpixel.ultrashop.presentation.gui.edit;
 
 import ca.landonjw.gooeylibs2.api.UIManager;
 import ca.landonjw.gooeylibs2.api.button.Button;
+import ca.landonjw.gooeylibs2.api.button.GooeyButton;
 import ca.landonjw.gooeylibs2.api.helpers.PaginationHelper;
 import ca.landonjw.gooeylibs2.api.page.GooeyPage;
 import ca.landonjw.gooeylibs2.api.page.LinkedPage;
@@ -527,42 +528,8 @@ public final class ShopSettingsEditor {
         "§fROTATION §7— dynamic/rotated catalog.",
         "§fCATEGORY §7— menu with sub-shops.",
         SEP,
-        "§a▶ Click §7→ Cycle Type (NORMAL -> ROTATION -> CATEGORY)"),
-      a -> {
-        Shop newShop = null;
-        if (shop instanceof NormalShop n) {
-          newShop = promoteToRotation(n, Scheduler.defaultScheduler(), 3);
-        } else if (shop instanceof RotationShop r) {
-          CategoryShop c = new CategoryShop();
-          c.setId(r.getId());
-          c.setFilePath(r.getFilePath());
-          c.setDisplayConfig(r.getDisplayConfig());
-          c.setEconomyConfig(r.getEconomyConfig());
-          c.setConditionsConfig(r.getConditionsConfig());
-          c.setSoundConfig(r.getSoundConfig());
-          c.setMaintenance(r.isMaintenance());
-          c.setWebhookUrl(r.getWebhookUrl());
-          c.setSubShops(new ArrayList<>());
-          newShop = c;
-        } else if (shop instanceof CategoryShop c) {
-          NormalShop n = new NormalShop();
-          n.setId(c.getId());
-          n.setFilePath(c.getFilePath());
-          n.setDisplayConfig(c.getDisplayConfig());
-          n.setEconomyConfig(c.getEconomyConfig());
-          n.setConditionsConfig(c.getConditionsConfig());
-          n.setSoundConfig(c.getSoundConfig());
-          n.setMaintenance(c.isMaintenance());
-          n.setWebhookUrl(c.getWebhookUrl());
-          n.setProducts(new ArrayList<>());
-          newShop = n;
-        }
-        if (newShop != null) {
-          ctx.replaceShop(modId, newShop);
-          ConfigLoader.saveShop(newShop);
-          openShopSettings(player, newShop, config, modId);
-        }
-      }));
+        "§a▶ Click §7→ Select Shop Type"),
+      a -> openShopTypeSelector(player, shop, config, modId)));
 
     template.set(27, backBtn(lang, a -> ShopListEditor.openShopList(player, config, modId)));
 
@@ -800,5 +767,251 @@ public final class ShopSettingsEditor {
     rotation.setScheduler(scheduler);
     rotation.setRotationAmount(Math.max(1, amount));
     return rotation;
+  }
+
+  private static NormalShop demoteToNormal(RotationShop source) {
+    NormalShop normal = new NormalShop();
+    normal.setId(source.getId());
+    normal.setFilePath(source.getFilePath());
+    normal.setDisplayConfig(source.getDisplayConfig());
+    normal.setEconomyConfig(source.getEconomyConfig());
+    normal.setConditionsConfig(source.getConditionsConfig());
+    normal.setSoundConfig(source.getSoundConfig());
+    normal.setMaintenance(source.isMaintenance());
+    normal.setWebhookUrl(source.getWebhookUrl());
+    normal.setProducts(source.getProducts());
+    return normal;
+  }
+
+  private static void openShopTypeSelector(ServerPlayerEntity player, Shop shop, ShopConfig config, String modId) {
+    ShopContext ctx = ShopContext.get();
+    ChestTemplate template = ChestTemplate.builder(3).build();
+
+    for (int i = 0; i < 27; i++) {
+      template.set(i, GooeyButton.builder()
+        .display(new ItemStack(Items.GRAY_STAINED_GLASS_PANE))
+        .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(" "))
+        .build());
+    }
+
+    // Normal Shop Option
+    List<String> normalLore = new ArrayList<>(List.of(
+      SEP,
+      "§7Static catalog of products.",
+      "§7Products are always visible.",
+      SEP
+    ));
+    if (shop instanceof NormalShop) {
+      normalLore.add("§a▶ Currently Active");
+    } else {
+      normalLore.add("§e▶ Click §7→ Select NORMAL mode");
+    }
+    template.set(11, GooeyButton.builder()
+      .display(new ItemStack(Items.CHEST))
+      .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative("§b§lNORMAL SHOP"))
+      .with(net.minecraft.component.DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(normalLore)))
+      .onClick(a -> {
+        if (shop instanceof NormalShop) return;
+        if (shop instanceof RotationShop r) {
+          Shop newShop = demoteToNormal(r);
+          ctx.replaceShop(modId, newShop);
+          ConfigLoader.saveShop(newShop);
+          openShopSettings(player, newShop, config, modId);
+        } else if (shop instanceof CategoryShop c) {
+          Runnable proceed = () -> {
+            NormalShop n = new NormalShop();
+            n.setId(c.getId());
+            n.setFilePath(c.getFilePath());
+            n.setDisplayConfig(c.getDisplayConfig());
+            n.setEconomyConfig(c.getEconomyConfig());
+            n.setConditionsConfig(c.getConditionsConfig());
+            n.setSoundConfig(c.getSoundConfig());
+            n.setMaintenance(c.isMaintenance());
+            n.setWebhookUrl(c.getWebhookUrl());
+            n.setProducts(new ArrayList<>());
+            ctx.replaceShop(modId, n);
+            ConfigLoader.saveShop(n);
+            openShopSettings(player, n, config, modId);
+          };
+          if (c.getSubShops() != null && !c.getSubShops().isEmpty()) {
+            openConfirmation(player, "§c§lLose Sub-Shops?", "§7Changing to Normal will delete §e" + c.getSubShops().size() + "§7 sub-shops.", proceed, () -> openShopTypeSelector(player, shop, config, modId));
+          } else {
+            proceed.run();
+          }
+        }
+      })
+      .build());
+
+    // Rotation Shop Option
+    List<String> rotationLore = new ArrayList<>(List.of(
+      SEP,
+      "§7Dynamic/rotated catalog.",
+      "§7Products rotate automatically.",
+      SEP
+    ));
+    if (shop instanceof RotationShop) {
+      rotationLore.add("§a▶ Currently Active");
+    } else {
+      rotationLore.add("§e▶ Click §7→ Select ROTATION mode");
+    }
+    template.set(13, GooeyButton.builder()
+      .display(new ItemStack(Items.CLOCK))
+      .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative("§b§lROTATION SHOP"))
+      .with(net.minecraft.component.DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(rotationLore)))
+      .onClick(a -> {
+        if (shop instanceof RotationShop) return;
+        if (shop instanceof NormalShop n) {
+          Shop newShop = promoteToRotation(n, Scheduler.defaultScheduler(), 3);
+          ctx.replaceShop(modId, newShop);
+          ConfigLoader.saveShop(newShop);
+          openShopSettings(player, newShop, config, modId);
+        } else if (shop instanceof CategoryShop c) {
+          Runnable proceed = () -> {
+            RotationShop r = new RotationShop();
+            r.setId(c.getId());
+            r.setFilePath(c.getFilePath());
+            r.setDisplayConfig(c.getDisplayConfig());
+            r.setEconomyConfig(c.getEconomyConfig());
+            r.setConditionsConfig(c.getConditionsConfig());
+            r.setSoundConfig(c.getSoundConfig());
+            r.setMaintenance(c.isMaintenance());
+            r.setWebhookUrl(c.getWebhookUrl());
+            r.setProducts(new ArrayList<>());
+            r.setRotationAmount(3);
+            r.setScheduler(Scheduler.defaultScheduler());
+            ctx.replaceShop(modId, r);
+            ConfigLoader.saveShop(r);
+            openShopSettings(player, r, config, modId);
+          };
+          if (c.getSubShops() != null && !c.getSubShops().isEmpty()) {
+            openConfirmation(player, "§c§lLose Sub-Shops?", "§7Changing to Rotation will delete §e" + c.getSubShops().size() + "§7 sub-shops.", proceed, () -> openShopTypeSelector(player, shop, config, modId));
+          } else {
+            proceed.run();
+          }
+        }
+      })
+      .build());
+
+    // Category Shop Option
+    List<String> categoryLore = new ArrayList<>(List.of(
+      SEP,
+      "§7Menu with sub-shops.",
+      "§7Allows nested directories.",
+      SEP
+    ));
+    if (shop instanceof CategoryShop) {
+      categoryLore.add("§a▶ Currently Active");
+    } else {
+      categoryLore.add("§e▶ Click §7→ Select CATEGORY mode");
+    }
+    template.set(15, GooeyButton.builder()
+      .display(new ItemStack(Items.COMPASS))
+      .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative("§b§lCATEGORY SHOP"))
+      .with(net.minecraft.component.DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(categoryLore)))
+      .onClick(a -> {
+        if (shop instanceof CategoryShop) return;
+        if (shop instanceof NormalShop n) {
+          Runnable proceed = () -> {
+            CategoryShop c = new CategoryShop();
+            c.setId(n.getId());
+            c.setFilePath(n.getFilePath());
+            c.setDisplayConfig(n.getDisplayConfig());
+            c.setEconomyConfig(n.getEconomyConfig());
+            c.setConditionsConfig(n.getConditionsConfig());
+            c.setSoundConfig(n.getSoundConfig());
+            c.setMaintenance(n.isMaintenance());
+            c.setWebhookUrl(n.getWebhookUrl());
+            c.setSubShops(new ArrayList<>());
+            ctx.replaceShop(modId, c);
+            ConfigLoader.saveShop(c);
+            openShopSettings(player, c, config, modId);
+          };
+          if (n.getProducts() != null && !n.getProducts().isEmpty()) {
+            openConfirmation(player, "§c§lLose Products?", "§7Changing to Category will delete §e" + n.getProducts().size() + "§7 products.", proceed, () -> openShopTypeSelector(player, shop, config, modId));
+          } else {
+            proceed.run();
+          }
+        } else if (shop instanceof RotationShop r) {
+          Runnable proceed = () -> {
+            CategoryShop c = new CategoryShop();
+            c.setId(r.getId());
+            c.setFilePath(r.getFilePath());
+            c.setDisplayConfig(r.getDisplayConfig());
+            c.setEconomyConfig(r.getEconomyConfig());
+            c.setConditionsConfig(r.getConditionsConfig());
+            c.setSoundConfig(r.getSoundConfig());
+            c.setMaintenance(r.isMaintenance());
+            c.setWebhookUrl(r.getWebhookUrl());
+            c.setSubShops(new ArrayList<>());
+            ctx.replaceShop(modId, c);
+            ConfigLoader.saveShop(c);
+            openShopSettings(player, c, config, modId);
+          };
+          if (r.getProducts() != null && !r.getProducts().isEmpty()) {
+            openConfirmation(player, "§c§lLose Products?", "§7Changing to Category will delete §e" + r.getProducts().size() + "§7 products.", proceed, () -> openShopTypeSelector(player, shop, config, modId));
+          } else {
+            proceed.run();
+          }
+        }
+      })
+      .build());
+
+    template.set(22, backBtn(ctx.getLang(), a -> openShopSettings(player, shop, config, modId)));
+
+    LinkedPage page = LinkedPage.builder()
+      .template(template)
+      .title(AdventureTranslator.toNative("Select Shop Type"))
+      .build();
+
+    ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
+  }
+
+  private static void openConfirmation(ServerPlayerEntity player, String title, String warningLore, Runnable onConfirm, Runnable onCancel) {
+    ChestTemplate template = ChestTemplate.builder(3).build();
+
+    for (int i = 0; i < 27; i++) {
+      template.set(i, GooeyButton.builder()
+        .display(new ItemStack(Items.GRAY_STAINED_GLASS_PANE))
+        .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative(" "))
+        .build());
+    }
+
+    GooeyButton warningButton = GooeyButton.builder()
+      .display(new ItemStack(Items.BARRIER))
+      .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative("§c§lWARNING"))
+      .with(net.minecraft.component.DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(List.of(
+        SEP,
+        warningLore,
+        SEP
+      ))))
+      .build();
+    template.set(13, warningButton);
+
+    GooeyButton confirmButton = GooeyButton.builder()
+      .display(new ItemStack(Items.LIME_STAINED_GLASS_PANE))
+      .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative("§a§lConfirm"))
+      .with(net.minecraft.component.DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(List.of(
+        "§7Click to proceed and delete data."
+      ))))
+      .onClick(a -> onConfirm.run())
+      .build();
+    template.set(11, confirmButton);
+
+    GooeyButton cancelButton = GooeyButton.builder()
+      .display(new ItemStack(Items.RED_STAINED_GLASS_PANE))
+      .with(net.minecraft.component.DataComponentTypes.CUSTOM_NAME, AdventureTranslator.toNative("§c§lCancel"))
+      .with(net.minecraft.component.DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(AdventureTranslator.toNativeL(List.of(
+        "§7Click to cancel and go back."
+      ))))
+      .onClick(a -> onCancel.run())
+      .build();
+    template.set(15, cancelButton);
+
+    LinkedPage page = LinkedPage.builder()
+      .template(template)
+      .title(AdventureTranslator.toNative(title))
+      .build();
+
+    ShopContext.get().runOnServer(() -> UIManager.openUIForcefully(player, page));
   }
 }

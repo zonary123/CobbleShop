@@ -3,20 +3,17 @@
 ## [1.5.3] - 2026-07-03
 
 ### Added
+
 - **GUILD Rotation Scope**: Added support for a new rotation scope `GUILD`. Shared rotation catalog is generated and persisted per-guild using CobbleUtils `GuildAPI`. If a player is not in a guild, fallback to player-specific catalog rotation.
 - **In-Game Shop Settings Editor**: Added a dynamic "Shop Type" button (Compass) to cycle between `NORMAL`, `ROTATION`, and `CATEGORY` shop types dynamically, retaining products catalog across type promotions.
 - **Guild Scope Toggle**: Included the `GUILD` scope in the rotation scope toggle cycle.
 
 ### Changed
+
 - **Sub-Menu Navigation UX**: Upgraded sub-menus' "Close" buttons to act as "Back" buttons returning to the parent menu instead of closing the entire GUI.
-- **Refactoring (Modular UI Editor)**: Split the massive monolithic `ShopEditMenuBuilder.java` (2440 lines) into clean, maintainable classes:
-  - `EditorHelpers.java`: Shared UI builders, buttons, conversion logic, and helpers.
-  - `ShopListEditor.java`: Handles the list of shops and creation.
-  - `ShopSettingsEditor.java`: Configures shop settings (name, title, discount, daily limits, sounds, etc.).
-  - `ProductListEditor.java`: Manages product lists and additions (items, pokemons, commands).
-  - `ProductEditor.java`: Customizes individual product pricing, positions, conditions, limits, and stock.
 
 ### Fixed
+
 - **Serialization Key Compatibility**: Renamed `productPool` to `products` inside `RotationShop` config files to share the catalog field structure with `NormalShop`, and provided backward compatibility in `RotationShopAdapter` to migrate legacy files automatically.
 
 ## [1.5.2] - 2026-07-02
