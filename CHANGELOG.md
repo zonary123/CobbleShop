@@ -9,7 +9,7 @@
 
 ### Fixed
 
-- **Shop Loading Initialization Order**: Fixed a critical initialization bug where shops were not detected or loaded on startup (affecting JSON and MongoDB databases) because `loadShops` was executed before the repositories factory was initialized.
+- **Shop Loading Initialization Order**: Fixed a critical initialization bug where shops were not detected or loaded on startup (affecting JSON and MongoDB databases).
 
 ## [1.5.3] - 2026-07-03
 
