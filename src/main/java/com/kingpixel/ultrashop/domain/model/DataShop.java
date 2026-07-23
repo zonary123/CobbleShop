@@ -62,7 +62,7 @@ public class DataShop {
       migrateFromLegacy();
       loadAllRotations();
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error loading DataShop: " + e.getMessage());
+      UltraShop.LOGGER.error("Error loading DataShop", e);
       this.products = new ConcurrentHashMap<>();
     }
   }
@@ -82,7 +82,7 @@ public class DataShop {
             Files.createDirectories(file.getParent());
             UtilsFile.write(file, rotation);
           } catch (IOException e) {
-            UltraShop.LOGGER.error("Error migrating rotation " + modId + "/" + shopId + ": " + e.getMessage());
+            UltraShop.LOGGER.error("Error migrating rotation " + modId + "/" + shopId, e);
           }
         }));
         UltraShop.LOGGER.info("Migrated dataShop.json to per-shop rotation files.");
@@ -93,7 +93,7 @@ public class DataShop {
       Files.move(LEGACY_FILE, backup);
       UltraShop.LOGGER.info("Legacy dataShop.json backed up to dataShop.json.bak");
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error during legacy migration: " + e.getMessage());
+      UltraShop.LOGGER.error("Error during legacy migration", e);
     }
   }
 
@@ -118,18 +118,18 @@ public class DataShop {
                   shopMap.put(shopId, rotation);
                 }
               } catch (Exception e) {
-                UltraShop.LOGGER.error("Error loading rotation " + file + ": " + e.getMessage());
+                UltraShop.LOGGER.error("Error loading rotation file " + file, e);
               }
             }
           } catch (Exception e) {
-            UltraShop.LOGGER.error("Error scanning rotations for " + modId + ": " + e.getMessage());
+            UltraShop.LOGGER.error("Error scanning rotations for mod: " + modId, e);
           }
           if (!shopMap.isEmpty()) {
             products.put(modId, shopMap);
           }
         });
     } catch (IOException e) {
-      UltraShop.LOGGER.error("Error scanning rotations directory: " + e.getMessage());
+      UltraShop.LOGGER.error("Error scanning rotations directory", e);
     }
   }
 
@@ -220,7 +220,9 @@ public class DataShop {
           try {
             DynamicRotation rot = UtilsFile.read(file, DynamicRotation.class);
             if (rot != null) return rot;
-          } catch (Exception ignored) {}
+          } catch (Exception e) {
+            UltraShop.LOGGER.error("Failed to read guild rotation file " + file, e);
+          }
         }
         return new DynamicRotation();
       });
@@ -421,7 +423,8 @@ public class DataShop {
     try {
       long expectedNext = scheduler.nextFireTime(now);
       return rotation.getTimeToUpdate() > expectedNext + SCHEDULE_DRIFT_TOLERANCE_MS;
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      UltraShop.LOGGER.warn("Failed to check if schedule is stale for shop: " + rotation, e);
       return false;
     }
   }

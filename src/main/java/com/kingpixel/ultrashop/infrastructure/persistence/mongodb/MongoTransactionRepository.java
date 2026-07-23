@@ -41,7 +41,7 @@ public class MongoTransactionRepository implements TransactionRepository {
       Document doc = transactionToDocument(transaction);
       collection.insertOne(doc);
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error saving transaction to MongoDB: {}", e.getMessage());
+      UltraShop.LOGGER.error("Error saving transaction to MongoDB", e);
     }
   }
 
@@ -54,7 +54,7 @@ public class MongoTransactionRepository implements TransactionRepository {
         .limit(limit)
         .forEach(doc -> result.add(documentToTransaction(doc)));
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error querying transactions for player {}: {}", playerUuid, e.getMessage());
+      UltraShop.LOGGER.error("Error querying transactions for player " + playerUuid + " from MongoDB", e);
     }
     return result;
   }
@@ -68,7 +68,7 @@ public class MongoTransactionRepository implements TransactionRepository {
         .sort(Sorts.descending("timestamp"))
         .forEach(doc -> result.add(documentToTransaction(doc)));
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error querying all transactions from MongoDB: {}", e.getMessage());
+      UltraShop.LOGGER.error("Error querying all transactions from MongoDB", e);
     }
     return result;
   }

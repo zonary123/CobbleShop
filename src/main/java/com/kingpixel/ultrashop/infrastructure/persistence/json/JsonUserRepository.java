@@ -64,7 +64,7 @@ public class JsonUserRepository implements UserRepository {
         return UtilsFile.read(filePath, UserInfo.class);
       }
     } catch (Exception e) {
-      UltraShop.LOGGER.error( "Error reading user " + uuid + ": " + e.getMessage());
+      UltraShop.LOGGER.error("Error reading user " + uuid, e);
     }
     return null;
   }
@@ -73,7 +73,7 @@ public class JsonUserRepository implements UserRepository {
     Path filePath = basePath.resolve(userInfo.getUuid().toString() + ".json");
     UtilsFile.writeAsync(filePath, userInfo)
       .exceptionally(e -> {
-        UltraShop.LOGGER.error( "Error writing user " + userInfo.getUuid() + ": " + e.getMessage());
+        UltraShop.LOGGER.error("Error writing user " + userInfo.getUuid(), e);
         return null;
       });
   }

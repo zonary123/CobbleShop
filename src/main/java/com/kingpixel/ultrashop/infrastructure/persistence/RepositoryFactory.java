@@ -54,7 +54,7 @@ public class RepositoryFactory {
           UltraShop.LOGGER.info("Connected to MongoDB '{}' via CobbleUtils shared pool (active pools: {})",
             dbName, MongoDBService.getActiveConnections());
         } catch (Exception e) {
-          UltraShop.LOGGER.error("Failed to acquire MongoDB manager: {}. Falling back to JSON.", e.getMessage());
+          UltraShop.LOGGER.error("Failed to acquire MongoDB manager. Falling back to JSON.", e);
           userRepo = new JsonUserRepository();
           txRepo = new JsonTransactionRepository();
           stockRepo = new JsonStockRepository();

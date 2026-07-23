@@ -94,7 +94,7 @@ public final class TransactionMenuBuilder {
 
         ctx.runOnServer(() -> UIManager.openUIForcefully(viewer, page));
       } catch (Exception e) {
-        UltraShop.LOGGER.error("Error opening transaction menu: " + e.getMessage());
+        UltraShop.LOGGER.error("Error opening transaction menu", e);
       }
     });
   }

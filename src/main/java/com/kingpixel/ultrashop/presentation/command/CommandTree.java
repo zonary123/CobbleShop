@@ -1,41 +1,38 @@
 package com.kingpixel.ultrashop.presentation.command;
 
+import com.cobblemon.mod.common.command.argument.PokemonPropertiesArgumentType;
+import com.kingpixel.cobbleutils.CobbleUtils;
 import com.kingpixel.cobbleutils.api.PermissionApi;
 import com.kingpixel.cobbleutils.util.AdventureTranslator;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
 import com.kingpixel.ultrashop.domain.model.ActionShop;
-import com.kingpixel.ultrashop.domain.model.RotationSchedule;
-import com.kingpixel.ultrashop.domain.model.ShopType;
+import com.kingpixel.ultrashop.domain.model.Product;
 import com.kingpixel.ultrashop.domain.model.Transaction;
 import com.kingpixel.ultrashop.domain.model.shop.RotationShop;
 import com.kingpixel.ultrashop.domain.model.shop.Shop;
-import com.kingpixel.ultrashop.domain.model.shop.ShopBridge;
 import com.kingpixel.ultrashop.domain.service.StatsService;
 import com.kingpixel.ultrashop.infrastructure.config.ConfigLoader;
 import com.kingpixel.ultrashop.infrastructure.config.LangConfig;
 import com.kingpixel.ultrashop.infrastructure.config.ShopConfig;
+import com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper;
 import com.kingpixel.ultrashop.presentation.gui.*;
 import com.kingpixel.ultrashop.presentation.gui.edit.ShopEditMenuBuilder;
-import com.kingpixel.ultrashop.domain.model.Product;
-import com.cobblemon.mod.common.command.argument.PokemonPropertiesArgumentType;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
-import com.kingpixel.cobbleutils.CobbleUtils;
-import com.kingpixel.ultrashop.infrastructure.webhook.DiscordWebhookHelper;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -158,13 +155,12 @@ public final class CommandTree {
   }
 
 
-
   private static void registerReload(LiteralArgumentBuilder<ServerCommandSource> base, String modId,
                                      ShopOptionsApi options) {
     base.then(CommandManager.literal("reload")
       .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ".reload", modId + ADMIN_PERMISSION_SUFFIX), 2))
       .executes(ctx -> {
-        try{
+        try {
           ConfigLoader.load(options);
           StatsService.invalidateCache();
           ShopContext.get().startDashboard();
@@ -195,8 +191,11 @@ public final class CommandTree {
         })
         .then(CommandManager.argument(ARG_SHOP_ID, StringArgumentType.string())
           .suggests((ctx, builder) -> {
-            ShopContext.get().getTypedShops(options.getModId()).forEach(shop -> builder.suggest(shop.getId()));
-            return builder.buildFuture();
+            List<String> ids = new ArrayList<>();
+            for (Shop shop : ShopContext.get().getTypedShops(options.getModId())) {
+              ids.add(shop.getId());
+            }
+            return CommandSource.suggestMatching(ids, builder);
           })
           .executes(ctx -> openShopForPlayers(ctx, options, true))
           .then(CommandManager.argument(ARG_WITH_CLOSE, BoolArgumentType.bool())
@@ -241,10 +240,13 @@ public final class CommandTree {
       .requires(src -> PermissionApi.hasPermission(src, modId + ".restart.shop", 2))
       .then(CommandManager.argument(ARG_SHOP, StringArgumentType.string())
         .suggests((ctx, builder) -> {
-          ShopContext.get().getTypedShops(options.getModId()).stream()
-            .filter(RotationShop.class::isInstance)
-            .forEach(shop -> builder.suggest(shop.getId()));
-          return builder.buildFuture();
+          List<String> ids = new ArrayList<>();
+          for (Shop shop : ShopContext.get().getTypedShops(options.getModId())) {
+            if (shop instanceof RotationShop) {
+              ids.add(shop.getId());
+            }
+          }
+          return CommandSource.suggestMatching(ids, builder);
         })
         .executes(ctx -> {
           String shopId = StringArgumentType.getString(ctx, ARG_SHOP);
@@ -281,8 +283,11 @@ public final class CommandTree {
       .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ADMIN_PERMISSION_SUFFIX), 2))
       .then(CommandManager.argument(ARG_SHOP, StringArgumentType.string())
         .suggests((ctx, builder) -> {
-          ShopContext.get().getTypedShops(options.getModId()).forEach(shop -> builder.suggest(shop.getId()));
-          return builder.buildFuture();
+          List<String> ids = new ArrayList<>();
+          for (Shop shop : ShopContext.get().getTypedShops(options.getModId())) {
+            ids.add(shop.getId());
+          }
+          return CommandSource.suggestMatching(ids, builder);
         })
         .executes(ctx -> deleteShop(ctx.getSource(), options, StringArgumentType.getString(ctx, ARG_SHOP)))));
   }
@@ -307,8 +312,11 @@ public final class CommandTree {
       .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ADMIN_PERMISSION_SUFFIX), 2))
       .then(CommandManager.argument("shopId", StringArgumentType.string())
         .suggests((ctx, builder) -> {
-          ShopContext.get().getTypedShops(options.getModId()).forEach(shop -> builder.suggest(shop.getId()));
-          return builder.buildFuture();
+          List<String> ids = new ArrayList<>();
+          for (Shop shop : ShopContext.get().getTypedShops(options.getModId())) {
+            ids.add(shop.getId());
+          }
+          return CommandSource.suggestMatching(ids, builder);
         })
         .then(CommandManager.argument("properties", PokemonPropertiesArgumentType.Companion.properties())
           .executes(ctx -> {
@@ -348,7 +356,7 @@ public final class CommandTree {
             ConfigLoader.saveShop(shop);
 
             player.sendMessage(net.minecraft.text.Text.literal("§aAdded Pokémon: pokemon:" + propertiesStr + " to shop: " + shopId));
-            
+
             // Re-open product list GUI
             ShopConfig config = ShopContext.get().getConfigs().get(options.getModId());
             ShopContext.get().runOnServer(() -> ShopEditMenuBuilder.openProductList(player, shop, config, options.getModId()));
@@ -446,8 +454,11 @@ public final class CommandTree {
       .requires(src -> PermissionApi.hasPermission(src, List.of(modId + ADMIN_PERMISSION_SUFFIX), 2))
       .then(CommandManager.argument(ARG_SHOP, StringArgumentType.string())
         .suggests((ctx, builder) -> {
-          ShopContext.get().getTypedShops(options.getModId()).forEach(shop -> builder.suggest(shop.getId()));
-          return builder.buildFuture();
+          List<String> ids = new ArrayList<>();
+          for (Shop shop : ShopContext.get().getTypedShops(options.getModId())) {
+            ids.add(shop.getId());
+          }
+          return CommandSource.suggestMatching(ids, builder);
         })
         .then(CommandManager.argument("active", BoolArgumentType.bool())
           .executes(ctx -> {
@@ -459,7 +470,7 @@ public final class CommandTree {
               return 0;
             }
             shop.setMaintenance(active);
-            
+
             // Re-save shop to persist state
             if (shop.getFilePath() == null) {
               shop.setFilePath(CobbleUtils.getPath()
@@ -480,7 +491,7 @@ public final class CommandTree {
                 webhookUrl = config.getWebhooks().getMaintenanceWebhookUrl();
               }
             }
-            
+
             if (webhookUrl != null && !webhookUrl.isBlank()) {
               String rawShopName = shop.getDisplayConfig() != null && shop.getDisplayConfig().getName() != null
                 ? shop.getDisplayConfig().getName() : shopId;

@@ -230,7 +230,7 @@ public final class ShopMenuBuilder {
 
         ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
       } catch (Exception e) {
-        UltraShop.LOGGER.error("Error opening shop " + shop.getId() + ": " + e.getMessage());
+        UltraShop.LOGGER.error("Error opening shop " + shop.getId(), e);
       }
     });
   }

@@ -72,7 +72,7 @@ public final class V1ToV2Migrator {
           anyMigrated = true;
         }
       } catch (Exception e) {
-        UltraShop.LOGGER.error( "Error migrating " + file + ": " + e.getMessage());
+        UltraShop.LOGGER.error("Error migrating " + file, e);
       }
     }
 

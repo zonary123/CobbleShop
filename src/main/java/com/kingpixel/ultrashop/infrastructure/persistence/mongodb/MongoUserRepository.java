@@ -70,7 +70,7 @@ public class MongoUserRepository implements UserRepository {
       if (doc == null) return null;
       return documentToUserInfo(doc);
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error loading user {} from MongoDB: {}", uuid, e.getMessage());
+      UltraShop.LOGGER.error("Error loading user {} from MongoDB", uuid, e);
       return null;
     }
   }
@@ -84,7 +84,7 @@ public class MongoUserRepository implements UserRepository {
         new ReplaceOptions().upsert(true)
       );
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error saving user {} to MongoDB: {}", userInfo.getUuid(), e.getMessage());
+      UltraShop.LOGGER.error("Error saving user {} to MongoDB", userInfo.getUuid(), e);
     }
   }
 
@@ -196,7 +196,8 @@ public class MongoUserRepository implements UserRepository {
         if (valStr != null) {
           try {
             map.put(key, new BigDecimal(valStr));
-          } catch (Exception ignored) {
+          } catch (Exception e) {
+            UltraShop.LOGGER.warn("Failed to parse daily sell earnings BigDecimal for key " + key + ": " + valStr, e);
           }
         }
       }
@@ -231,7 +232,8 @@ public class MongoUserRepository implements UserRepository {
             if (valStr != null) {
               try {
                 innerMap.put(key, new BigDecimal(valStr));
-              } catch (Exception ignored) {
+              } catch (Exception e) {
+                UltraShop.LOGGER.warn("Failed to parse shop daily sell earnings BigDecimal for key " + key + ": " + valStr, e);
               }
             }
           }

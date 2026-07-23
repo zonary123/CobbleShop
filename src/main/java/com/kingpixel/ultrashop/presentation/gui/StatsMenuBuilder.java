@@ -165,7 +165,7 @@ public final class StatsMenuBuilder {
 
         ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
       } catch (Exception e) {
-        UltraShop.LOGGER.error("Error opening stats menu: " + e.getMessage());
+        UltraShop.LOGGER.error("Error opening stats menu", e);
       }
     });
   }

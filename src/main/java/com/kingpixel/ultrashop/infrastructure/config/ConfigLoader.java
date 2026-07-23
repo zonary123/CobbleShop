@@ -10,11 +10,8 @@ import com.kingpixel.cobbleutils.util.economys.providers.ImpactorEconomy;
 import com.kingpixel.ultrashop.ShopContext;
 import com.kingpixel.ultrashop.UltraShop;
 import com.kingpixel.ultrashop.api.ShopOptionsApi;
-import com.kingpixel.ultrashop.domain.model.Product;
-import com.kingpixel.ultrashop.domain.model.PriceEntry;
-import com.kingpixel.ultrashop.domain.model.RotationScope;
+import com.kingpixel.ultrashop.domain.model.*;
 import com.kingpixel.ultrashop.domain.model.Shop;
-import com.kingpixel.ultrashop.domain.model.SubShop;
 import com.kingpixel.ultrashop.domain.model.shop.*;
 import com.kingpixel.ultrashop.domain.model.shop.config.ConditionsConfig;
 import com.kingpixel.ultrashop.domain.model.shop.config.DisplayConfig;
@@ -30,7 +27,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Loads and saves all configuration and shop files using UtilsFile.
@@ -82,10 +78,10 @@ public final class ConfigLoader {
     try {
       ShopConfig config = UtilsFile.readOrCreate(configPath, ShopConfig.class, ShopConfig::new);
       config.check();
-      UtilsFile.writeAsync(configPath, config);
+      UtilsFile.write(configPath, config);
       return config;
     } catch (IOException e) {
-      UltraShop.LOGGER.error( "Error loading config: " + e.getMessage());
+      UltraShop.LOGGER.error("Error loading config: " + configPath, e);
       ShopConfig fallback = new ShopConfig();
       fallback.check();
       return fallback;
@@ -101,10 +97,10 @@ public final class ConfigLoader {
     try {
       LangConfig lang = UtilsFile.readOrCreate(langPath, LangConfig.class, LangConfig::new);
       lang.check();
-      UtilsFile.writeAsync(langPath, lang);
+      UtilsFile.write(langPath, lang);
       ctx.setLang(lang);
     } catch (IOException e) {
-      UltraShop.LOGGER.error( "Error loading lang: " + e.getMessage());
+      UltraShop.LOGGER.error("Error loading lang config: " + langPath, e);
       ctx.setLang(new LangConfig());
     }
   }
@@ -133,7 +129,7 @@ public final class ConfigLoader {
           createDefaultShops(shopDir);
         }
       } catch (IOException e) {
-        UltraShop.LOGGER.error("Error ensuring JSON default shops: " + e.getMessage());
+        UltraShop.LOGGER.error("Error ensuring JSON default shops", e);
       }
     }
 
@@ -174,7 +170,7 @@ public final class ConfigLoader {
       ctx.getShops().put(options.getModId(), legacyShops);
       ctx.getTypedShops().put(options.getModId(), typedShops);
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error loading shops: " + e.getMessage());
+      UltraShop.LOGGER.error("Error loading shops for mod: " + options.getModId(), e);
       ctx.getShops().put(options.getModId(), new ArrayList<>());
       ctx.getTypedShops().put(options.getModId(), new ArrayList<>());
     }
@@ -191,8 +187,7 @@ public final class ConfigLoader {
       UltraShop.LOGGER.warn(
         "Moved incompatible shop file to backup: " + file + " -> " + target);
     } catch (Exception backupError) {
-      UltraShop.LOGGER.error(
-        "Failed to backup incompatible shop file " + file + ": " + backupError.getMessage());
+      UltraShop.LOGGER.error("Failed to backup incompatible shop file: " + file, backupError);
     }
   }
 
@@ -249,7 +244,7 @@ public final class ConfigLoader {
       try {
         UtilsFile.write(file, shop);
       } catch (IOException e) {
-        UltraShop.LOGGER.error("Error creating default shop: " + e.getMessage());
+        UltraShop.LOGGER.error("Error creating default shop: " + file, e);
       }
     }
   }
@@ -856,7 +851,7 @@ public final class ConfigLoader {
         """;
       Files.writeString(readme, content);
     } catch (IOException e) {
-      UltraShop.LOGGER.error( "Error generating README.md: " + e.getMessage());
+      UltraShop.LOGGER.error("Error generating README.md", e);
     }
   }
 }

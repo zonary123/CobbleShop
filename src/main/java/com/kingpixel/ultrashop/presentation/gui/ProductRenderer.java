@@ -132,7 +132,7 @@ public final class ProductRenderer {
       new Sound(soundOpen(shop)).playSoundPlayer(player);
       BuyAndSellMenuBuilder.open(player, nav, product, amount, shopAction, config, withClose);
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error handling product click for " + product.getProduct() + ": " + e.getMessage());
+      UltraShop.LOGGER.error("Error handling product click for " + product.getProduct(), e);
     }
   }
 

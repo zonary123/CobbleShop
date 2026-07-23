@@ -78,7 +78,7 @@ public class JsonStockRepository implements StockRepository {
         data = new StockData();
       }
     } catch (Exception e) {
-      UltraShop.LOGGER.error( "Error loading stock data: " + e.getMessage());
+      UltraShop.LOGGER.error("Error loading stock data from " + filePath, e);
       data = new StockData();
     }
   }
@@ -87,7 +87,7 @@ public class JsonStockRepository implements StockRepository {
     try {
       UtilsFile.write(filePath, data);
     } catch (Exception e) {
-      UltraShop.LOGGER.error( "Error saving stock data: " + e.getMessage());
+      UltraShop.LOGGER.error("Error saving stock data to " + filePath, e);
     }
   }
 

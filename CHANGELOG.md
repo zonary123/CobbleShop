@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.1] - 2026-07-04
+
+### Changed
+
+- **Smarter Command Autocomplete**: Improved the in-game command suggestions. When typing shop commands, the game will now dynamically filter and show matching suggestions in real-time as you type, making it much easier to select shop names and options.
+- **Codebase-wide Exception Logging**: Improved `try-catch` logging quality across all classes (loaders, migrations, database/file repositories, and GUIs) by passing the actual exception objects directly to `UltraShop.LOGGER`, ensuring stack traces are fully preserved in server log files rather than printed unformatted to standard error.
+- **License Update**: Changed the project license to GPL-3.0-only.
+
 ## [1.6.0] - 2026-07-04
 
 ### Added

@@ -13,6 +13,7 @@ import com.kingpixel.ultrashop.presentation.gui.ShopProducts;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+import net.minecraft.command.CommandSource;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
@@ -33,15 +34,9 @@ public final class SearchCommand {
 
   public static void register(ShopOptionsApi options, CommandDispatcher<ServerCommandSource> dispatcher) {
     SuggestionProvider<ServerCommandSource> suggestions = (ctx, builder) -> {
-      String input = builder.getRemaining().toLowerCase();
       ServerPlayerEntity player = ctx.getSource().isExecutedByPlayer() ? ctx.getSource().getPlayer() : null;
       Set<String> names = collectItemNames(options.getModId(), player);
-      for (String name : names) {
-        if (name.toLowerCase().contains(input)) {
-          builder.suggest(name);
-        }
-      }
-      return builder.buildFuture();
+      return CommandSource.suggestMatching(names, builder);
     };
 
     for (String command : options.getCommands()) {

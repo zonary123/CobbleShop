@@ -115,7 +115,7 @@ public final class SearchMenuBuilder {
         ctx.runOnServer(() -> UIManager.openUIForcefully(player, page));
 
       } catch (Exception e) {
-        UltraShop.LOGGER.error("Error opening search menu: " + e.getMessage());
+        UltraShop.LOGGER.error("Error opening search menu for query: " + query, e);
       }
     });
   }
@@ -148,7 +148,8 @@ public final class SearchMenuBuilder {
           return name;
         }
       }
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      UltraShop.LOGGER.warn("Failed to resolve item search name for product: " + id, e);
     }
 
     return product.getDisplayname();

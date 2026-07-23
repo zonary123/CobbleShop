@@ -63,12 +63,12 @@ public class JsonTransactionRepository implements TransactionRepository {
             daily.add(transaction);
             UtilsFile.write(filePath, daily);
           } catch (Exception e) {
-            UltraShop.LOGGER.error( "Error writing transaction: " + e.getMessage());
+            UltraShop.LOGGER.error("Error writing transaction to " + filePath, e);
           }
         }
       });
     } catch (IOException e) {
-      UltraShop.LOGGER.error( "Error saving transaction: " + e.getMessage());
+      UltraShop.LOGGER.error("Error saving transaction", e);
     }
   }
 
@@ -97,12 +97,12 @@ public class JsonTransactionRepository implements TransactionRepository {
                 .forEach(result::add);
             }
           } catch (Exception e) {
-            UltraShop.LOGGER.error( "Error reading transaction file " + file + ": " + e.getMessage());
+            UltraShop.LOGGER.error("Error reading transaction file " + file, e);
           }
         }
       }
     } catch (IOException e) {
-      UltraShop.LOGGER.error( "Error listing transaction files: " + e.getMessage());
+      UltraShop.LOGGER.error("Error listing transaction files", e);
     }
 
     // Sort by timestamp desc, limit
@@ -142,12 +142,12 @@ public class JsonTransactionRepository implements TransactionRepository {
               if (!daily.isEmpty() && daily.get(0).getTimestamp() < cutoff) break;
             }
           } catch (Exception e) {
-            UltraShop.LOGGER.error( "Error reading transaction file " + file + ": " + e.getMessage());
+            UltraShop.LOGGER.error("Error reading transaction file " + file, e);
           }
         }
       }
     } catch (IOException e) {
-      UltraShop.LOGGER.error( "Error listing transaction files: " + e.getMessage());
+      UltraShop.LOGGER.error("Error listing transaction files", e);
     }
 
     result.sort(Comparator.comparingLong(Transaction::getTimestamp).reversed());

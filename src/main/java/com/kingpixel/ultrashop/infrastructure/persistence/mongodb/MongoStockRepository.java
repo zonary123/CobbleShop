@@ -33,7 +33,7 @@ public class MongoStockRepository implements StockRepository {
       long consumed = doc != null ? doc.getLong("consumed") : 0L;
       return Math.max(0L, maxStock - consumed);
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error reading stock from MongoDB: {}", e.getMessage());
+      UltraShop.LOGGER.error("Error reading stock from MongoDB", e);
       return 0L;
     }
   }
@@ -67,7 +67,7 @@ public class MongoStockRepository implements StockRepository {
       );
       return updated != null;
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error consuming stock in MongoDB: {}", e.getMessage());
+      UltraShop.LOGGER.error("Error consuming stock in MongoDB", e);
       return false;
     }
   }
@@ -83,7 +83,7 @@ public class MongoStockRepository implements StockRepository {
         Updates.set("consumed", 0L)
       );
     } catch (Exception e) {
-      UltraShop.LOGGER.error("Error releasing stock in MongoDB: {}", e.getMessage());
+      UltraShop.LOGGER.error("Error releasing stock in MongoDB", e);
     }
   }
 
